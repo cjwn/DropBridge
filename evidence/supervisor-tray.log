@@ -1,0 +1,61 @@
+# 托盘监管（Q5）实测
+
+2026-10-27。用户已授权硬件实验；本轮初始化了 RTL8821CU 并发出了 AWDL 同步帧（awdld `tx action` 增长），没有 iPhone 参与，没有文件传输。
+
+## 构件
+
+| 文件 | 说明 |
+| --- | --- |
+| `src/supervisor/Program.cs` | C# / WinForms 托盘 + 监管 + 自解压入口，系统自带 csc 编译 |
+| `tools/Build-Supervisor.ps1` | 产出 `build\supervisor\Release\AirBridge32.exe`（20 KB，winexe） |
+| `tools/Package-Headless.ps1` | 把监管放进 `backend\AirBridge32.exe` |
+| `src/sfx/Program.cs` | 单文件 stub 解压后优先启动 `backend\AirBridge32.exe` |
+
+职责：单实例互斥体、按序启动 5 个后端并等 ready 行、合并 stdout/stderr 到 `data\logs\<会话>\<进程>.log`、托盘菜单（状态/接收目录/日志/开机自启/重启/退出）、接收目录文件通知、退出逆序停止、日志会话保留 10 个。
+
+## 1. `--check`（不启动任何进程）
+
+包内与解压后都通过，退出码 0，产出 `data\check.txt`：
+
+```text
+root: C:\Users\ndpyz\AppData\Local\AirBridge32\20261027-234054
+radio: ...\backend\airbridge_radio.exe 149 40
+bridge: ...\backend\radio_pipe_bridge.exe
+netd: ...\backend\awdl_netd.exe  [AWDL_NETD_MDNS_PROXY=1]
+awdld: ...\backend\awdld.exe -c 149 -s 2 -j 400 -v
+receiver: ...\backend\python\python.exe -u ...\backend\airdrop\receiver.py
+```
+
+## 2. `--smoke 20`（真机，完整起停）
+
+```text
+23:37:27 radio 启动（pid 37616）
+23:38:09 radio: listening on 127.0.0.1:49876      ← 初始化 42 s
+23:38:09 bridge 启动 → awdld connected → pumping bytes
+23:38:09 netd 启动 → AWDL data plane up → TCP 8771 ready
+23:38:09 awdld 启动 → host interface awdl0 → switch channel 149
+23:38:10 receiver: receiving as AirBridge32 (MacBookPro18,3) on proxy 127.0.0.1:8771
+23:38:30 逆序停止；smoke.txt：started=True error= allAlive=True allAliveAfterWait=True
+之后进程表无 airbridge_radio / radio_pipe_bridge / awdl_netd / awdld 残留，退出码 0
+```
+
+## 3. 托盘模式（`--auto-exit 75` 是测试钩子）
+
+```text
+23:39:02 托盘启动（winexe，无控制台窗口）
+23:39:45 链路全部就绪，托盘状态切到“运行中（ch149 / 40 MHz）”
+23:40:17 到点自动退出：后端逆序停止，图标销毁，进程退出码 0，无残留
+```
+
+同一会话日志：`awdld.log` 里 `tx action` 从 48 涨到 772、`data` 58，说明空口确实在发 AWDL 同步帧。
+
+## 4. 单文件链路
+
+`dist\AirBridge32.exe`（16.0 MB）→ 解压到 `%LOCALAPPDATA%\AirBridge32\20261027-234054`（0.4 s）→ 包内含 `backend\AirBridge32.exe` → 无参数运行 `--check` 解析出全部路径，退出码 0。
+
+## 未验证
+
+- 托盘气泡的视觉效果、菜单点击（需要人看屏幕）；
+- 开机自启写注册表（`--autostart-on/off` 与菜单项已实现，未实际写入）；
+- 真实文件传输与“收到文件”通知（需要 iPhone 发送）；
+- 24 h 常驻、崩溃重启策略、USB 假死恢复（Q7）。

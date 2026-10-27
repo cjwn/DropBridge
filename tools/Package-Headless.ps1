@@ -24,10 +24,12 @@ $bridge = Join-Path $root 'build\radio_usb\Release\radio_pipe_bridge.exe'
 $netd = Join-Path $root 'build\awdl_netd\Release\awdl_netd.exe'
 $awdld = Join-Path $root 'build\awdl\awdld.exe'
 $libusb = Join-Path $root 'build\radio_usb\Release\libusb-1.0.dll'
+$supervisor = Join-Path $root 'build\supervisor\Release\AirBridge32.exe'
 $python = Join-Path $root 'build\python-embed'
 $airdrop = Join-Path $root 'upstream\winawdl\airdrop'
 
 foreach ($p in @($radio, $bridge, $netd, $awdld, $libusb)) { Need $p 'build the backends first' }
+Need $supervisor 'run tools\Build-Supervisor.ps1 first'
 Need $python 'prepare build\python-embed (embeddable Python + cryptography) first'
 Need (Join-Path $airdrop 'receiver.py') 'upstream/winawdl is missing'
 
@@ -36,7 +38,7 @@ foreach ($dir in 'backend\airdrop', 'tools', 'licenses') {
     New-Item -ItemType Directory -Force (Join-Path $stage $dir) | Out-Null
 }
 
-foreach ($file in @($radio, $bridge, $netd, $awdld, $libusb)) {
+foreach ($file in @($radio, $bridge, $netd, $awdld, $libusb, $supervisor)) {
     Copy-Item $file (Join-Path $stage 'backend') -Force
 }
 

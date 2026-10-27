@@ -443,3 +443,15 @@
 - 未做：干净 VM、SmartScreen/AV、真机启动（Q13 / 硬件授权）。
 - 决定：托盘监管（Q5）同样用 C# + WinForms（系统自带），不再写 Win32 C++：代码量约为 C++ 的三分之一，且能满足托盘、通知、单实例、开机自启。
 - 证据：`evidence/single-exe-prototype.log`；队列 Q4 → ✅。
+
+## 2026-10-27：Q5 完成——C# 托盘监管，真机起停干净
+
+用户授权硬件实验（23:37）。按计划把 Flutter 的职责搬进一个 20 KB 的 winexe。
+
+- `src/supervisor/Program.cs`：单实例（`Local\AirBridge32-tray` 互斥体）、按序拉起 radio → bridge → netd → awdld → receiver、用每个进程的 stdout/stderr ready 行判定就绪、日志按会话落 `data\logs\<stamp>\<进程>.log` 并只保留最近 10 个会话、托盘菜单（状态/接收目录/日志/开机自启/重启/退出）、接收目录 FileSystemWatcher 弹气泡、退出逆序 kill 并等待。
+- 三种模式：`--check`（只校验，不启动）、`--smoke N`（真机起停，写 smoke.txt）、`--auto-exit N`（托盘测试钩子）；`--autostart-on/off` 与菜单共用注册表项。
+- 实测（真实 RTL8821CU，未接 iPhone）：radio 初始化 **42 s** 后 listening，链路在 0.5 s 内全部就绪，awdld `tx action` 增长说明空口在发同步帧；`--smoke 20` 与托盘 `--auto-exit 75` 都以退出码 0 结束，进程表无残留；单文件包解压后 `backend\AirBridge32.exe` 无参数 `--check` 全部路径正确。
+- 打包链更新：`Package-Headless` 把监管放进 `backend\`，`src/sfx` 解压后优先启动它（其次 `Start.cmd`）；重建后仍是 16.0 MB。
+- 未验证：气泡/菜单外观、开机自启实际写入、真实文件传输与“收到文件”通知（需要 iPhone）、24 h 常驻。
+- 语言决定：C# + WinForms 取代 Win32 C++（.NET Framework 4.8 是 Windows 自带，产物 20 KB）；已回写 FINAL_PLAN。
+- 证据：`evidence/supervisor-tray.log`；队列 Q5 → ✅，新增 Q14（Q5 真机传文件通过后再删 `app/`）。

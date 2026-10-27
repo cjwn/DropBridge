@@ -91,10 +91,14 @@ internal static class Program
                 Console.WriteLine(target);
                 return 0;
             }
-            string launcher = Path.Combine(target, "Start.cmd");
+            string launcher = Path.Combine(target, @"backend\AirBridge32.exe");
             if (!File.Exists(launcher))
             {
-                Console.Error.WriteLine("AirBridge32: Start.cmd is missing in " + target);
+                launcher = Path.Combine(target, "Start.cmd");
+            }
+            if (!File.Exists(launcher))
+            {
+                Console.Error.WriteLine("AirBridge32: no launcher in " + target);
                 return 2;
             }
             var start = new ProcessStartInfo(launcher)
