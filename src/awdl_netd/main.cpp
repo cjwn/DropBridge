@@ -25,6 +25,7 @@ extern "C" {
 #include <algorithm>
 #include <cstdint>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -54,6 +55,8 @@ struct ProxyConn {
 };
 
 std::vector<ProxyConn *> g_conns;
+bool g_mdns_enabled = false;
+u32_t g_next_announce = 0;
 
 extern "C" u32_t sys_now(void) {
     return static_cast<u32_t>(GetTickCount64());
@@ -89,6 +92,28 @@ err_t netif_output_ip6(struct netif *, struct pbuf *p, const ip6_addr_t *) {
     if (!p || p->tot_len == 0 || p->tot_len > kMaxFrame) return ERR_VAL;
     uint8_t buffer[kMaxFrame];
     pbuf_copy_partial(p, buffer, p->tot_len, 0);
+    if (std::getenv("AWDL_NETD_DUMP") && p->tot_len >= 48 &&
+        buffer[6] == 17) {
+        char src[64] = {0};
+        char dst[64] = {0};
+        inet_ntop(AF_INET6, buffer + 8, src, sizeof(src));
+        inet_ntop(AF_INET6, buffer + 24, dst, sizeof(dst));
+        const uint16_t sport = (uint16_t)((buffer[40] << 8) | buffer[41]);
+        const uint16_t dport = (uint16_t)((buffer[42] << 8) | buffer[43]);
+        char text[512];
+        size_t ti = 0;
+        for (size_t i = 48; i < p->tot_len && ti + 1 < sizeof(text); i++) {
+            const uint8_t c = buffer[i];
+            text[ti++] = (c >= 32 && c < 127) ? (char)c : '.';
+        }
+        text[ti] = 0;
+        std::fprintf(stderr,
+                     "tx udp %s:%u -> %s:%u len=%u flags=%02x%02x qd=%u an=%u "
+                     "text=%s\n",
+                     src, sport, dst, dport, p->tot_len, buffer[50], buffer[51],
+                     (unsigned)((buffer[52] << 8) | buffer[53]),
+                     (unsigned)((buffer[54] << 8) | buffer[55]), text);
+    }
     ipc_send_frame(buffer, p->tot_len);
     return ERR_OK;
 }
@@ -312,6 +337,27 @@ void pump_proxy(ProxyConn *conn) {
 
 void ipc_feed(const uint8_t *data, size_t len) {
     if (len == 0 || len > kMaxFrame) return;
+    if (std::getenv("AWDL_NETD_DUMP") && len >= 48 && data[6] == 17) {
+        const uint16_t sport = (uint16_t)((data[40] << 8) | data[41]);
+        const uint16_t dport = (uint16_t)((data[42] << 8) | data[43]);
+        if (sport == 5353 || dport == 5353) {
+            char src[64] = {0};
+            char dst[64] = {0};
+            inet_ntop(AF_INET6, data + 8, src, sizeof(src));
+            inet_ntop(AF_INET6, data + 24, dst, sizeof(dst));
+            char text[512];
+            size_t ti = 0;
+            for (size_t i = 48; i < len && ti + 1 < sizeof(text); i++) {
+                const uint8_t c = data[i];
+                text[ti++] = (c >= 32 && c < 127) ? (char)c : '.';
+            }
+            text[ti] = 0;
+            std::fprintf(stderr,
+                         "rx udp %s:%u -> %s:%u len=%u flags=%02x%02x text=%s\n",
+                         src, sport, dst, dport, (unsigned)len, data[50],
+                         data[51], text);
+        }
+    }
     struct pbuf *p = pbuf_alloc(PBUF_RAW, static_cast<u16_t>(len), PBUF_POOL);
     if (!p) return;
     pbuf_take(p, data, static_cast<u16_t>(len));
@@ -354,11 +400,20 @@ bool accept_awdld() {
 }
 
 void start_mdns() {
+    static char id[13];
+    snprintf(id, sizeof(id), "%02x%02x%02x%02x%02x%02x",
+             g_netif.hwaddr[0], g_netif.hwaddr[1], g_netif.hwaddr[2],
+             g_netif.hwaddr[3], g_netif.hwaddr[4], g_netif.hwaddr[5]);
     mdns_resp_init();
-    mdns_resp_add_netif(&g_netif, "AirBridge32");
-    mdns_resp_add_service(&g_netif, "AirBridge32", "_airdrop",
-                          DNSSD_PROTO_TCP, kLocalPort, mdns_txt, nullptr);
+    err_t netif_result = mdns_resp_add_netif(&g_netif, id);
+    s8_t slot = mdns_resp_add_service(&g_netif, id, "_airdrop",
+                                      DNSSD_PROTO_TCP, kLocalPort, mdns_txt,
+                                      nullptr);
+    std::fprintf(stderr, "awdl_netd: mdns id=%s netif=%d service_slot=%d\n",
+                 id, (int)netif_result, (int)slot);
     mdns_resp_announce(&g_netif);
+    g_mdns_enabled = true;
+    g_next_announce = sys_now() + 2000;
 }
 
 bool start_tcp_proxy() {
@@ -447,6 +502,10 @@ int main() {
         }
         for (auto *conn : g_conns) pump_proxy(conn);
         sys_check_timeouts();
+        if (g_mdns_enabled && (int32_t)(sys_now() - g_next_announce) >= 0) {
+            mdns_resp_announce(&g_netif);
+            g_next_announce = sys_now() + 2000;
+        }
     }
 
     return 0;

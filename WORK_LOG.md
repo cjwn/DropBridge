@@ -289,3 +289,10 @@
 - 真实链路：radio 149 + 桥 + awdl_netd + awdld（非管理员）启动成功；awdld 日志 `host interface awdl0, index 1`，`tx data` 从 9 增长到 12，说明 mDNS/MLD 出向包已进入 AWDL。
 - 当前 `peers 0`，iPhone 未处于活跃 AWDL 状态；端到端发现/传输仍待测。
 - 更新 `patches/awdl-ipc-host.patch` 与 `docs/USERSPACE_DATAPATH.md`。
+
+## 2026-10-27：用户态 mDNS 周期公告与 12 位实例
+
+- 发现 lwIP mDNS 初始公告后不再频繁广播；改为每 2 秒 `mdns_resp_announce`，与 WinAWDL 接收端行为一致。
+- 服务实例/主机名改为 12 位十六进制 ID（与 iPhone 自己的 `_airdrop` 实例格式一致），TXT 仍为 `flags=0x3fb`。
+- 诊断抓到了 iPhone 的 mDNS 响应：`_airdrop._tcp.local`、12 位实例、`flags=2039`；说明 AWDL 双向数据可达。
+- 但 iPhone 仍未建立 `/Discover`，当前 `peers 0`；下一步需要确认 iPhone 的 Bluetooth/AirDrop 活跃状态，或对比 NSEC/记录差异。
