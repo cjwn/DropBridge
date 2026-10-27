@@ -362,3 +362,10 @@
 - `ANNOUNCE_PERIOD_S` 2.0 → 0.5 秒；启动连发 3 次；查询双回复；`MIN_REPLY_GAP_S` 0.1 → 0.02。
 - 实测用户反馈：比之前快，但还不是“一打开就在”；剩余延迟可能在 iPhone 的 AWDL/BLE 扫描。
 - 文档：`docs/DISCOVERY.md`。
+
+## 2026-10-27：上传期间暂停 mDNS，恢复速度
+
+- 发现 0.5 秒公告会挤占 AWDL 时隙：6 MB 文件 45 秒只收到 1.76 MB（~40 KB/s）。
+- `/Upload` 期间置位 `TRANSFER_BUSY`，mDNS 公告/查询回复暂停；上传结束恢复。
+- 实测 1.16 MB / 5.4 秒（~215 KB/s），体感明显恢复；仍低于手动 40 MHz 的 1.05 MB/s，后续继续定位。
+- 更新 `docs/DISCOVERY.md` 与 `patches/awdl-ipc-host.patch`。

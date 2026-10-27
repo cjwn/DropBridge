@@ -15,7 +15,7 @@ index bae0caf..036a077 100644
  # More labels and pointers than any valid name has.
  MAX_NAME_STEPS = 128
 diff --git a/airdrop/receiver.py b/airdrop/receiver.py
-index 622a21f..d9229c6 100644
+index 622a21f..b3c6cc5 100644
 --- a/airdrop/receiver.py
 +++ b/airdrop/receiver.py
 @@ -4,6 +4,7 @@
@@ -34,10 +34,13 @@ index 622a21f..d9229c6 100644
  import time
  from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
  
-@@ -41,6 +43,21 @@ DEFAULT_MAX_RECEIVE_PERCENT = 30
+@@ -41,6 +43,24 @@ DEFAULT_MAX_RECEIVE_PERCENT = 30
  MODEL_RE = re.compile(r'^[A-Za-z]+[0-9]+,[0-9]+$')
  MAX_NAME_CHARS = 63
  PATH_SEPARATOR = re.compile(r'[\\/]')
++# mDNS announcements are paused while a file is uploading: even a couple of
++# packets per second on the AWDL slot can starve a 6 MB transfer.
++TRANSFER_BUSY = threading.Event()
 +
 +
 +def stable_service_id(address):
@@ -56,7 +59,7 @@ index 622a21f..d9229c6 100644
  INTERFACE_WAIT_SECONDS = 20
  BIND_ATTEMPTS = 5
  BIND_PAUSE_SECONDS = 2
-@@ -89,14 +106,22 @@ class Receiver(ThreadingHTTPServer):
+@@ -89,14 +109,22 @@ class Receiver(ThreadingHTTPServer):
      daemon_threads = True
      allow_reuse_address = False
  
@@ -81,7 +84,23 @@ index 622a21f..d9229c6 100644
          return client_address[3] == self.settings.interface_index
  
      def process_request(self, request, client_address):
-@@ -408,6 +433,14 @@ def parse_args(argv):
+@@ -311,6 +339,7 @@ class Handler(BaseHTTPRequestHandler):
+         deadline = transfer.ReadDeadline()
+         plan = None
+         refused = None
++        TRANSFER_BUSY.set()
+         try:
+             budget = transfer.ReceiveBudget(settings.dest, settings.max_receive_percent)
+             plan = transfer.body_plan(self.headers, budget.byte_limit)
+@@ -338,6 +367,7 @@ class Handler(BaseHTTPRequestHandler):
+         except Exception as error:
+             refused = 422, f'upload is not a valid bounded DVZip archive: {error}'
+         finally:
++            TRANSFER_BUSY.clear()
+             transfer.UPLOAD_SLOTS.release()
+             self.request.settimeout(transfer.READ_IDLE_TIMEOUT_SECONDS)
+         if refused:
+@@ -408,6 +438,14 @@ def parse_args(argv):
                          default=DEFAULT_MAX_RECEIVE_PERCENT,
                          help='largest transfer, as a percentage of free disk space')
      parser.add_argument('--iface', default=DEFAULT_INTERFACE)
@@ -96,7 +115,7 @@ index 622a21f..d9229c6 100644
      parser.add_argument('--port', type=int, default=DEFAULT_PORT)
      parser.add_argument('--flags', type=lambda text: int(text, 0), default=DEFAULT_FLAGS,
                          help='receiver capability bits to advertise')
-@@ -436,12 +469,12 @@ def wait_for_interface(alias):
+@@ -436,12 +474,12 @@ def wait_for_interface(alias):
      return found
  
  
@@ -111,7 +130,7 @@ index 622a21f..d9229c6 100644
          except OSError as error:
              if error.errno != errno.EADDRINUSE:
                  raise
-@@ -459,6 +492,57 @@ def tls_context(keys_dir):
+@@ -459,6 +497,60 @@ def tls_context(keys_dir):
      return context
  
  
@@ -149,6 +168,9 @@ index 622a21f..d9229c6 100644
 +            time.sleep(0.1)
 +        next_announce = time.time() + 0.5
 +        while not self.stopping.is_set():
++            if TRANSFER_BUSY.is_set():
++                time.sleep(0.2)
++                continue
 +            self.sock.settimeout(0.2)
 +            try:
 +                packet = self.sock.recv(9000)
@@ -169,7 +191,7 @@ index 622a21f..d9229c6 100644
  def main(argv=None):
      settings = parse_args(argv)
      redactor = redact.Redactor(redact.local_words())
-@@ -473,13 +557,60 @@ def main(argv=None):
+@@ -473,13 +565,60 @@ def main(argv=None):
          context = tls_context(settings.keys)
      except identity.IdentityError as error:
          raise SystemExit(str(error)) from None
