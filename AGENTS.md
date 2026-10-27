@@ -2,7 +2,8 @@
 
 适用于整个 DropBridge / AirBridge32 项目。
 
-- 开始工作先读 README.md、docs/PHASE0_AUDIT.md、docs/PLAN.md、WORK_LOG.md。
+- 开始工作先读 README.md、docs/PHASE0_AUDIT.md、docs/PLAN.md、docs/FINAL_PLAN.md、docs/WORK_QUEUE.md、WORK_LOG.md。
+- 交接进度以 docs/WORK_QUEUE.md 为准：完成一项就更新状态与证据并提交，不要只在对话里说。
 - 每完成一项可独立检查的改动，先进行适当验证，再本地 Git 提交；提交标题和说明用中文。不要只改完不提交，也不要自动推送远程。
 - 本项目阶段 0 优先：先确认硬件和原始收发，再移植 AWDL，最后才开发 GUI。
 - 分开记录源码实现、上游测试报告、本地编译、本机硬件测试、真实文件传输。不得互相替代。

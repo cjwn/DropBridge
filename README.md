@@ -8,6 +8,7 @@ Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirB
 
 ## 阅读入口
 
+- [工作队列：下一步做什么（跨会话）](docs/WORK_QUEUE.md)
 - [最终方案：AirBridge32 V1（决定）](docs/FINAL_PLAN.md)
 - [原始任务书](docs/用户任务书.md)
 - [源码审计及 Go / No-Go](docs/PHASE0_AUDIT.md)
