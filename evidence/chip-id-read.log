@@ -1,0 +1,39 @@
+﻿capturedAtUtc: 2026-10-27T06:26:30.0666797Z
+exit: 0
+libusb https://libusb.info
+target 0bda:c820
+bus 1 address 19 speed 3
+descriptor: bcdUSB=0200 class=ef subclass=02 protocol=01 maxPacket0=64
+open OK
+interface 0 alt 0: class=e0 subclass=01 protocol=01 endpoints=3
+  endpoint 0x81 IN attr=03 maxPacket=16
+  endpoint 0x02 OUT attr=02 maxPacket=512
+  endpoint 0x82 IN attr=02 maxPacket=512
+interface 1 alt 0: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=0
+  endpoint 0x83 IN attr=01 maxPacket=0
+interface 1 alt 1: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=9
+  endpoint 0x83 IN attr=01 maxPacket=9
+interface 1 alt 2: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=17
+  endpoint 0x83 IN attr=01 maxPacket=17
+interface 1 alt 3: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=25
+  endpoint 0x83 IN attr=01 maxPacket=25
+interface 1 alt 4: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=33
+  endpoint 0x83 IN attr=01 maxPacket=33
+interface 1 alt 5: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=49
+  endpoint 0x83 IN attr=01 maxPacket=49
+interface 2 alt 0: class=ff subclass=ff protocol=ff endpoints=5
+  endpoint 0x84 IN attr=02 maxPacket=512
+  endpoint 0x05 OUT attr=02 maxPacket=512
+  endpoint 0x06 OUT attr=02 maxPacket=512
+  endpoint 0x87 IN attr=03 maxPacket=64
+  endpoint 0x08 OUT attr=02 maxPacket=512
+claiming candidate interface 2 ...
+claim OK
+read8  0x00fc = 0x09
+releasing interface; no Init, no firmware, no TX

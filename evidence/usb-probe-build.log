@@ -1,8 +1,4 @@
 ﻿适用于 .NET Framework MSBuild 版本 17.14.51+25f168cee
 
-  1>Checking Build System
-  Building Custom Rule J:/New soft project/DropBridge/tools/usb_probe/CMakeLists.txt
   usb_probe.c
   usb_probe.vcxproj -> J:\New soft project\DropBridge\build\usb_probe\Release\usb_probe.exe
-  J:\New soft project\DropBridge\build\deps\vcpkg\installed\x64-windows\bin\libusb-1.0.dll -> J:\New soft project\DropBridge\build\usb_probe\Release\libusb-1.0.dll done
-  Building Custom Rule J:/New soft project/DropBridge/tools/usb_probe/CMakeLists.txt

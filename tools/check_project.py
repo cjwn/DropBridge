@@ -13,7 +13,7 @@ required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
             "evidence/build-8821c-configure-full.log",
             "evidence/build-8821c-build.log", "evidence/build-8821c-ctest.log",
             "evidence/usb-open-baseline.log", "evidence/usb-probe-build.log",
-            "evidence/binding-result.log",
+            "evidence/binding-result.log", "evidence/chip-id-read.log",
             "evidence/hardware-identity.json", "evidence/upstream-issues.json",
             "tools/Build-Devourer.ps1", "tools/Setup-BuildDeps.ps1",
             "tools/Build-UsbProbe.ps1", "tools/usb_probe/usb_probe.c",
@@ -23,7 +23,10 @@ for name in required:
     assert (root / name).is_file(), f"Missing: {name}"
 hw = json.loads((root / "evidence/hardware-identity.json").read_text(encoding="utf-8-sig"))
 assert re.fullmatch(r"[0-9a-f]{4}:[0-9a-f]{4}", hw["usb"]["vidPid"]), hw
-assert hw["chipIdentity"]["status"] == "not verified", "Do not claim a verified chip id"
+chip = hw["chipIdentity"]
+assert chip["status"] in ("verified", "not verified"), chip
+if chip["status"] == "verified":
+    assert chip["value"] == "0x09", "Only the RTL8821C chip id is recorded as verified"
 entries = json.loads((root / "docs/sources.lock.json").read_text(encoding="utf-8-sig"))
 assert len(entries) == 5
 assert len({e["name"] for e in entries}) == 5

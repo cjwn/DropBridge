@@ -106,7 +106,7 @@ Windows 设备绑定方案：目标是让 libusb 通过 WinUSB 访问专用 Wi-F
 - MI_00：Bluetooth Radio，驱动 `oem154.inf` 1.5.1012.3（Realtek），服务 `BTHUSB`。
 - MI_02：Wi-Fi 厂商接口（class `ff/ff/ff`），驱动 `netrtwlanu.inf` 1030.38.712.2019（供应商标记为 Microsoft），服务 `RtlWlanu`，网络适配器 `WLAN 2`，状态 Disconnected。
 
-结论：VID/PID 和 Windows 名称符合 RTL8821CU 的预期，但**不能证明硅片版本**。芯片 ID（`SYS_CFG2 0x00FC`，RTL8821C 预期 `0x09`）只能在一次经授权的 `Init` 中读取，本轮没有做。完整实例路径与序列号只留在 `evidence/usb-devices.local.json`（git 忽略），提交的摘要在 `evidence/hardware-identity.json`。
+结论：VID/PID 和 Windows 名称符合 RTL8821CU 的预期，但**不能证明硅片版本**。随后用一次只读 vendor control read 读取 `SYS_CFG2 0x00FC = 0x09`，确认是 RTL8821C（Jaguar2）；该读取没有 Init、没有固件下载、没有发帧，证据 `evidence/chip-id-read.log`。完整实例路径与序列号只留在 `evidence/usb-devices.local.json`（git 忽略），提交的摘要在 `evidence/hardware-identity.json`。
 
 ### I.2 Windows 构建（通过）
 
@@ -135,15 +135,15 @@ Windows 设备绑定方案：目标是让 libusb 通过 WinUSB 访问专用 Wi-F
 
 | 任务 | 状态 |
 | --- | --- |
-| 1. 真实设备身份 | 部分完成：VID/PID、接口、现有驱动已记录；芯片 ID 未读 |
+| 1. 真实设备身份 | 完成：VID/PID、接口、驱动、libusb open/claim、芯片 ID `0x09` 均有记录；WinUSB 回滚演练未做 |
 | 2. Windows 构建 | 完成：C8821C-only 编译 + 74 项自检通过（含 3 项 OpenSSL 加密自检） |
 | 3. API 契约对照 | 完成（静态）：见 `docs/RADIO_CONTRACT.md` |
 | 4. 许可证与固件 | 识别完成，未解决：见 `docs/LICENSE_MATRIX.md` |
 
-退出条件仍缺两项：芯片身份，以及可执行的驱动绑定/恢复路径。**Phase 0 仍未关闭。**
+退出条件：设备身份（含芯片 ID）与 Windows 构建已达成；驱动绑定已执行且 libusb 可用，但恢复路径尚未实际演练。**Phase 0 仍未关闭，只差回滚演练。**
 
 ### I.6 下一步（需要用户授权才能越过）
 
-1. 记录原驱动并准备 MI_02 的 WinUSB 绑定与恢复步骤；绑定本身需要管理员权限和明确授权。
-2. 授权后做一次最小 `Init`/固件下载，读回芯片 ID，记录失败恢复。
-3. 按 PLAN Phase 1 做固定频道有限 RX、显式有限 TX、独立见证与 TX report 关联；任何 TX 都要先说明帧、频道和次数。
+1. 已执行 MI_02 → WinUSB 绑定（`oem155.inf`，服务 `WinUSB`）；剩余一次回滚到 `netrtwlanu` 的演练。
+2. 授权后做最小 `Init`/固件下载（会写芯片状态），再进入固定频道有限 RX。
+3. 按 PLAN Phase 1 做显式有限 TX、独立见证与 TX report 关联；任何 TX 都要先说明帧、频道和次数。

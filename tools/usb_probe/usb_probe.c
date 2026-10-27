@@ -6,16 +6,22 @@
  * firmware or transmit anything.
  *
  * Build: powershell -File tools/Build-UsbProbe.ps1
- * Usage: usb_probe.exe [vid_hex] [pid_hex]
+ * Usage: usb_probe.exe [vid_hex] [pid_hex] [--read8|--read32 <reg_hex>]
+ *
+ * --read8/--read32 issue one Realtek vendor control READ (0xC0, bRequest 5),
+ * the same transfer devourer uses before Init. devourer reads the chip id at
+ * SYS_CFG2 0x00FC as ONE byte; use --read8 00FC. No register is written, no
+ * firmware is downloaded and no frame is transmitted.
  *
  * Exit codes: 0 open+claim OK, 1 open failed, 2 device not found,
- *             3 claim failed, 4 other libusb error.
+ *             3 claim failed, 4 other libusb error, 5 register read failed.
  */
 #include <libusb.h>
 
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 static const char *err_name(int code) {
     return libusb_error_name(code);
@@ -23,8 +29,20 @@ static const char *err_name(int code) {
 
 int main(int argc, char **argv) {
     uint16_t vid = 0x0bda, pid = 0xc820;
+    int do_read = 0;
+    int read_width = 0;
+    uint16_t read_reg = 0;
     if (argc > 1) vid = (uint16_t)strtoul(argv[1], NULL, 16);
     if (argc > 2) pid = (uint16_t)strtoul(argv[2], NULL, 16);
+    if (argc > 4 && strcmp(argv[3], "--read8") == 0) {
+        do_read = 1;
+        read_width = 1;
+        read_reg = (uint16_t)strtoul(argv[4], NULL, 16);
+    } else if (argc > 4 && strcmp(argv[3], "--read32") == 0) {
+        do_read = 1;
+        read_width = 4;
+        read_reg = (uint16_t)strtoul(argv[4], NULL, 16);
+    }
 
     printf("libusb %s\n", libusb_get_version()->describe);
     printf("target %04x:%04x\n", vid, pid);
@@ -141,12 +159,34 @@ int main(int argc, char **argv) {
         libusb_exit(ctx);
         return 3;
     }
-    printf("claim OK; releasing without touching the radio\n");
+    printf("claim OK\n");
+
+    int result = 0;
+    if (do_read) {
+        uint8_t buf[4] = {0, 0, 0, 0};
+        int n = libusb_control_transfer(handle, 0xC0, 5, read_reg, 0, buf,
+                                        (uint16_t)read_width, 500);
+        if (n == read_width) {
+            if (read_width == 1) {
+                printf("read8  0x%04x = 0x%02x\n", read_reg, buf[0]);
+            } else {
+                uint32_t v = (uint32_t)buf[0] | ((uint32_t)buf[1] << 8) |
+                             ((uint32_t)buf[2] << 16) | ((uint32_t)buf[3] << 24);
+                printf("read32 0x%04x = 0x%08x\n", read_reg, v);
+            }
+        } else {
+            printf("read%d 0x%04x failed: %s (%d)\n", read_width * 8, read_reg,
+                   err_name(n), n);
+            result = 5;
+        }
+    }
+
+    printf("releasing interface; no Init, no firmware, no TX\n");
     libusb_release_interface(handle, candidate);
 
     libusb_free_config_descriptor(config);
     libusb_close(handle);
     libusb_free_device_list(list, 1);
     libusb_exit(ctx);
-    return 0;
+    return result;
 }

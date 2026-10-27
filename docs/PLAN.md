@@ -10,13 +10,13 @@
 
 ## Phase 0：补齐进入实验的条件（进行中）
 
-已完成：源任务书归档、五个仓库固定版本、专用分支检查、关键调用链审计、初次本地配置尝试、Git 约定；隔离依赖下的 C8821C-only Windows 构建与 74 项无硬件自检（含 3 项 OpenSSL 加密自检）；目标网卡只读身份（`0bda:c820`）；WinAWDL ↔ devourer 契约对照；许可证矩阵；Zadig 绑定手册与只读 USB 探针。
+已完成：源任务书归档、五个仓库固定版本、专用分支检查、关键调用链审计、初次本地配置尝试、Git 约定；隔离依赖下的 C8821C-only Windows 构建与 74 项无硬件自检（含 3 项 OpenSSL 加密自检）；目标网卡身份（`0bda:c820`，MI_02 已绑 WinUSB，libusb 可 open/claim，芯片 ID 只读确认 `0x09`）；WinAWDL ↔ devourer 契约对照；许可证矩阵；Zadig 绑定手册与只读 USB 探针。
 
 未完成任务：
-1. 芯片 ID 确认：需要一次经授权的 `Init` 读取 `SYS_CFG2 0x00FC`（RTL8821C 预期 `0x09`），并记录失败恢复。
-2. WinUSB 绑定 MI_02 与恢复演练：按 `docs/BINDING_RUNBOOK.md` 执行，绑定后先用 `usb_probe.exe` 只读 open/claim，再恢复普通驱动。绑定与首次 Init 都需要用户明确授权。
+1. WinUSB 回滚演练：把 MI_02 恢复到 `netrtwlanu.inf`，确认 `WLAN 2` 适配器回来，再记录一次。
+2. 首次 `Init`（写芯片、下载固件）仍需单独授权；它是 Phase 1 的入口。
 
-退出条件：真实设备身份有记录（含芯片 ID）；Windows 构建通过（已达成）；最小实验和驱动恢复路径可执行。任一条件缺失，Phase 0 保持未完成。
+退出条件：真实设备身份有记录（含芯片 ID，已达成）；Windows 构建通过（已达成）；最小实验和驱动恢复路径可执行（最小实验已做，回滚待演练）。
 
 ## Phase 1：独立 USB 无线后端
 

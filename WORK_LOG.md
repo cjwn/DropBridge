@@ -76,3 +76,11 @@
 未做：没有 Init、固件下载或任何无线帧；回滚步骤尚未演练。
 
 下一步：只读读取 `SYS_CFG2 0x00FC` 确认芯片 ID，再决定是否申请 Init 授权。
+
+## 2026-10-27：只读确认芯片 ID = 0x09（RTL8821C）
+
+- 扩展 `usb_probe` 支持 `--read8` / `--read32`：一次 Realtek vendor control read（`0xC0`、`bRequest 5`），不写寄存器、不下载固件、不发帧。
+- 运行 `usb_probe.exe 0bda c820 --read8 00FC`，在 claim interface 2 之后读取 `SYS_CFG2`，得到 `read8 0x00fc = 0x09`，随后 release/close。退出码 0。
+- 证据：`evidence/chip-id-read.log`；`evidence/hardware-identity.json` 的 `chipIdentity` 已标为 `verified`、值 `0x09`、含义 RTL8821C（Jaguar2）。
+- 结论：Phase 0 的「真实设备身份」完成（VID/PID、接口、驱动、libusb 访问、芯片 ID）。仍未做：WinUSB 回滚演练、`Init`/固件下载、任何 RX/TX。
+- 下一步：回滚演练（恢复到 `netrtwlanu.inf`）以关闭 Phase 0；之后申请最小 `Init` 授权进入 Phase 1。

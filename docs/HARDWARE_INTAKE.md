@@ -84,5 +84,5 @@ USB VID:PID / 接口 / 端点：
 - **已绑定 WinUSB**（2026-10-27 14:21）：MI_02 驱动变为 `oem155.inf`（libwdi 6.1.7600.16385），服务 `WinUSB`；蓝牙 MI_00 仍为 OK；`WLAN 2` 适配器已消失（预期）。步骤与回滚见 [BINDING_RUNBOOK.md](BINDING_RUNBOOK.md)。
 - 绑定前基线（`evidence/usb-open-baseline.log`）：只读探针能枚举到设备（bus 1、address 19、High Speed、`bcdUSB 2.00`），但 `libusb_open` 返回 `LIBUSB_ERROR_NOT_FOUND`。
 - 绑定后验证（`evidence/binding-result.log`）：`Check-Binding.ps1` 退出码 0；`usb_probe.exe` 输出 `open OK` 并成功 claim interface 2，接口 2 有 bulk IN `0x84`、bulk OUT `0x05/0x06/0x08`、interrupt IN `0x87`。
-- **芯片 ID 仍未读**。只读读取 `SYS_CFG2 0x00FC` 属于下一步，不涉及 Init、固件下载或发射。
-- 因此 Phase 0 的「真实设备身份」已具备 VID/PID、接口、驱动与 libusb 访问证据；芯片 ID 仍是未验证状态。
+- **芯片 ID 已只读确认**：`SYS_CFG2 0x00FC = 0x09`，即 RTL8821C（Jaguar2）。方法是一次 vendor control read（`0xC0`/`5`，1 字节），没有 Init、没有固件下载、没有发帧；证据 `evidence/chip-id-read.log`。
+- 因此 Phase 0 的「真实设备身份」已完成：VID/PID、接口、驱动、libusb 访问和芯片 ID 都有记录。剩余的是 WinUSB 回滚演练和 Phase 1 实测。
