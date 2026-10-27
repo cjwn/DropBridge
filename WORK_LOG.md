@@ -282,3 +282,10 @@
 - 由于 `upstream/` 被忽略，改动以 `patches/awdl-ipc-host.patch` + `tools/Apply-AwdlPatches.ps1` 跟踪。
 - 状态：骨架/构建通过；**尚未接真实 radio/iPhone 做端到端传输**。
 - 文档：`docs/USERSPACE_DATAPATH.md`。
+
+## 2026-10-27：用户态数据面接通 awdld IPC
+
+- 修复 `host_if_ipc.c` 未初始化 Winsock 导致的 `WSANOTINITIALISED (10093)`；awdld 现在能连上 `awdl_netd` 的 49877。
+- 真实链路：radio 149 + 桥 + awdl_netd + awdld（非管理员）启动成功；awdld 日志 `host interface awdl0, index 1`，`tx data` 从 9 增长到 12，说明 mDNS/MLD 出向包已进入 AWDL。
+- 当前 `peers 0`，iPhone 未处于活跃 AWDL 状态；端到端发现/传输仍待测。
+- 更新 `patches/awdl-ipc-host.patch` 与 `docs/USERSPACE_DATAPATH.md`。

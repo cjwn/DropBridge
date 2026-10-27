@@ -66,7 +66,8 @@ cmake --build build/awdl --parallel 8
 - 假握手（`AWDL` + 16 字节 IPv6）可让 netif 起来并返回 mDNS/MLD 包；
 - `awdld` 的 IPC host 后端构建通过；
 - `receiver.py --listen 127.0.0.1` 代理模式可启动；
-- **尚未接真实 radio/iPhone 做端到端传输**。
+- **真实 awdld 已通过 IPC 连上 awdl_netd**（日志 `host interface awdl0, index 1`），awdld 侧出现 `tx data 9..12`，说明 mDNS/MLD 出向包已经进入 AWDL；
+- 当前 `peers 0`，iPhone 尚未处于活跃 AWDL 状态/未被发现；**端到端收发待测**。
 
 ## 已知风险
 

@@ -118,10 +118,10 @@ index 87868b0..2aad484 100644
  target_link_options(awdld PRIVATE -static -Wl,--wrap=log_log)
 diff --git a/awdl/win/host_if_ipc.c b/awdl/win/host_if_ipc.c
 new file mode 100644
-index 0000000..506549c
+index 0000000..81979a1
 --- /dev/null
 +++ b/awdl/win/host_if_ipc.c
-@@ -0,0 +1,169 @@
+@@ -0,0 +1,175 @@
 +/* SPDX-License-Identifier: GPL-3.0-or-later */
 +/* IPC host backend for the user-space AWDL data plane PoC.
 + *
@@ -171,6 +171,11 @@ index 0000000..506549c
 +}
 +
 +struct host_if *host_if_open(const uint8_t address[16], char *error, size_t error_len) {
++    WSADATA wsa;
++    if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
++        snprintf(error, error_len, "WSAStartup failed");
++        return NULL;
++    }
 +    struct host_if *host = (struct host_if *) calloc(1, sizeof(*host));
 +    if (!host) return NULL;
 +    host->sock = INVALID_SOCKET;
@@ -233,6 +238,7 @@ index 0000000..506549c
 +    if (host->event != WSA_INVALID_EVENT) WSACloseEvent(host->event);
 +    if (host->sock != INVALID_SOCKET) closesocket(host->sock);
 +    free(host);
++    WSACleanup();
 +}
 +
 +void *host_if_read_event(const struct host_if *host) {
