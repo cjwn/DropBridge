@@ -1,0 +1,57 @@
+﻿capturedAtUtc: 2026-10-27T06:24:38.1573746Z
+checkExit: 0
+probeExit: 0
+
+=== Check-Binding ===
+
+Target Wi-Fi interface (MI_02)
+  instance   : USB\VID_0BDA&PID_C820&MI_02\7&1D92DF5B&0&0002
+  status     : OK  (problem code 0)
+  driver inf : oem155.inf
+  driver     : libwdi 6.1.7600.16385
+  service    : WinUSB
+
+Bluetooth interface (MI_00, must stay untouched)
+  status     : OK
+
+No Realtek 8821CU network adapter (expected once WinUSB owns MI_02).
+
+RESULT: MI_02 is bound to WinUSB. libusb should be able to claim it.
+Next: run the read-only USB open probe. Do NOT run Init yet.
+
+=== usb_probe ===
+libusb https://libusb.info
+target 0bda:c820
+bus 1 address 19 speed 3
+descriptor: bcdUSB=0200 class=ef subclass=02 protocol=01 maxPacket0=64
+open OK
+interface 0 alt 0: class=e0 subclass=01 protocol=01 endpoints=3
+  endpoint 0x81 IN attr=03 maxPacket=16
+  endpoint 0x02 OUT attr=02 maxPacket=512
+  endpoint 0x82 IN attr=02 maxPacket=512
+interface 1 alt 0: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=0
+  endpoint 0x83 IN attr=01 maxPacket=0
+interface 1 alt 1: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=9
+  endpoint 0x83 IN attr=01 maxPacket=9
+interface 1 alt 2: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=17
+  endpoint 0x83 IN attr=01 maxPacket=17
+interface 1 alt 3: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=25
+  endpoint 0x83 IN attr=01 maxPacket=25
+interface 1 alt 4: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=33
+  endpoint 0x83 IN attr=01 maxPacket=33
+interface 1 alt 5: class=e0 subclass=01 protocol=01 endpoints=2
+  endpoint 0x03 OUT attr=01 maxPacket=49
+  endpoint 0x83 IN attr=01 maxPacket=49
+interface 2 alt 0: class=ff subclass=ff protocol=ff endpoints=5
+  endpoint 0x84 IN attr=02 maxPacket=512
+  endpoint 0x05 OUT attr=02 maxPacket=512
+  endpoint 0x06 OUT attr=02 maxPacket=512
+  endpoint 0x87 IN attr=03 maxPacket=64
+  endpoint 0x08 OUT attr=02 maxPacket=512
+claiming candidate interface 2 ...
+claim OK; releasing without touching the radio

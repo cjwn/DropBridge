@@ -1,6 +1,6 @@
 {
   "capturedAtUtc": "2026-10-27T04:41:08Z",
-  "scope": "read-only PnP enumeration; no driver change, no chip initialization, no radio frame",
+  "scope": "read-only PnP enumeration; authorized WinUSB binding of MI_02; no chip initialization and no radio frame",
   "usb": {
     "vid": "0bda",
     "pid": "c820",
@@ -8,7 +8,8 @@
     "busReportedDeviceDesc": "802.11ac NIC",
     "compositeDriver": "usbccgp",
     "location": "Port_#0003.Hub_#0006",
-    "parentHub": "USB\\VID_05E3&PID_0608"
+    "parentHub": "USB\\VID_05E3&PID_0608",
+    "speed": "High Speed (bcdUSB 2.00)"
   },
   "interfaces": [
     {
@@ -18,28 +19,48 @@
       "driverInf": "oem154.inf",
       "driverVersion": "1.5.1012.3",
       "driverProvider": "Realtek Semiconductor Corp.",
-      "service": "BTHUSB"
+      "service": "BTHUSB",
+      "stateAfterBinding": "OK (unaffected)"
     },
     {
       "mi": "02",
       "role": "Wi-Fi (vendor interface, class ff/ff/ff)",
       "busReportedDeviceDesc": "802.11ac NIC",
-      "driverInf": "netrtwlanu.inf",
-      "driverVersion": "1030.38.712.2019",
-      "driverProvider": "Microsoft",
-      "service": "RtlWlanu",
-      "netAdapter": "WLAN 2",
-      "adapterState": "Disconnected"
+      "driverInfBefore": "netrtwlanu.inf",
+      "driverVersionBefore": "1030.38.712.2019",
+      "serviceBefore": "RtlWlanu",
+      "driverInfAfter": "oem155.inf",
+      "driverVersionAfter": "6.1.7600.16385",
+      "driverProviderAfter": "libwdi",
+      "serviceAfter": "WinUSB",
+      "netAdapterBefore": "WLAN 2 (Disconnected)",
+      "netAdapterAfter": "removed (expected)"
     }
   ],
+  "binding": {
+    "capturedAtUtc": "2026-10-27T06:21:21Z",
+    "tool": "Zadig 2.9.788",
+    "target": "802.11ac NIC (Interface 2), USB ID 0BDA C820 02",
+    "result": "success",
+    "libusbOpen": "OK",
+    "libusbClaimInterface": 2,
+    "endpointsOnInterface2": [
+      "0x84 bulk IN",
+      "0x05 bulk OUT",
+      "0x06 bulk OUT",
+      "0x87 interrupt IN",
+      "0x08 bulk OUT"
+    ],
+    "rollback": "not exercised yet; see docs/BINDING_RUNBOOK.md section 5",
+    "evidence": "evidence/binding-result.log"
+  },
   "chipIdentity": {
     "status": "not verified",
-    "method": "devourer reads SYS_CFG2 0x00FC during Init (RTL8821C expected 0x09); that writes chip state and needs explicit authorization"
+    "method": "read SYS_CFG2 0x00FC (RTL8821C expected 0x09); a read-only vendor control transfer, no Init and no firmware download"
   },
   "notes": [
     "VID/PID and the Windows device name say RTL8821CU, but they do not prove the silicon revision.",
-    "Current binding is the Realtek/Microsoft netrtwlanu driver; libusb access will require a WinUSB binding of interface MI_02.",
-    "The adapter is attached through a Genesys Logic hub (05e3:0608); a direct motherboard port is preferred for the binding experiment.",
+    "The adapter is attached through a Genesys Logic hub (05e3:0608); a direct motherboard port is still preferred for the binding experiment.",
     "Full instance paths and serial numbers stay in evidence/usb-devices.local.json, which is git-ignored."
   ]
 }

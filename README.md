@@ -2,7 +2,7 @@
 
 Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirBridge32 为任务书暂定产品名；没有 ESP32 固件要求。
 
-**当前：Phase 0 进行中。RTL8821CU-only 的 devourer 已在 Windows 上构建成功并通过 71 项无硬件自检；目标网卡已只读确认为 `0bda:c820`（Realtek 8821CU 复合设备），但芯片 ID、原始收发和任何 AirDrop 链路都尚未验证。尚无可用 AirDrop 接收程序。**
+**当前：Phase 0 进行中。RTL8821CU-only 的 devourer 已在 Windows 上构建成功并通过 74 项无硬件自检；目标网卡 `0bda:c820` 的 MI_02 已绑定 WinUSB，libusb 可 open 并 claim interface 2；但芯片 ID、原始收发和任何 AirDrop 链路都尚未验证。尚无可用 AirDrop 接收程序。**
 
 目标是让 iPhone 系统原生隔空投送通过专用 RTL8821CU USB 网卡把文件交给 Windows，不依赖 WSL2、虚拟机或 iPhone 第三方应用。
 
@@ -43,7 +43,8 @@ python .\tools\check_project.py   # 文档、证据与版本锁一致性
 ## 已建立的证据
 
 - 五个上游源码已下载并锁定 SHA；WinAWDL 专用 devourer 子模块也已取回。
-- `evidence/hardware-identity.json`：目标网卡只读身份 —— `0bda:c820`，复合设备，MI_00 蓝牙、MI_02 Wi-Fi（vendor class `ff/ff/ff`），现有驱动 `netrtwlanu.inf` 1030.38.712.2019；芯片 ID 明确标记为未验证。
+- `evidence/hardware-identity.json`：目标网卡身份 —— `0bda:c820`，复合设备，MI_00 蓝牙、MI_02 Wi-Fi（vendor class `ff/ff/ff`）；MI_02 已由 `netrtwlanu.inf` 换为 WinUSB（`oem155.inf`，libwdi）；芯片 ID 明确标记为未验证。
+- `evidence/binding-result.log`：绑定后 `Check-Binding.ps1` 与 `usb_probe.exe` 的验证记录（open OK、claim interface 2、端点列表）。
 - `evidence/build-8821c-*.log`：本机 MSVC 19.44 + libusb 1.0.30 + OpenSSL 3.6.5 的配置、编译和 74 项自检记录。
 - `evidence/usb-open-baseline.log`：绑定 WinUSB 之前，libusb 找不到设备接口（`LIBUSB_ERROR_NOT_FOUND`）的基线记录。
 - `evidence/build-configure.log`：首次配置因缺 PkgConfig 失败的原始记录，保留作历史。
@@ -53,10 +54,9 @@ python .\tools\check_project.py   # 文档、证据与版本锁一致性
 
 ## 仍未完成
 
-1. 芯片 ID 交叉确认（需要一次经授权的 `Init`，会写芯片状态）。
-2. WinUSB 绑定到 MI_02 及恢复演练（需要管理员权限和明确授权）。
-3. 绑定后先用 `usb_probe.exe` 做只读 open/claim 验证。
-4. Phase 1 的原始 RX/TX、TX report、换信道和拔插恢复实测。
-5. 8821C USB 版 radio 后端尚未编写。
+1. 芯片 ID 交叉确认（只读 `SYS_CFG2 0x00FC`，下一步；Init 仍需单独授权）。
+2. WinUSB 回滚到 `netrtwlanu` 的演练。
+3. Phase 1 的初始化、原始 RX/TX、TX report、换信道和拔插恢复实测。
+4. 8821C USB 版 radio 后端尚未编写。
 
 本轮不复制上游实现，不赋予第三方代码统一许可证。产品发布许可证将在复用范围确定后处理。

@@ -59,3 +59,20 @@
 - 没有绑定 WinUSB、没有读芯片 ID、没有 Init/固件下载、没有任何 TX；没有改驱动/网络/防火墙。
 
 下一步：用户以管理员按运行手册绑定 MI_02 → 我用 `usb_probe.exe` 验证 open/claim → 再单独申请 `Init` 授权。
+
+## 2026-10-27：WinUSB 绑定成功，libusb 可访问 interface 2
+
+用户授权并由用户完成 UAC 与 Zadig 界面操作；AI 负责下载校验、监测与验证。
+
+完成：
+
+- 从官方 release 下载 `zadig-2.9.exe`（SHA-256 `4ECAA95D…82039B`，Authenticode 签名有效，签名者 Akeo Consulting）。
+- 用户以管理员在 Zadig 2.9.788 中选择 `802.11ac NIC (Interface 2)`（USB ID `0BDA C820 02`），`RtlWlanu` → `WinUSB`，执行 Replace Driver。
+- 14 秒后监测到 MI_02 变为 `oem155.inf`（libwdi 6.1.7600.16385），服务 `WinUSB`。
+- 蓝牙 MI_00 仍为 OK；`WLAN 2` 网络适配器消失（预期）。
+- `tools/Check-Binding.ps1` 退出码 0；`usb_probe.exe` 输出 `open OK`，成功 claim interface 2；接口 2 端点：bulk IN `0x84`、bulk OUT `0x05/0x06/0x08`、interrupt IN `0x87`。
+- 证据：`evidence/binding-result.log`、`evidence/hardware-identity.json` 的 `binding` 段。
+
+未做：没有 Init、固件下载或任何无线帧；回滚步骤尚未演练。
+
+下一步：只读读取 `SYS_CFG2 0x00FC` 确认芯片 ID，再决定是否申请 Init 授权。

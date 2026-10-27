@@ -81,6 +81,8 @@ USB VID:PID / 接口 / 端点：
 - 目标网卡已接入：`0bda:c820`，复合设备；MI_00 蓝牙，MI_02 Wi-Fi 厂商接口；MI_02 由 `netrtwlanu.inf` 1030.38.712.2019（服务 `RtlWlanu`）管理，网络适配器 `WLAN 2` 处于 Disconnected。
 - 只读枚举当时共 30 个 USB 设备；完整实例路径在 `evidence/usb-devices.local.json`（git 忽略）。
 - 现有无线网卡还有 Intel Wi-Fi 6E AX211（非目标）；有线 I226-V 处于连接状态，可用于上网。
-- **尚未绑定 WinUSB，尚未读芯片 ID**。驱动绑定步骤见 [BINDING_RUNBOOK.md](BINDING_RUNBOOK.md)，只读检查用 `tools/Check-Binding.ps1`；绑定需要管理员权限和明确授权。
-- 绑定前基线（`evidence/usb-open-baseline.log`）：只读探针能枚举到设备（bus 1、address 19、High Speed、`bcdUSB 2.00`），但 `libusb_open` 返回 `LIBUSB_ERROR_NOT_FOUND`，符合“厂商驱动仍占用 MI_02”的预期。绑定后再跑同一探针，应能 `open` 并 `claim` 接口。
-- 因此 Phase 0 的「真实设备身份」只完成了 VID/PID、接口与现有驱动；芯片 ID 仍是未验证状态。
+- **已绑定 WinUSB**（2026-10-27 14:21）：MI_02 驱动变为 `oem155.inf`（libwdi 6.1.7600.16385），服务 `WinUSB`；蓝牙 MI_00 仍为 OK；`WLAN 2` 适配器已消失（预期）。步骤与回滚见 [BINDING_RUNBOOK.md](BINDING_RUNBOOK.md)。
+- 绑定前基线（`evidence/usb-open-baseline.log`）：只读探针能枚举到设备（bus 1、address 19、High Speed、`bcdUSB 2.00`），但 `libusb_open` 返回 `LIBUSB_ERROR_NOT_FOUND`。
+- 绑定后验证（`evidence/binding-result.log`）：`Check-Binding.ps1` 退出码 0；`usb_probe.exe` 输出 `open OK` 并成功 claim interface 2，接口 2 有 bulk IN `0x84`、bulk OUT `0x05/0x06/0x08`、interrupt IN `0x87`。
+- **芯片 ID 仍未读**。只读读取 `SYS_CFG2 0x00FC` 属于下一步，不涉及 Init、固件下载或发射。
+- 因此 Phase 0 的「真实设备身份」已具备 VID/PID、接口、驱动与 libusb 访问证据；芯片 ID 仍是未验证状态。
