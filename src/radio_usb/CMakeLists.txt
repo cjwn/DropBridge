@@ -27,7 +27,7 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../upstream/devourer"
                  devourer EXCLUDE_FROM_ALL)
 
 add_executable(airbridge_radio main.cpp radio_link.h)
-target_link_libraries(airbridge_radio PRIVATE devourer PkgConfig::libusb)
+target_link_libraries(airbridge_radio PRIVATE devourer PkgConfig::libusb ws2_32)
 target_compile_features(airbridge_radio PRIVATE cxx_std_20)
 if(MSVC)
     target_compile_options(airbridge_radio PRIVATE /W4)

@@ -1,5 +1,15 @@
-﻿适用于 .NET Framework MSBuild 版本 17.14.51+25f168cee
+﻿CMake is re-running because J:/New soft project/DropBridge/build/radio_usb/CMakeFiles/generate.stamp is out-of-date.
+  the file 'J:/New soft project/DropBridge/src/radio_usb/CMakeLists.txt'
+  is newer than 'J:/New soft project/DropBridge/build/radio_usb/CMakeFiles/generate.stamp.depend'
+  result='-1'
+-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.22631.
+-- Configuring done (0.5s)
+-- Generating done (7.2s)
+-- Build files have been written to: J:/New soft project/DropBridge/build/radio_usb
+适用于 .NET Framework MSBuild 版本 17.14.51+25f168cee
 
+  1>Checking Build System
   devourer.vcxproj -> J:\New soft project\DropBridge\build\radio_usb\devourer\Release\devourer.lib
+  Building Custom Rule J:/New soft project/DropBridge/src/radio_usb/CMakeLists.txt
   main.cpp
   airbridge_radio.vcxproj -> J:\New soft project\DropBridge\build\radio_usb\Release\airbridge_radio.exe

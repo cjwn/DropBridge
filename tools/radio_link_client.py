@@ -1,33 +1,35 @@
-"""Minimal radio_link v3 client for testing airbridge_radio.
+"""Minimal radio_link v3 client for testing airbridge_radio (localhost TCP).
 
 Usage:
-  python tools/radio_link_client.py rx 5
+  python tools/radio_link_client.py rx 10
   python tools/radio_link_client.py tx 10
-  python tools/radio_link_client.py rx 3 --tx 5
+  python tools/radio_link_client.py rx 5 --tx 5
 
 The TX frame is the canonical devourer probe request, parsed from
 upstream/devourer/examples/tx/main.cpp, with the sequence number patched per
-frame. It is sent over the named pipe, not through libusb directly.
+frame. It is sent over the TCP link, not through libusb directly.
 """
 import os
 import queue
 import re
+import socket
 import struct
 import sys
 import threading
 import time
 from pathlib import Path
 
-PIPE = r"\\.\pipe\winawdl-radio"
+HOST = "127.0.0.1"
+PORT = int(os.environ.get("AIRBRIDGE_PORT", "49876"))
 MAX_PAYLOAD = 16384
 
 
-def read_exact(f, n):
+def read_exact(sock, n):
     data = b""
     while len(data) < n:
-        chunk = f.read(n - len(data))
+        chunk = sock.recv(n - len(data))
         if not chunk:
-            raise EOFError("pipe closed")
+            raise EOFError("socket closed")
         data += chunk
     return data
 
@@ -37,27 +39,29 @@ def connect(timeout_s=90):
     last = None
     while time.time() < deadline:
         try:
-            return open(PIPE, "r+b", buffering=0)
+            sock = socket.create_connection((HOST, PORT), timeout=2)
+            sock.settimeout(None)
+            return sock
         except OSError as exc:
             last = exc
             time.sleep(0.5)
-    raise SystemExit(f"cannot connect to {PIPE}: {last}")
+    raise SystemExit(f"cannot connect to {HOST}:{PORT}: {last}")
 
 
-def send(f, msg_type, payload):
+def send(sock, msg_type, payload):
     header = struct.pack("<HHI", msg_type, 0, len(payload))
-    f.write(header + payload)
+    sock.sendall(header + payload)
 
 
-def reader(f, q):
+def reader(sock, q):
     try:
         while True:
-            header = read_exact(f, 8)
+            header = read_exact(sock, 8)
             msg_type, _, length = struct.unpack("<HHI", header)
             if length > MAX_PAYLOAD:
                 q.put(("error", length))
                 return
-            payload = read_exact(f, length) if length else b""
+            payload = read_exact(sock, length) if length else b""
             q.put((msg_type, payload))
     except Exception:
         return
@@ -79,7 +83,11 @@ def canonical_frame():
 def main():
     args = sys.argv[1:]
     mode = args[0] if args else "rx"
-    seconds = float(args[1]) if len(args) > 1 and args[1].replace(".", "", 1).isdigit() else 5.0
+    seconds = (
+        float(args[1])
+        if len(args) > 1 and args[1].replace(".", "", 1).isdigit()
+        else 5.0
+    )
     tx_count = 0
     if "--tx" in args:
         tx_count = int(args[args.index("--tx") + 1])
@@ -87,19 +95,22 @@ def main():
         tx_count = int(args[1])
         seconds = 1.0
 
-    f = connect()
-    header = read_exact(f, 8)
+    sock = connect()
+    header = read_exact(sock, 8)
     msg_type, _, length = struct.unpack("<HHI", header)
-    hello = read_exact(f, length)
+    hello = read_exact(sock, length)
     if msg_type != 1 or len(hello) != 8:
         raise SystemExit(f"unexpected first message type={msg_type} len={length}")
     version, channel, width, _ = struct.unpack("<IBBH", hello)
     hello_at = time.time()
-    print(f"HELLO version={version} channel={channel} width={width}MHz "
-          f"at {hello_at:.3f}", flush=True)
+    print(
+        f"HELLO version={version} channel={channel} width={width}MHz "
+        f"at {hello_at:.3f}",
+        flush=True,
+    )
 
     q = queue.Queue()
-    threading.Thread(target=reader, args=(f, q), daemon=True).start()
+    threading.Thread(target=reader, args=(sock, q), daemon=True).start()
 
     rt, frame = canonical_frame()
     if tx_count:
@@ -107,8 +118,8 @@ def main():
             body = bytearray(frame)
             body[22] = (seq << 4) & 0xFF
             body[23] = (seq >> 4) & 0xFF
-            send(f, 3, bytes(rt) + bytes(body))
-        print(f"sent {tx_count} TX frames over the pipe", flush=True)
+            send(sock, 3, bytes(rt) + bytes(body))
+        print(f"sent {tx_count} TX frames over TCP", flush=True)
 
     deadline = time.time() + seconds
     rx = 0
@@ -125,12 +136,17 @@ def main():
             bytes_rx += len(payload)
             if rx <= 3:
                 rssi = struct.unpack("<b", payload[9:10])[0] if len(payload) >= 10 else 0
-                print(f"RX {len(payload)} bytes rssi={rssi} "
-                      f"first={payload[10:26].hex()}", flush=True)
+                print(
+                    f"RX {len(payload)} bytes rssi={rssi} "
+                    f"first={payload[10:26].hex()}",
+                    flush=True,
+                )
         else:
             print(f"msg type={msg_type} len={len(payload)}", flush=True)
-    print(f"RX frames={rx} bytes={bytes_rx} "
-          f"elapsed={time.time() - hello_at:.1f}s", flush=True)
+    print(
+        f"RX frames={rx} bytes={bytes_rx} elapsed={time.time() - hello_at:.1f}s",
+        flush=True,
+    )
     os._exit(0)
 
 

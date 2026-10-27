@@ -1,22 +1,20 @@
 # USB radio 后端（`src/radio_usb`）状态
 
-状态：**WIP，未通过 Phase 2 验收**。当前提交保留可编译的骨架和已经验证的管道方向，硬件 RX 转发尚未打通。
+状态：**TCP 传输与硬件 RX 已打通；TX 尚未通过空口见证，Phase 2 未完成。**
 
-## 已实现
+## 已实现并验证
 
-- CMake 工程 `src/radio_usb/CMakeLists.txt`，链接 devourer + libusb，C8821C-only。
 - `airbridge_radio.exe`：libusb 打开 `0bda:c820`、claim interface 2、`CreateRadio`、`InitWrite`、`StartRxLoop`。
-- `radio_link` v3 帧格式（MIT）：HELLO、RX、TX、SET_CHANNEL、SET_BSSID_FILTER、SET_ADDRESS。
-- 命名管道服务：客户端连接后收到 HELLO（version 3、channel、width）。
-- 管道双向已被“合成 RX”自测验证：主线程写入的 10 字节 RX 消息，Python 客户端能完整收到。
+- `radio_link` v3 帧格式（MIT）跑在 **localhost TCP（127.0.0.1:49876）** 上；HELLO 带 8 字节消息头，客户端解析为 version 3 / channel 6 / width 20。
+- RX：客户端 10 秒收到 **311 帧、28957 字节**，含真实 beacon 帧（RSSI 约 -114..-121）。RX 回调经有界队列交给独立写线程，慢客户端不会阻塞 USB RX 环。
+- 端口用 `SO_EXCLUSIVEADDRUSE`；此前 `SO_REUSEADDR` 导致客户端连到别的本地服务。
 
 ## 未通过 / 已知问题
 
-1. **硬件 RX 转发未通。** RX 回调确实被调用（日志 `rx cb=...`），但从 RX 线程 `WriteFile` 到命名管道时，客户端在窗口内收不到帧；客户端关闭后写入返回 `ERROR_NO_DATA (232)`。已排除“合成 RX”路径，问题集中在跨线程写管道或 RX 启动时序，尚未定位。
-2. **启动时序。** `InitWrite` 后立即 `StartRxLoop` 的首帧可能延迟数秒；当前代码先等首帧（warmup）再接受客户端，仍未能解决转发。
-3. **命名管道与 Dart 的兼容性。** Dart 的 `dart:io` 没有 Windows 命名管道 API；如果坚持 Dart 应用，IPC 应改为 **localhost TCP** 或 **stdin/stdout 长度前缀帧**。`radio_link` 帧格式可以保留。
-4. **固件启动重试。** 反复 reset 后出现过 `FW ready check failed (0x80 != 0xC078)`，devourer 的 CPU-reset 重试一次后恢复；恢复后 `doctor` 判定 `HEALTHY`。测试之间建议拔插/重新上电。
-5. **未做**：TX over pipe、SET_CHANNEL over pipe、BSSID/address 过滤实测、断连重连、Dart 客户端。
+1. **TX over TCP 尚未被空口见证。** 客户端通过 TCP 发 20 帧，radio 记录 `tx sent 20 failed 0`，但 ESP32-S3 在同一时间窗口收到 0 帧。可能是 RX 环启动时序、TX 队列/CCA 或帧内容问题；尚未定位。
+2. **启动慢。** 反复 reset 后 bring-up 可到约 2 分钟；期间出现一次 `FW ready 0x80 != 0xC078`，devourer 自动重试后恢复。正常一次约 40–120 秒。
+3. **未测**：SET_CHANNEL、SET_BSSID_FILTER/SET_ADDRESS 的硬件效果、断连重连、TX report/ACK、Dart 客户端。
+4. **Dart 兼容性**：保留 TCP 而不是命名管道，Dart `Socket` 可直接使用；`radio_link` 帧不变。
 
 ## 构建
 
@@ -31,12 +29,20 @@ cmake -S src/radio_usb -B build/radio_usb -G "Visual Studio 17 2022" -A x64 `
 cmake --build build/radio_usb --config Release --target airbridge_radio
 ```
 
-运行：`build/radio_usb/Release/airbridge_radio.exe 6 20`（初始化约 40 秒，然后等待客户端）。
+运行：`build/radio_usb/Release/airbridge_radio.exe 6 20`（初始化后监听 `127.0.0.1:49876`）。
 
-测试客户端：`python tools/radio_link_client.py rx 10`。
+## 测试客户端
+
+```powershell
+python tools/radio_link_client.py rx 10
+python tools/radio_link_client.py tx 20
+```
+
+- RX 已通过（311 帧/10 s）。
+- TX 当前只验证到“radio 收到并调用 send_packet”，空口未见；ESP32 见证日志 `evidence/esp32-witness-radio-tx.log` 匹配数为 0。
 
 ## 下一步
 
-1. 决定 IPC：localhost TCP 或 stdio（Dart 兼容），再重做传输层；管道原型保留作对照。
-2. 用 C++ 客户端复现并定位跨线程写问题；确认后重测硬件 RX/TX。
-3. 通过后再接 `SET_CHANNEL`、`SetStationIdentity` 和 Dart 应用。
+1. 把 RX 环在 accept 之前启动（或客户端 HELLO 后等待 RX 就绪）再测 TX，排除“TX 早于 RX 环”的时序问题。
+2. 若仍无空口帧，检查 `send_packet` 返回后的 TX report/队列状态，并对比 `txdemo`（已知能上空中）的调用顺序。
+3. 通过后再测 SET_CHANNEL、地址/过滤、Dart 客户端，最后接 AWDL。

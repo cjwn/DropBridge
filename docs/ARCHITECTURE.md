@@ -9,7 +9,7 @@ AirBridge32（Dart / Flutter 应用）
 ├─ 托盘、设置、接收确认、文件保存、日志
 ├─ AWDL 发现 / 同步 / 信道调度（目标：Dart）
 ├─ AirDrop 应用层（TLS / HTTP / 身份，目标：Dart）
-└─ 命名管道 radio_link v3（MIT）
+└─ localhost TCP radio_link v3（MIT，127.0.0.1:49876）
       └─ radio.exe（C++ / devourer，GPL-2.0）
             └─ 独占 RTL8821CU USB：初始化、固件、RX、TX、换信道
 ```
@@ -52,6 +52,7 @@ AirBridge32（Dart / Flutter 应用）
 ## 4. 接口与错误处理
 
 - `radio_link` v3：8 字节小端头 + 载荷，最大 16384 字节；TX/RX 载荷为 radiotap + 802.11。
+- 传输：**localhost TCP（127.0.0.1:49876，SO_EXCLUSIVEADDRUSE）**。不用 Windows 命名管道，因为 Dart 的 `dart:io` 没有该 API；帧格式保持不变。
 - Dart 侧只包含 MIT 的 `radio_link.h` 等价定义；不引入 `radio` 目录的 GPL 代码。
 - `radio.exe` 退出码区分：设备缺失、初始化失败、管道被占用、USB 错误。
 - Dart 应用负责重启策略：设备重枚举后重新打开；连续失败进入可见错误状态，不静默。

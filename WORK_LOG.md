@@ -169,3 +169,15 @@
 - 未做：TX over pipe、SET_CHANNEL、地址/过滤、Dart 客户端。
 
 下一步：先定 IPC（TCP/stdio），再修 RX 转发并重测；不要在未通的情况下接 AWDL。
+
+## 2026-10-27：radio 后端改用 localhost TCP，硬件 RX 打通
+
+- 按 Dart 兼容性，把 IPC 从 Windows 命名管道改为 **localhost TCP 127.0.0.1:49876**，`radio_link` v3 帧格式不变；端口用 `SO_EXCLUSIVEADDRUSE`，避免 `SO_REUSEADDR` 被别的本地服务抢连。
+- 修了一个协议 bug：TCP 版 HELLO 漏发 8 字节消息头，客户端把 HELLO 当成了 type=3/len=5126。
+- RX 回调改为 **有界队列 + 独立写线程**，慢客户端不再阻塞 USB RX 环。
+- 实测 RX：客户端 10 秒收到 **311 帧、28957 字节**，含真实 beacon，RSSI 约 -114..-121。
+- TX：客户端经 TCP 发 20 帧，radio 记录 `tx sent 20 failed 0`，但 ESP32-S3 同时段空口匹配 0 帧；尚未定位（怀疑 RX 环启动时序或 TX 队列/CCA）。
+- 启动耗时在反复 reset 后可达约 2 分钟，并出现过一次固件启动失败后自动重试成功。
+- 证据：`evidence/radio-usb-run-rx.log`、`evidence/radio-usb-run-tx.log`、`evidence/esp32-witness-radio-tx.log`；状态见 `docs/RADIO_USB.md`。
+
+下一步：让 RX 环先于客户端 accept 启动（或 HELLO 后等 RX 就绪）再测 TX；通过后再测换信道与 Dart 客户端。
