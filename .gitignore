@@ -7,3 +7,7 @@ __pycache__/
 evidence/awdl2-receiver.log
 
 evidence/sockets-receiver.log
+
+evidence/tuned-receiver.log
+
+evidence/sockets-receiver.log

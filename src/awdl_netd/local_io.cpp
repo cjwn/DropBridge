@@ -24,6 +24,9 @@ intptr_t local_tcp_connect(int port) {
         closesocket(s);
         return -1;
     }
+    int one = 1;
+    setsockopt(s, IPPROTO_TCP, TCP_NODELAY,
+               reinterpret_cast<const char *>(&one), sizeof(one));
     return static_cast<intptr_t>(s);
 }
 

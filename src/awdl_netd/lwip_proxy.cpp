@@ -132,6 +132,8 @@ extern "C" void awdl_netd_start_tcp_proxy() {
             int fd = lwip_accept(listener, reinterpret_cast<sockaddr *>(&peer),
                                  &peer_len);
             if (fd < 0) continue;
+            int one = 1;
+            lwip_setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
             std::thread(proxy_connection, fd).detach();
         }
     }).detach();

@@ -1,0 +1,4 @@
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: mDNS proxy 127.0.0.1:15353 <-> ff02::fb:5353
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready

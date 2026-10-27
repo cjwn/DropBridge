@@ -313,3 +313,10 @@
 - 结果：iPhone 15 Pro Max（iOS 17.5）通过 AirBridge32 传回 `IMG_3583-1.PNG`，2,911,531 字节，PNG 1290×2796，SHA-256 `C899358A...C48B1`，与之前成功文件一致；上传约 36 秒。
 - 证据：`evidence/airdrop-userspace-tun-on.txt`（去敏）；原始接收日志未提交。
 - 状态：**用户态 AWDL 数据面端到端可用**；下一步优化吞吐、清理 PoC 开关、接 Dart UI。
+
+## 2026-10-27：吞吐对齐第一次成功（2.9 MB / 11.15 s）
+
+- 对照第一次 Wintun/Windows 栈的 10.1 秒，调优 lwIP：`TCP_WND=240 KiB` + 窗口缩放、`TCP_MSS=1360`、`TCP_SND_BUF=32 KiB`、lwIP 和本地代理 socket 都开 `TCP_NODELAY`。
+- 实测 TUN 仍为 Up：`IMG_3583-2.PNG` 2,911,531 字节，上传 **11.15 秒（~261 KB/s）**，SHA-256 与第一次成功文件一致。
+- 证据：`evidence/airdrop-userspace-tuned.txt`（去敏）；原始接收日志未提交。
+- 下一步：清理 `AWDL_NETD_*` PoC 调试开关，接 Dart/Flutter UI 与安装流程。

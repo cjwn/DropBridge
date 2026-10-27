@@ -65,8 +65,9 @@ cmake --build build/awdl --parallel 8
 - 2026-10-27 实测：`singbox_tun` Up、`ping ::1` 100% loss 的情况下，iPhone 15 Pro Max（iOS 17.5）仍通过 AirBridge32 传回 **2,911,531 字节 PNG**，PNG 签名/尺寸/SHA-256 均正确。
 - 路径：radio 149 → 桥 → awdld IPC → `awdl_netd`（lwIP IPv6 + 阻塞 sockets）→ `receiver.py`。
 - mDNS 复用 `mdns.py` 原记录，经 UDP 5353 ↔ 本地 15353 代理；TCP 8771 经 lwIP sockets + 阻塞代理转发到 `receiver.py`。
-- `/Discover`、`/Ask`、`/Upload` 全部通过；本次上传约 36 秒（~80 KB/s），比之前 Wintun/Windows 栈的 ~10 秒慢，后续再优化窗口/批量。
-- 证据：`evidence/airdrop-userspace-tun-on.txt`（去敏）。
+- `/Discover`、`/Ask`、`/Upload` 全部通过；调优后本次上传 **11.15 秒（~261 KB/s）**，第一次 Wintun/Windows 栈是 10.1 秒，已基本对齐。
+- 调优参数：`TCP_WND=240 KiB` + 窗口缩放、`TCP_MSS=1360`、`TCP_SND_BUF=32 KiB`、lwIP/本地 socket 均开 `TCP_NODELAY`。
+- 证据：`evidence/airdrop-userspace-tun-on.txt`、`evidence/airdrop-userspace-tuned.txt`（去敏）。
 
 ## 已知限制
 
