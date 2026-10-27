@@ -431,3 +431,15 @@
 - 未做：`-Run` 真机起停三次、与便携包的同文件 A/B、单文件 exe 外壳（Q4）。这三项都要硬件授权或额外外壳工作。
 - 证据：`evidence/headless-package.log`。
 - 队列：Q3 → 🔜（脚本与包完成，实测待授权）；Q4 载荷已就绪，外壳未做。
+
+## 2026-10-27：Q4 原型——16.0 MB 单文件自解压 exe
+
+机器上没有 7-Zip/WinRAR，没有装任何打包器；改用 Windows 自带 `csc.exe`（.NET Framework 4.8）编一个 7 KB 的 C# stub，`System.IO.Compression` 读内嵌 ZIP。
+
+- `src/sfx/Program.cs`：解压到 `%LOCALAPPDATA%\AirBridge32\<exe 时间戳>\`，`extracted.txt` 作标记；默认解压后启动 `Start.cmd`；`--extract` / `--where` 便于安全测试；对 zip 条目做目录穿越校验、兼容 `Compress-Archive` 写出的反斜杠与空目录条目。
+- `tools/Build-Sfx.ps1`：`dist\AirBridge32-headless` → `dist\payload.zip` → `dist\AirBridge32.exe`。
+- 实测：exe **16.0 MB**（stub 仅比载荷大 7 KB）；首次解压 **0.4 s / 333 文件**，第二次 **0.03 s**；包内 Python 导入 ssl/zlib/cryptography 正常；解压目录 dry-run 路径正确。
+- 结论：不需要 Flutter/Dart/Python 安装或第三方打包器即可"一个 exe"；代价仅是 .NET Framework 4.8（Win10 1903+/Win11 自带）。
+- 未做：干净 VM、SmartScreen/AV、真机启动（Q13 / 硬件授权）。
+- 决定：托盘监管（Q5）同样用 C# + WinForms（系统自带），不再写 Win32 C++：代码量约为 C++ 的三分之一，且能满足托盘、通知、单实例、开机自启。
+- 证据：`evidence/single-exe-prototype.log`；队列 Q4 → ✅。

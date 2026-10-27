@@ -1,0 +1,37 @@
+# 单文件自解压原型（Q4）
+
+2026-10-27。只验证"一个 exe"的可行性与体积/启动，没有启动链路、没有发帧。
+
+## 实现
+
+- `src/sfx/Program.cs`：自解压 stub，用 **系统自带** 的 `C:\Windows\Microsoft.NET\Framework64\v4.0.30319\csc.exe`（.NET Framework 4.8）编译，压缩包用 `System.IO.Compression` 读取。
+- `tools/Build-Sfx.ps1`：把 `dist\AirBridge32-headless` 压成 `payload.zip`，作为资源编进 `dist\AirBridge32.exe`。
+- 解压目标：`%LOCALAPPDATA%\AirBridge32\<exe 时间戳>\`；`extracted.txt` 作为"已解压"标记，升级不会覆盖旧版本目录。
+- 参数：默认解压后启动 `Start.cmd`；`--extract` 只解压并打印目录；`--where` 只打印目录。
+
+## 实测
+
+```text
+single exe: dist\AirBridge32.exe (16.0 MB)
+stub overhead: 7 KB over the 16.0 MB payload
+
+首次解压：0.4 s，333 个文件
+第二次运行：0.03 s（命中 extracted.txt，不再解压）
+目录：C:\Users\ndpyz\AppData\Local\AirBridge32\20261027-233145
+包内 Python：python ok 50.0.0（ssl / zlib / cryptography 均可导入）
+解压目录 dry-run：receiver 指向 <dir>\backend\python\python.exe 与 <dir>\backend\airdrop\receiver.py，正常
+```
+
+体积对照：旧 Flutter 便携包 ZIP **27.0 MB**；无 Dart 包 ZIP 16.0 MB；单文件 exe **16.0 MB**（比 ZIP 只多 7 KB）。
+
+## 结论
+
+- "一个 exe" 可行，且不需要 Flutter、Dart、Python 安装或任何第三方打包器。
+- stub 极其便宜（7 KB），代价只是 .NET Framework 4.8（Windows 10 1903+ / Windows 11 自带）。
+- 首次解压 0.4 s 可接受；第二次直通。
+
+## 未验证 / 风险
+
+- 未在干净 VM 上跑（需要 Q13）；未验证 SmartScreen/AV 是否拦截（未签名 exe 大概率有提示）。
+- 默认参数会启动 `Start.cmd`，也就是会初始化网卡并发帧——真机测试需要授权。
+- 目前的 `Start.cmd` 是控制台窗口，托盘/常驻是 Q5；单文件外壳本身与 Q5 独立。

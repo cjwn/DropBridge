@@ -33,7 +33,7 @@
 
 | 进程 | 文件 | 许可证 | 职责 |
 | --- | --- | --- | --- |
-| 监管 + 托盘 | `AirBridge32.exe` | MIT | 单文件自解压、启动顺序、健康检查、自恢复、通知、日志、退出清理、开机自启 |
+| 监管 + 托盘 | `AirBridge32.exe` | MIT | 单文件自解压、启动顺序、健康检查、自恢复、通知、日志、退出清理、开机自启（C# / .NET Framework 4.8，Windows 自带运行库） |
 | 无线 | `airbridge_radio.exe` | GPL-2.0 | USB/固件/PHY、radio_link TCP 49876 |
 | 桥 | `radio_pipe_bridge.exe` | MIT | 命名管道 ↔ radio TCP（V2 可并入其它进程） |
 | AWDL | `awdld.exe` | GPL-3.0 | OWL 控制面、原始 IPv6 |
@@ -132,6 +132,7 @@ iPhone ──AWDL──> RTL8821CU ──USB──> airbridge_radio.exe
 ## 7. 分发
 
 - 单文件自解压到 `%LOCALAPPDATA%\AirBridge32\<版本>\`，`data\` 跨版本保留；第二次启动不再解压；
+- 自解压 stub 用系统自带 `csc.exe` 编 C#（.NET Framework 4.8 为 Windows 10 1903+/11 内置），stub 只有 7 KB，16 MB 全在载荷；不引入打包器、不需要额外运行时；
 - 无管理员权限；唯一需要管理员的是 MI_02 绑 WinUSB（Zadig，一次性），后续可选引导式绑定，但**必须先完成回滚演练**；
 - 代码签名暂缺：未签名 exe 会触发 SmartScreen，README 如实说明；
 - 许可证义务：随包提供 `radio`（含 devourer）与 `awdld` 的对应源码获取方式；Realtek 固件再分发三选一（取得许可 / 运行时加载 / 只发源码），**发布前必须由用户拍板**；

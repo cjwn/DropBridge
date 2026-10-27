@@ -24,7 +24,7 @@
 | Q1 | receiver 离线吞吐台 | 无 | 20 MB 三次，给出 Python/TLS/zlib 侧 MB/s 上限与结论 | ✅ 2026-10-27：compressed 228 MB/s、stored 278 MB/s，非瓶颈 | `evidence/bench-receiver.md` |
 | Q2 | 身份证书去掉外部 openssl | 无 | 无 Git/OpenSSL 的 PATH 下能生成证书并 `/Discover` 200 | ✅ 2026-10-27：cryptography 进程内生成，openssl 仅回退 | `evidence/identity-no-openssl.log` |
 | Q3 | 无壳手动链路脚本 | 写脚本无依赖；**跑需授权** | 一键起停、日志分离、退出无残留 | 🔜 脚本与无壳包完成（dry-run、端口冲突、打包后路径均验证）；`-Run` 待授权 | `tools/Start-Chain.ps1`、`tools/Package-Headless.ps1` |
-| Q4 | 单文件自解压原型 | 无 | 干净 VM 双击可跑，≤30 MB，退出可清理 | ⬜ 载荷已就绪：`dist\AirBridge32-headless.zip` 16.0 MB；SFX 外壳未做 | — |
+| Q4 | 单文件自解压原型 | 无 | 干净 VM 双击可跑，≤30 MB，退出可清理 | ✅ 2026-10-27 原型：16.0 MB 单 exe、首解 0.4 s、二次 0.03 s；干净 VM/AV 未验 | `evidence/single-exe-prototype.log` |
 | Q5 | 原生托盘监管（替代 Flutter） | Q4 | 无窗口常驻、单实例、开机自启、退出清理、完成通知 | ⬜ | — |
 | Q6 | 日志轮转与诊断包 | Q5 | 5 MB×3 轮转；导出前脱敏 | ⬜ | — |
 | Q7 | 看门狗与恢复阶梯 | 硬件授权 | 假死注入后 ≤10 s 自动恢复；24 h 无泄漏 | ⬜ | — |
@@ -68,6 +68,8 @@
 
 - 动作：先用 7-Zip SFX（或 `makecab`+stub）把现有 portable 目录打成 `dist/AirBridge32.sfx.exe`，在干净 VM 试；数据够再决定是否写 C++ stub。
 - 判据：体积、首启耗时、SmartScreen/AV 是否拦、解压目录位置与清理。
+
+**结果（2026-10-27，已完成）**：机器上没有 7-Zip，改用系统自带 `csc.exe`（.NET Framework 4.8）写 7 KB stub + `System.IO.Compression`，`tools/Build-Sfx.ps1` 产出 `dist\AirBridge32.exe` **16.0 MB**。首次解压 0.4 s / 333 个文件，第二次 0.03 s；包内 Python 可导入 ssl/zlib/cryptography；解压目录 dry-run 路径正确。干净 VM 与 SmartScreen/AV 仍属 Q13。
 
 ### Q5 原生托盘监管
 
