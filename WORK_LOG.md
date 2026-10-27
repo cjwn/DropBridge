@@ -465,3 +465,11 @@
 - 同日遇到一次已知固件启动失败：`FW ready check failed (0x80 != 0xC078)`，cpu-reset 重试后恢复，启动被拖到 >60 s；说明固件重试需要可见状态和更长超时（Q7 剩余）。
 - 重新打包：headless ZIP 与单文件 exe 均 16.0 MB，监管 24 KB。
 - 证据：`evidence/supervisor-recovery.log`；队列 Q6 → ✅，Q7 → 🔜（假死检测、24 h 未做）。
+
+## 2026-10-27：端口占用快速失败 + 会话分析器
+
+- 监管启动前先试绑 49876/49877/8771/15353；占用即失败，不碰射频。实测：`python -m http.server 8771` 占住时 `--smoke 5` 3 秒内返回 `started=False`、`error=port 8771 is already in use`；解除后 `--smoke 8` 正常，说明不误报 TIME_WAIT。
+- 新增 `tools/analyze_session.py`：从监管会话目录的 `receiver.log`（`POST /Upload` 头 → `stored`）算真实 MB/s，从 `awdld.log` 算 joined 帧/s 与所需帧率；`--json` 可机读，`--latest <包根>` 取最近会话。
+- 监管日志新增 `start chain root=... args=...` 一行，便于定位会话。
+- 重新打包：headless ZIP 与单文件 exe 均 16.0 MB，监管 25 KB。
+- 下一步：等一次真实 iPhone 传输，用分析器给出“现链路 vs 便携包”的可比数字（Q3/Q8）。

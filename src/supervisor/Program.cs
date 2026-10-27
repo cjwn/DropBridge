@@ -309,9 +309,36 @@ internal sealed class Supervisor
         return true;
     }
 
+    // A stale instance holding a port is the most common start failure; report
+    // it before the radio is touched instead of after a 40 s init.
+    private static string PortProblem()
+    {
+        foreach (int port in new[] { 49876, 49877, 8771, 15353 })
+        {
+            try
+            {
+                var listener = new System.Net.Sockets.TcpListener(
+                    System.Net.IPAddress.Loopback, port);
+                listener.Start();
+                listener.Stop();
+            }
+            catch (System.Net.Sockets.SocketException)
+            {
+                return "port " + port + " is already in use (another AirBridge32 instance?)";
+            }
+        }
+        return null;
+    }
+
     public bool StartAll(int readyTimeoutSeconds, out string error)
     {
         error = null;
+        string busy = PortProblem();
+        if (busy != null)
+        {
+            error = busy;
+            return false;
+        }
         List<string> missing = Validate();
         if (missing.Count > 0)
         {
@@ -319,6 +346,7 @@ internal sealed class Supervisor
             return false;
         }
         if (File.Exists(AddressFile())) File.Delete(AddressFile());
+        _log.Write("supervisor", "start chain root=" + _root + " args=" + ChannelArguments);
 
         var radio = new Child("radio", RadioPath(), ChannelArguments,
             new Dictionary<string, string> { { "AIRBRIDGE_LOG_LEVEL", "warn" } },

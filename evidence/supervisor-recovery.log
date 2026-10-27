@@ -37,8 +37,21 @@ radio pid 42468 前后不变
 
 本次启动因此拖到 >60 s，`--auto-exit 120` 到点时链路还没起来。说明：**固件启动失败需要更长的就绪超时 + 明确的失败提示**，属于 Q7 未完成部分；当前 `StartAll` 超时 180 s，够用但没有“正在重试固件”的可见状态。
 
-## 未做（Q7 剩余）
+## 补充：端口占用快速失败（2026-10-27）
 
+启动前先试绑 49876 / 49877 / 8771 / 15353，占用则直接失败，不碰射频：
+
+```text
+（另起 python -m http.server 8771）
+--smoke 5 → exit 1
+started=False
+error=port 8771 is already in use (another AirBridge32 instance?)
+（3 s 内返回，radio 未启动）
+
+占用解除后 --smoke 8 → exit 0，started=True，allAlive=True
+```
+
+## 未做（Q7 剩余）
 - radio 假死（进程活着但空口不发）检测：需要 TX/ACK 统计或周期自检帧，且要有对端见证；
 - 24 h 常驻与句柄/内存泄漏；
 - 固件重试的可见进度（托盘状态）。
