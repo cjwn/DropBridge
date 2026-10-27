@@ -9,6 +9,7 @@ required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
             "docs/RADIO_CONTRACT.md", "docs/LICENSE_MATRIX.md",
             "docs/HARDWARE_INTAKE.md", "docs/BINDING_RUNBOOK.md",
             "docs/ARCHITECTURE.md", "docs/RADIO_USB.md",
+            "docs/PHASE3_AWDL.md",
             "docs/用户任务书.md",
             "evidence/build-configure.log", "evidence/build-8821c-configure.log",
             "evidence/build-8821c-configure-full.log",
@@ -32,7 +33,8 @@ required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
             "tools/esp32_witness/README.md",
             "tools/radio_link_client.py", "tools/radio_link_client.dart",
             "src/radio_usb/CMakeLists.txt", "src/radio_usb/main.cpp",
-            "src/radio_usb/radio_link.h",
+            "src/radio_usb/radio_link.h", "src/radio_usb/radio_pipe_bridge.cpp",
+            "tools/Build-Awdl.ps1",
             "tools/Inspect-Hardware.ps1", "tools/Check-Binding.ps1"]
 for name in required:
     assert (root / name).is_file(), f"Missing: {name}"

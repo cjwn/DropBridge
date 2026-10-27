@@ -1,0 +1,70 @@
+﻿[  2%] Building C object CMakeFiles/radiotap.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/radiotap/radiotap.c.obj
+cmake.exe : J:\New soft project\DropBridge\upstream\winawdl\upstream\owl\radiotap\radiotap.c: In function 'ieee80211_ra
+diotap_iterator_init':
+所在位置 行:5 字符: 1
++ & $cmake --build "$root\build\awdl" --parallel 8 2>&1 | Tee-Object -F ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (J:\New soft pro...iterator_init'::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+J:\New soft project\DropBridge\upstream\winawdl\upstream\owl\radiotap\radiotap.c:113:34: warning: taking address of pac
+ked member of 'struct ieee80211_radiotap_header' may result in an unaligned pointer value [-Waddress-of-packed-member]
+  113 |         iterator->_next_bitmap = &radiotap_header->it_present;
+      |                                  ^~~~~~~~~~~~~~~~~~~~~~~~~~~~
+[ 16%] Building C object CMakeFiles/host_if.dir/win/host_if.c.obj
+[ 16%] Building C object CMakeFiles/host_if.dir/win/host_frame.c.obj
+[ 16%] Building C object CMakeFiles/frame_fixup_test.dir/tests/frame_fixup_test.c.obj
+[ 16%] Building C object CMakeFiles/tcp_merge_test.dir/tests/tcp_merge_test.c.obj
+[ 16%] Building C object CMakeFiles/tcp_merge_test.dir/win/tcp_merge.c.obj
+[ 16%] Building C object CMakeFiles/redact_test.dir/tests/redact_test.c.obj
+[ 16%] Building C object CMakeFiles/service_bridge_test.dir/tests/service_bridge_test.c.obj
+[ 18%] Linking C static library libradiotap.a
+[ 20%] Building C object CMakeFiles/frame_fixup_test.dir/win/frame_fixup.c.obj
+[ 30%] Building C object CMakeFiles/redact_test.dir/win/redact.c.obj
+[ 30%] Building C object CMakeFiles/service_bridge_test.dir/win/service_bridge.c.obj
+[ 30%] Linking C executable tcp_merge_test.exe
+[ 30%] Linking C executable frame_fixup_test.exe
+[ 30%] Building C object CMakeFiles/service_bridge_test.dir/win/frame_fixup.c.obj
+[ 30%] Built target radiotap
+[ 32%] Linking C executable redact_test.exe
+[ 40%] Linking C executable service_bridge_test.exe
+[ 40%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/log.c.obj
+[ 40%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/state.c.obj
+[ 40%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/election.c.obj
+[ 40%] Built target tcp_merge_test
+[ 40%] Built target frame_fixup_test
+[ 44%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/sync.c.obj
+[ 44%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/channel.c.obj
+[ 51%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/schedule.c.obj
+[ 51%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/rx.c.obj
+[ 51%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/tx.c.obj
+[ 55%] Built target redact_test
+[ 55%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/frame.c.obj
+[ 57%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/crc32.c.obj
+[ 57%] Built target service_bridge_test
+[ 59%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/wire.c.obj
+[ 61%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/peers.c.obj
+[ 61%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/version.c.obj
+[ 63%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/hashmap.c.obj
+[ 67%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/siphash24.c.obj
+[ 67%] Building C object CMakeFiles/awdl.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/src/circular_buffer.c.obj
+[ 69%] Linking C static library libawdl.a
+[ 71%] Linking C static library libhost_if.a
+[ 71%] Built target host_if
+[ 73%] Building C object CMakeFiles/host_frame_test.dir/tests/host_frame_test.c.obj
+[ 75%] Built target awdl
+[ 75%] Linking C executable host_frame_test.exe
+[ 89%] Building C object CMakeFiles/awdld.dir/win/ev_win.c.obj
+[ 89%] Building C object CMakeFiles/awdld.dir/J_/New_soft_project/DropBridge/upstream/winawdl/upstream/owl/daemon/core.c.obj
+[ 89%] Building C object CMakeFiles/awdld.dir/win/io_win.c.obj
+[ 89%] Building C object CMakeFiles/awdld.dir/win/radio_client.c.obj
+[ 89%] Building C object CMakeFiles/awdld.dir/win/main.c.obj
+[ 89%] Building C object CMakeFiles/awdld.dir/win/redact.c.obj
+[ 89%] Building C object CMakeFiles/awdld.dir/win/netutils_win.c.obj
+[ 91%] Building C object CMakeFiles/awdld.dir/win/frame_fixup.c.obj
+[ 91%] Built target host_frame_test
+[ 95%] Building C object CMakeFiles/awdld.dir/win/tcp_merge.c.obj
+[ 95%] Building C object CMakeFiles/awdld.dir/win/service_bridge.c.obj
+[ 97%] Building C object CMakeFiles/awdld.dir/compat/ether.c.obj
+[100%] Linking C executable awdld.exe
+[100%] Built target awdld

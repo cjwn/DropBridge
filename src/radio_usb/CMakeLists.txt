@@ -29,6 +29,15 @@ add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../upstream/devourer"
 add_executable(airbridge_radio main.cpp radio_link.h)
 target_link_libraries(airbridge_radio PRIVATE devourer PkgConfig::libusb ws2_32)
 target_compile_features(airbridge_radio PRIVATE cxx_std_20)
+
+# awdld (WinAWDL/OWL) still opens the named pipe; this byte pump connects it to
+# the TCP radio without touching the wire protocol.
+add_executable(radio_pipe_bridge radio_pipe_bridge.cpp radio_link.h)
+target_link_libraries(radio_pipe_bridge PRIVATE ws2_32)
+target_compile_features(radio_pipe_bridge PRIVATE cxx_std_20)
+if(MSVC)
+    target_compile_options(radio_pipe_bridge PRIVATE /W4 /wd4819)
+endif()
 if(MSVC)
     target_compile_options(airbridge_radio PRIVATE /W4)
     target_compile_definitions(airbridge_radio PRIVATE _CRT_SECURE_NO_WARNINGS)

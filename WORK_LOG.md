@@ -240,3 +240,14 @@
 - 证据：`evidence/radio-usb-run-multi.log`、`evidence/esp32-witness-multi.log`；状态更新 `docs/RADIO_USB.md`。
 
 仍缺：空口 ACK 验证、5 GHz TX 见证（ESP32 只能 2.4 GHz）、AWDL 信道调度。
+
+## 2026-10-27：Phase 3 准备完成（awdld + Wintun + 管道桥）
+
+- 取回 OWL 与 radiotap 子模块（`upstream/winawdl/upstream/owl`）。
+- 用 WinAWDL 的 `fetch-wintun.ps1` 下载 Wintun 0.14.1，SHA-256 与 WireGuard LLC 签名校验通过。
+- 用 vcpkg 已下载的便携 MinGW（GCC 13.2）构建 `build/awdl/awdld.exe`；能打印 usage。
+- 新增 `src/radio_usb/radio_pipe_bridge.cpp`：命名管道 ↔ TCP 字节泵，不改 `radio_link` 协议；已用命名管道客户端验证收到 `HELLO version=3 channel=6 width=20`。
+- 新增 `tools/Build-Awdl.ps1` 和 `docs/PHASE3_AWDL.md`（运行顺序、授权边界、失败处理）。
+- **未运行 awdld**：它会创建 Wintun 虚拟网卡并在频道 44 发射 AWDL 帧，需要用户明确授权。
+
+下一步：获得授权后按 PHASE3_AWDL.md 启动 radio + bridge + awdld，用 iPhone 做第一次 AWDL 发现测试。
