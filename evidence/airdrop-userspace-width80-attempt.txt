@@ -1,0 +1,12 @@
+80 MHz attempt with corrected primary-channel offset — 2026-10-27 21:13
+
+Change: SelectedChannel.ChannelOffset for channel 149/80 MHz was 0 (centre
+computed as 149 instead of 155). The radio now passes offset=1, and the log
+confirms `channel 149 width 80 MHz offset 1`.
+
+Result: the iPhone still did not see AirBridge32 / could not send. No transfer
+ran. 40 MHz remains the highest usable width on this RTL8821CU + devourer USB
+path.
+
+Conclusion: 80 MHz is not usable here even with the correct centre channel;
+keep 40 MHz.

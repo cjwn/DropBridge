@@ -81,8 +81,26 @@ ChannelWidth_t width_from_mhz(int mhz) {
     }
 }
 
-bool send_all(SOCKET sock, const void *src, size_t len) {
-    const auto *p = static_cast<const char *>(src);
+/* channel.ChannelOffset is the primary-channel index inside the wide channel
+ * ({0,+6,+2,-2,-6} for 80 MHz). Passing 0 for an 80 MHz channel made the
+ * 8821C tune its centre to the primary channel, so an 80 MHz tune came up
+ * deaf. Map the common 5 GHz blocks; 20/40 MHz keep offset 0. */
+uint8_t channel_offset_for(uint8_t channel, int width_mhz) {
+    if (width_mhz != 80) return 0;
+    static const uint8_t blocks[] = {36, 52, 100, 116, 132, 149};
+    for (uint8_t block : blocks) {
+        if (channel >= block && channel < block + 16) {
+            const int pos = channel - block;
+            if (pos < 4) return 1;
+            if (pos < 8) return 2;
+            if (pos < 12) return 3;
+            return 4;
+        }
+    }
+    return 0;
+}
+
+bool send_all(SOCKET sock, const void *src, size_t len) {    const auto *p = static_cast<const char *>(src);
     while (len > 0) {
         const int n = ::send(sock, p, static_cast<int>(len), 0);
         if (n <= 0) return false;
@@ -270,7 +288,11 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         return 4;
     }
 
-    const SelectedChannel selected{channel, 0, width_from_mhz(width_mhz), 0};
+    const SelectedChannel selected{channel,
+                                   channel_offset_for(channel, width_mhz),
+                                   width_from_mhz(width_mhz), 0};
+    logger->info("radio: channel {} width {} MHz offset {}", channel,
+                 width_mhz, (int)selected.ChannelOffset);
     try {
         radio->InitWrite(selected);
     } catch (const std::exception &error) {

@@ -67,9 +67,9 @@ cmake --build build/awdl --parallel 8
 - mDNS 复用 `mdns.py` 原记录，经 UDP 5353 ↔ 本地 15353 代理；TCP 8771 经 lwIP sockets + 阻塞代理转发到 `receiver.py`。
 - `/Discover`、`/Ask`、`/Upload` 全部通过。
 - **推荐 40 MHz**：实测 7,710,365 字节 PNG 用 **7.35 秒（~1.05 MB/s）**，TUN 仍为 Up。
-- 宽度对比：20 MHz 约 261 KB/s；40 MHz 约 1.05 MB/s；80 MHz 在当前 USB/devourer 路径上设备不可见，不可用。
+- 宽度对比：20 MHz 约 261 KB/s；40 MHz 约 1.05 MB/s；80 MHz 即使修正 primary-channel offset（中心 155）后仍设备不可见，不可用。
 - 调优参数：`TCP_WND=240 KiB` + 窗口缩放、`TCP_MSS=1360`、`TCP_SND_BUF=32 KiB`、lwIP/本地 socket 均开 `TCP_NODELAY`。
-- 证据：`evidence/airdrop-userspace-tun-on.txt`、`evidence/airdrop-userspace-tuned.txt`、`evidence/airdrop-userspace-width40.txt`（去敏）。
+- 证据：`evidence/airdrop-userspace-tun-on.txt`、`evidence/airdrop-userspace-tuned.txt`、`evidence/airdrop-userspace-width40.txt`、`evidence/airdrop-userspace-width80-attempt.txt`（去敏）。
 
 ## 已知限制
 

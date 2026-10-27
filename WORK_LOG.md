@@ -327,3 +327,9 @@
 - 40 MHz 实测：`IMG_3582.PNG` 7,710,365 字节，TUN 仍 Up，上传 **7.35 秒（~1.05 MB/s）**，约 4 倍提升。
 - 结论：40 MHz 是当前 USB/devourer 路径的推荐宽度；80 MHz 暂不可用。
 - 证据：`evidence/airdrop-userspace-width40.txt`（去敏）。
+
+## 2026-10-27：80 MHz 中心信道修正后仍不可用
+
+- `SelectedChannel.ChannelOffset` 对 80 MHz 一直传 0，中心信道被算成 149；改为按 5 GHz 80 MHz block 计算，ch149 传 offset=1（中心 155）。
+- 日志确认 `channel 149 width 80 MHz offset 1`，但 iPhone 仍看不到设备、无法发送；80 MHz 在当前 RTL8821CU + devourer USB 路径不可用。
+- 保持 40 MHz 为推荐；证据 `evidence/airdrop-userspace-width80-attempt.txt`。
