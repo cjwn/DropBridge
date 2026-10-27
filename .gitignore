@@ -1,0 +1,4 @@
+/upstream/
+/build/
+*.local.json
+__pycache__/

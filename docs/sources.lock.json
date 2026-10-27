@@ -1,0 +1,32 @@
+[
+  {
+    "name": "winawdl",
+    "url": "https://github.com/raph559/winawdl.git",
+    "commit": "2196fb48b97cef1ee17ee1350c442972c4efeaf0",
+    "latestCommit": "2026-10-13T19:11:44+02:00 Set the README's name at the middle of its icon"
+  },
+  {
+    "name": "devourer",
+    "url": "https://github.com/OpenIPC/devourer.git",
+    "commit": "f7e073175852eeb87ccab7bfa619c41156a1b26b",
+    "latestCommit": "2026-10-26T15:16:52+03:00 jaguar1: HT40 centre channel follows the offset (vendor rtw_get_center_ch) (#500)"
+  },
+  {
+    "name": "swooshdrop",
+    "url": "https://github.com/AlbinoPriest/swooshdrop.git",
+    "commit": "c0eaff15ab608766973333a710eb364699a9393e",
+    "latestCommit": "2026-10-23T15:13:56+02:00 Prepare SwooshDrop 0.3.7 beta release and matching source offer"
+  },
+  {
+    "name": "owl",
+    "url": "https://github.com/seemoo-lab/owl.git",
+    "commit": "0ee3263f944ea721c355f826aa90d636d012a512",
+    "latestCommit": "2026-10-12T11:24:20+02:00 Update README.md"
+  },
+  {
+    "name": "opendrop",
+    "url": "https://github.com/seemoo-lab/opendrop.git",
+    "commit": "11fe7ba7861093b302bc0637e8cb10adf2d29337",
+    "latestCommit": "2026-08-17T14:18:16+02:00 Update README.md"
+  }
+]

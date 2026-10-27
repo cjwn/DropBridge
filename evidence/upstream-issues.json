@@ -1,0 +1,206 @@
+[
+  {
+    "repo": "raph559/winawdl",
+    "checkedAt": "2026-10-27T04:14:47.7830769Z",
+    "items": []
+  },
+  {
+    "repo": "OpenIPC/devourer",
+    "checkedAt": "2026-10-27T04:14:48.7921446Z",
+    "items": [
+      {
+        "number": 500,
+        "title": "jaguar1: HT40 centre channel follows the offset (vendor rtw_get_center_ch)",
+        "state": "closed",
+        "html_url": "https://github.com/OpenIPC/devourer/pull/500",
+        "updated_at": "2026-10-26T12:17:02Z"
+      },
+      {
+        "number": 499,
+        "title": "Follow-ups left open by the 8822B DFIR and J3 runtime-thread reviews (#497, #498)",
+        "state": "open",
+        "html_url": "https://github.com/OpenIPC/devourer/issues/499",
+        "updated_at": "2026-10-26T15:39:20Z"
+      },
+      {
+        "number": 498,
+        "title": "jaguar3: make the coex/phydm runtime thread optional (tuning.j3_runtime_thread); skip_dig on Jaguar3",
+        "state": "closed",
+        "html_url": "https://github.com/OpenIPC/devourer/pull/498",
+        "updated_at": "2026-10-26T11:53:24Z"
+      },
+      {
+        "number": 497,
+        "title": "jaguar2: 8822B RX DFIR follows the channel width (vendor phydm_rxdfirpar_by_bw_8822b)",
+        "state": "closed",
+        "html_url": "https://github.com/OpenIPC/devourer/pull/497",
+        "updated_at": "2026-10-26T08:19:10Z"
+      },
+      {
+        "number": 496,
+        "title": "kestrel: drain bulk-IN during bring-up on USB; redo a bring-up the 8852C fw halted",
+        "state": "closed",
+        "html_url": "https://github.com/OpenIPC/devourer/pull/496",
+        "updated_at": "2026-10-21T06:41:09Z"
+      },
+      {
+        "number": 495,
+        "title": "Follow-ups left open by the Kestrel 80 MHz review (#494)",
+        "state": "open",
+        "html_url": "https://github.com/OpenIPC/devourer/issues/495",
+        "updated_at": "2026-10-18T05:47:35Z"
+      },
+      {
+        "number": 494,
+        "title": "kestrel: 80 MHz on the 8852C and 8852B — RX width, TX sub-carrier, fast same-block hop",
+        "state": "closed",
+        "html_url": "https://github.com/OpenIPC/devourer/pull/494",
+        "updated_at": "2026-10-18T05:30:31Z"
+      },
+      {
+        "number": 493,
+        "title": "ci: build-mingw on UCRT64",
+        "state": "closed",
+        "html_url": "https://github.com/OpenIPC/devourer/pull/493",
+        "updated_at": "2026-10-16T10:04:51Z"
+      }
+    ]
+  },
+  {
+    "repo": "seemoo-lab/owl",
+    "checkedAt": "2026-10-27T04:14:49.7353713Z",
+    "items": [
+      {
+        "number": 102,
+        "title": "Claude/zealous volta snwdr9",
+        "state": "closed",
+        "html_url": "https://github.com/seemoo-lab/owl/pull/102",
+        "updated_at": "2026-10-01T20:35:01Z"
+      },
+      {
+        "number": 101,
+        "title": "owl not working on Macbook Air 2020 M1",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/owl/issues/101",
+        "updated_at": "2026-08-27T06:41:11Z"
+      },
+      {
+        "number": 100,
+        "title": "error: 'uintptr_t' does not name a type",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/owl/issues/100",
+        "updated_at": "2026-08-16T02:11:01Z"
+      },
+      {
+        "number": 99,
+        "title": "Question: Expected SSID",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/owl/issues/99",
+        "updated_at": "2025-12-03T16:07:11Z"
+      },
+      {
+        "number": 97,
+        "title": "s",
+        "state": "closed",
+        "html_url": "https://github.com/seemoo-lab/owl/issues/97",
+        "updated_at": "2025-08-25T18:23:40Z"
+      },
+      {
+        "number": 96,
+        "title": "Does owl work with latest iOS？",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/owl/issues/96",
+        "updated_at": "2026-04-30T08:20:29Z"
+      },
+      {
+        "number": 95,
+        "title": "Cmake error on Arch",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/owl/issues/95",
+        "updated_at": "2025-08-23T15:10:11Z"
+      },
+      {
+        "number": 94,
+        "title": "question",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/owl/issues/94",
+        "updated_at": "2025-05-01T03:02:48Z"
+      }
+    ]
+  },
+  {
+    "repo": "seemoo-lab/opendrop",
+    "checkedAt": "2026-10-27T04:14:50.9615423Z",
+    "items": [
+      {
+        "number": 134,
+        "title": "Prevent path traversal when extracting received archives",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/opendrop/pull/134",
+        "updated_at": "2026-09-26T13:08:37Z"
+      },
+      {
+        "number": 133,
+        "title": "Repo about panel links to a gambling site",
+        "state": "closed",
+        "html_url": "https://github.com/seemoo-lab/opendrop/issues/133",
+        "updated_at": "2026-09-23T09:25:25Z"
+      },
+      {
+        "number": 132,
+        "title": "Fix startup without pkg_resources",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/opendrop/pull/132",
+        "updated_at": "2026-09-08T23:25:23Z"
+      },
+      {
+        "number": 131,
+        "title": "apt package with same name",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/opendrop/issues/131",
+        "updated_at": "2026-07-22T21:10:02Z"
+      },
+      {
+        "number": 130,
+        "title": "ConnectionRefusedError: [Errno 61] Connection refused",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/opendrop/issues/130",
+        "updated_at": "2026-01-04T08:36:28Z"
+      },
+      {
+        "number": 129,
+        "title": "TLS  certificates error",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/opendrop/issues/129",
+        "updated_at": "2025-12-29T10:41:05Z"
+      },
+      {
+        "number": 127,
+        "title": "Cannot find any device",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/opendrop/issues/127",
+        "updated_at": "2025-12-10T15:03:00Z"
+      },
+      {
+        "number": 126,
+        "title": "ipv6 requirement?",
+        "state": "open",
+        "html_url": "https://github.com/seemoo-lab/opendrop/issues/126",
+        "updated_at": "2025-12-10T20:24:01Z"
+      }
+    ]
+  },
+  {
+    "repo": "AlbinoPriest/swooshdrop",
+    "checkedAt": "2026-10-27T04:14:51.9137592Z",
+    "items": [
+      {
+        "number": 1,
+        "title": "Integrate KuiDaXElaina receiving improvements with scoped recovery",
+        "state": "closed",
+        "html_url": "https://github.com/AlbinoPriest/swooshdrop/pull/1",
+        "updated_at": "2026-10-23T13:04:41Z"
+      }
+    ]
+  }
+]
