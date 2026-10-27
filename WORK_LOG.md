@@ -221,3 +221,12 @@
 - devourer 警告 `tx.retry_limit=0`：MAC 不会重传未确认帧；AWDL 需要时应在 `DeviceConfig::tx.retry_limit` 设置。
 - 仍未验证：空口 ACK（需要 iPhone/第三台观察设备）、断连重连、5 GHz。
 - 证据：`evidence/radio-usb-run-address.log`、`evidence/radio-usb-run-address2.log`。
+
+## 2026-10-27：radio 支持断连重连
+
+- `radio.exe` 改为 accept 循环：radio 保持初始化，客户端断开后回到监听，不再退出进程。
+- 每个客户端会话重建 RX 队列/过滤状态/写线程，RX 计数器按会话清零。
+- 实测：同一 radio 进程连续两个客户端都收到 HELLO 并收包（1 帧 / 5 帧）；第二个客户端之后还能发 5 帧 TX（`tx sent 5 failed 0`）。
+- 证据：`evidence/radio-usb-run-reconnect.log`；状态更新 `docs/RADIO_USB.md`。
+
+下一步：`tx.retry_limit`（当前 0，不重传）、空口 ACK 验证、5 GHz/AWDL。

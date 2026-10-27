@@ -324,7 +324,18 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     /* Start RX before accepting a client: TX from the pipe thread must not
      * race the RX worker's first URBs. Frames heard before a client is ready
      * are dropped by on_rx's client_ready gate. */
-    OutQueue queue;
+    /* Accept clients forever: the Dart app may disconnect/reconnect without
+     * paying the 40-120 s bring-up again. Per-client state is recreated each
+     * iteration; the radio stays initialized. */
+    for (;;) {
+        g_rx_cb = 0;
+        g_rx_crc = 0;
+        g_rx_small = 0;
+        g_rx_filtered = 0;
+        g_rx_queued = 0;
+        g_rx_dropped = 0;
+
+        OutQueue queue;
     FilterState state;
     std::atomic<bool> client_ready{false};
     std::atomic<bool> send_failed{false};
@@ -353,13 +364,7 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         radio->StopRxLoop();
         if (rx_thread.joinable()) rx_thread.join();
         queue.stop();
-        closesocket(listener);
-        radio->Stop();
-        libusb_release_interface(handle, iface);
-        libusb_close(handle);
-        libusb_exit(ctx);
-        WSACleanup();
-        return 7;
+        break;
     }
     const BOOL nodelay = TRUE;
     setsockopt(client, IPPROTO_TCP, TCP_NODELAY,
@@ -372,17 +377,11 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     if (!send_all(client, &hello_header, sizeof(hello_header)) ||
         !send_all(client, &hello, sizeof(hello))) {
         logger->error("radio: HELLO write failed");
+        closesocket(client);
         radio->StopRxLoop();
         if (rx_thread.joinable()) rx_thread.join();
         queue.stop();
-        closesocket(client);
-        closesocket(listener);
-        radio->Stop();
-        libusb_release_interface(handle, iface);
-        libusb_close(handle);
-        libusb_exit(ctx);
-        WSACleanup();
-        return 7;
+        break;
     }
     client_ready = true;
     logger->info("radio: client connected, HELLO sent at {} ms", elapsed_ms());
@@ -496,11 +495,14 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     if (rx_thread.joinable()) rx_thread.join();
     queue.stop();
     if (writer.joinable()) writer.join();
-    radio->Stop();
-    radio.reset();
 
     shutdown(client, SD_BOTH);
     closesocket(client);
+    logger->info("radio: waiting for next client");
+    }
+
+    radio->Stop();
+    radio.reset();
     closesocket(listener);
     libusb_release_interface(handle, iface);
     libusb_close(handle);

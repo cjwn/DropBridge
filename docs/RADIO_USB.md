@@ -15,6 +15,7 @@
 - **BSSID 过滤**：设置 `00:11:22:33:44:55` 后 2 秒 0 帧；发送全零清除后 2 秒恢复 62 帧。全零现在表示“清除过滤”。
 - **Dart 客户端**：`tools/radio_link_client.dart` 连接 `127.0.0.1:49876`，收到 `HELLO version=3`，5 秒收 **84 帧 / 14664 字节**。Dart 的 `Socket` 可用，IPC 选择成立。
 - **SET_ADDRESS / SetStationIdentity**：BSSID 必须是单播（首字节偶数）且非零、与 own 不同；用 `56:42:75:05:d6:00` 成功 armed。devourer 警告 `tx.retry_limit=0`，MAC 不会重传未确认帧；空口 ACK 行为仍未验证。
+- **断连重连**：radio 改为 accept 循环，保持初始化状态。实测连续两个客户端都能收到 HELLO 并收包；第二个客户端之后还能发 5 帧 TX（`tx sent 5 failed 0`），不需要重启 radio。
 
 ## TX 曾经发不出去的原因
 
@@ -24,7 +25,7 @@
 
 1. **启动慢**：反复 reset 后 bring-up 约 40–120 秒，期间可能出现 `FW ready 0x80 != 0xC078`，devourer 自动重试后恢复。
 2. **未测**：SET_ADDRESS 的硬件 ACK 效果、断连重连、TX report/BlockAck、5 GHz。
-3. **单客户端**：当前 radio 只服务一个客户端，客户端断开后进程退出；Dart 应用需要重连时要重启 radio。下一版改成 accept 循环。
+3. **重连已支持**：accept 循环保持 radio 初始化；客户端断开后可以立即重连，不需要重新 bring-up。
 4. **固件状态**：多次 reset 后曾出现 TX 假死（`txdemo` 也发不出），拔插网卡后恢复；测试之间建议重新上电。
 
 ## 构建与运行
