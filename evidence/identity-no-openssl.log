@@ -1,0 +1,34 @@
+﻿# 身份证书生成验证（Q2）
+# 2026-10-27，Windows 11 + Python 3.12
+# 目的：干净机器（无 Git/OpenSSL）首次启动也能生成证书；有 cryptography 时不在进程外调用 openssl。
+
+== A. PATH 去掉 Git/OpenSSL（cryptography 可用）==
+openssl not found on PATH
+cert_bytes 1046 key_bytes 1704
+tls_load_ok
+
+== B. 屏蔽 cryptography，回退 Git 自带 openssl.exe ==
+cert_bytes 1084 key_bytes 1732
+tls_load_ok
+
+== C. 两者都没有（应明确报错，不静默）==
+python : Traceback (most recent call last):
+所在位置 行:1 字符: 2327
++ ... 312;C:\Windows\system32;C:\Windows"; python -c $fallback 2>&1 | Out-F ...
++                                          ~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Traceback (most recent call last)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  File "<string>", line 6, in <module>
+  File "J:\New soft project\DropBridge\upstream\winawdl\airdrop\identity.py", line 104, in ensure_self_signed
+    [find_openssl(), 'req', '-config', config, '-newkey', 'rsa:2048',
+     ^^^^^^^^^^^^^^
+  File "J:\New soft project\DropBridge\upstream\winawdl\airdrop\identity.py", line 44, in find_openssl
+    raise IdentityError('OpenSSL not found: put openssl on PATH or install Git for Windows')
+identity.IdentityError: OpenSSL not found: put openssl on PATH or install Git for Windows
+== D. 端到端：PATH 无 Git/OpenSSL，receiver 起 TLS 并完成 1 MB 上传 ==
+
+stored run 1: 0.01 s, 117.2 MB/s, sha=ok
+- 中位数：stored 117.2 MB/s
+
+

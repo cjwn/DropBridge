@@ -1,0 +1,36 @@
+# 补丁可复现性验证（Q2 附带）
+
+2026-10-27。目的：确认 `patches/` 里的两个补丁能从 `upstream/winawdl` 的锁定提交（2196fb4）干净应用，并逐字节复现当前工作树。
+
+## 背景
+
+- 旧 `patches/awdl-ipc-host.patch` 是 CRLF 换行，而工作树是 LF，干净应用时报 `patch does not apply`。
+- 旧 `tools/Apply-AwdlPatches.ps1` 在补丁"既不适用也不反向适用"时仍然 `exit 0`，所以这个损坏不会暴露。
+
+## 修复
+
+- 用 `git diff HEAD` 经 cmd 重定向重新生成补丁（LF 换行）；`awdl-ipc-host.patch` 只含 mdns.py / receiver.py / awdl CMakeLists / host_if_ipc.c，`airdrop-identity.patch` 单独含 identity.py。
+- `Apply-AwdlPatches.ps1` 改为逐个补丁处理：先 `apply --check`，失败再 `apply --check -R` 判定"已应用"，两者都不成立就抛错；新增 `-Repo` 参数便于在干净的 worktree 上验证。
+
+## 验证输出
+
+```text
+=== 活树（已应用）===
+already applied: awdl-ipc-host.patch
+already applied: airdrop-identity.patch
+exit=0
+
+=== 干净 worktree（从 HEAD 应用）===
+applied awdl-ipc-host.patch
+applied airdrop-identity.patch
+exit=0
+
+=== 逐文件哈希对比 ===
+SAME airdrop\identity.py
+SAME airdrop\mdns.py
+SAME airdrop\receiver.py
+SAME awdl\CMakeLists.txt
+SAME awdl\win\host_if_ipc.c
+```
+
+判定：补丁可从锁定提交重建当前上游副本，重复执行是幂等的。

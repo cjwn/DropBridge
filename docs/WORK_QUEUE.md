@@ -22,7 +22,7 @@
 | ID | 事项 | 依赖 | 完成判据 | 状态 | 证据 |
 | --- | --- | --- | --- | --- | --- |
 | Q1 | receiver 离线吞吐台 | 无 | 20 MB 三次，给出 Python/TLS/zlib 侧 MB/s 上限与结论 | ✅ 2026-10-27：compressed 228 MB/s、stored 278 MB/s，非瓶颈 | `evidence/bench-receiver.md` |
-| Q2 | 身份证书去掉外部 openssl | 无 | 无 Git/OpenSSL 的 PATH 下能生成证书并 `/Discover` 200 | ⬜ | — |
+| Q2 | 身份证书去掉外部 openssl | 无 | 无 Git/OpenSSL 的 PATH 下能生成证书并 `/Discover` 200 | ✅ 2026-10-27：cryptography 进程内生成，openssl 仅回退 | `evidence/identity-no-openssl.log` |
 | Q3 | 无壳手动链路脚本 | 写脚本无依赖；**跑需授权** | 一键起停、日志分离、退出无残留 | ⬜ | — |
 | Q4 | 单文件自解压原型 | 无 | 干净 VM 双击可跑，≤30 MB，退出可清理 | ⬜ | — |
 | Q5 | 原生托盘监管（替代 Flutter） | Q4 | 无窗口常驻、单实例、开机自启、退出清理、完成通知 | ⬜ | — |
@@ -51,6 +51,9 @@
 - 现状：`identity.py` 调 `openssl.exe`；干净机器没有 Git/OpenSSL 时首次启动失败（`--trace` 日志表现为 `IdentityError`）。
 - 动作：`identity.py` 优先用 `cryptography` 生成 RSA-2048 自签证书，缺失时回退 openssl；改动写入 `patches/`（新增 `airdrop-identity.patch` 或并入现有 patch），并让 `tools/Apply-AwdlPatches.ps1` 应用。
 - 验证：临时把 Git/OpenSSL 从 PATH 去掉，启动 receiver，确认生成 `certificate.self-signed.pem` / `key.self-signed.pem` 且 `/Discover` 返回 200。
+
+**结果（2026-10-27，已完成）**：`identity.py` 改为先用 `cryptography` 进程内生成 RSA-2048 自签证书（临时文件 + 原子替换），模块缺失时才回退 `openssl.exe`。三种情况实测：无 openssl 时生成 1046 B 证书并通过 `load_cert_chain`；屏蔽 cryptography 时 Git 自带 openssl 回退成功；两者都没有时明确抛 `IdentityError`。端到端 1 MB 上传通过。改动以 `patches/airdrop-identity.patch` 跟踪。
+- 附带修复：旧 `awdl-ipc-host.patch` 是 CRLF，干净树应用必失败，而 `Apply-AwdlPatches.ps1` 会静默 `exit 0`。已用 LF 重新生成两个补丁，脚本改为逐个补丁判"已应用/冲突"并在冲突时抛错，新增 `-Repo`；在锁定提交的干净 worktree 上应用后，五个文件的哈希与活树完全一致（`evidence/patches-reproduce.log`）。
 
 ### Q3 无壳手动链路脚本
 

@@ -145,7 +145,7 @@ iPhone ──AWDL──> RTL8821CU ──USB──> airbridge_radio.exe
 | --- | --- | --- | --- |
 | WP0 | 基准台：同一张 20 MB 文件、3 次、自动记录字节/耗时/帧率 | 基线表落盘，能复现 | 0.5 d |
 | WP1 | `AirBridge32.exe`：自解压 + 托盘 + 拉起/监管 + 退出清理 + 单实例 + 通知 | 干净机器双击可用，进程全部隐藏，退出无残留 | 3 d |
-| WP1.5 | 修 `identity.py` 的 `openssl.exe` 外部依赖（干净机器无 Git 时证书生成失败）；改用 `cryptography` 进程内生成 | 无 Git/无 OpenSSL 的 VM 上首次启动成功 | 0.5 d |
+| WP1.5 | 修 `identity.py` 的 `openssl.exe` 外部依赖（干净机器无 Git 时证书生成失败）；改用 `cryptography` 进程内生成 | 无 Git/无 OpenSSL 的 VM 上首次启动成功 | ✅ 2026-10-27（Q2） |
 | WP2 | E1–E4 实测与调优 | 20 MB ≥ 2.5 MB/s，否则给出瓶颈结论 | 3 d |
 | WP3 | 看门狗、恢复阶梯、日志/诊断包、电源管理、常驻 | 假死注入后 ≤ 10 s 恢复；24 h 常驻无泄漏 | 3 d |
 | WP4 | 单文件打包、干净 VM 验收、许可清单、卸载 | 验收指标全绿 | 2 d |

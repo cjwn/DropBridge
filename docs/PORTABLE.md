@@ -33,6 +33,7 @@ AirBridge32/
 - **点窗口 X 是“最小化”，不是退出**：app 和 radio 继续驻留，第二次接收不再重新初始化 radio。
 - 真正退出用界面里的 **“退出”** 按钮，会先停止所有后端。
 - 接收文件在 `data/received`，日志在 `data/airbridge32.log`。
+- 首次启动时由包内 `cryptography` 生成自签证书，**不再需要目标机安装 Git/OpenSSL**（`identity.py` 仅在模块缺失时才回退 `openssl.exe`）。
 
 ## 唯一需要管理员的步骤
 

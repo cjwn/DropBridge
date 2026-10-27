@@ -404,3 +404,20 @@
 - 局限：客户端与服务端同进程，数字是下限；但不影响“远高于需求”的结论。
 - 顺带发现：官方 `test_receiver.py` 在本机 9 个里 8 个失败（连 `::1`，本机 IPv6 回环被 TUN 挡，`WinError 10013`）；bench 用 `127.0.0.1` 绕开，测试环境需要另行修（未列入队列）。
 - 队列：Q1 → ✅；下一项 Q2。
+
+## 2026-10-27：Q2 完成——证书不再依赖外部 openssl；补丁恢复可复现
+
+`identity.py` 改为优先用 `cryptography` 进程内生成 RSA-2048 自签证书（临时文件 + `os.replace` 原子落盘），只在模块缺失时回退原来的 `openssl.exe` 路径。
+
+- A：PATH 去掉 Git/OpenSSL → 进程内生成，证书 1046 B、密钥 1704 B，`ssl.load_cert_chain` 通过。
+- B：屏蔽 `cryptography` → 回退 Git 自带 openssl，证书 1084 B，通过。
+- C：两者都没有 → 明确抛 `IdentityError`，不静默降级。
+- D：端到端 1 MB 上传（PATH 无 Git/OpenSSL）→ 117.2 MB/s、SHA-256 一致。
+- 证据：`evidence/identity-no-openssl.log`；改动以 `patches/airdrop-identity.patch` 跟踪（upstream 未入库）。
+
+附带修复两个真问题：
+
+- 旧 `patches/awdl-ipc-host.patch` 是 **CRLF**，对 LF 工作树 `apply --check` 必然失败；而 `Apply-AwdlPatches.ps1` 在补丁既不能正应用也不能反应用时仍然 `exit 0`，等于把损坏藏起来。已用 LF 重新生成两个补丁（identity 单独一个，互不重叠）。
+- 脚本改为逐补丁判定"应用 / 已应用 / 冲突抛错"，新增 `-Repo`；在锁定提交的干净 worktree 上应用后，identity.py、mdns.py、receiver.py、awdl/CMakeLists.txt、host_if_ipc.c 五个文件哈希与活树**完全一致**，重复执行幂等。证据：`evidence/patches-reproduce.log`。
+
+队列：Q2 → ✅；下一项 Q3（手动链路脚本）。

@@ -1,4 +1,4 @@
-﻿diff --git a/airdrop/mdns.py b/airdrop/mdns.py
+diff --git a/airdrop/mdns.py b/airdrop/mdns.py
 index bae0caf..036a077 100644
 --- a/airdrop/mdns.py
 +++ b/airdrop/mdns.py
