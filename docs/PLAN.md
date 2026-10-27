@@ -1,5 +1,7 @@
 # 开发计划与验收
 
+当前交付口径以 [FINAL_PLAN.md](FINAL_PLAN.md) 为准：删除 Dart/Flutter 壳、改为单文件自解压 + 原生托盘监管、Python 接收端保留、速度按“时隙 → ACK → USB → mDNS”四条实测线推进。
+
 ## 架构决定
 
 目标数据流：iPhone 原生 AirDrop → RTL8821CU → WinUSB/libusb → devourer C8821C → USB radio 进程 → radio_link v3 命名管道 → WinAWDL/OWL Windows AWDL 与 IPv6 → AirDrop 接收/用户确认 → 安全保存文件。

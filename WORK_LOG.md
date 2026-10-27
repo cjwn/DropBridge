@@ -369,3 +369,17 @@
 - `/Upload` 期间置位 `TRANSFER_BUSY`，mDNS 公告/查询回复暂停；上传结束恢复。
 - 实测 1.16 MB / 5.4 秒（~215 KB/s），体感明显恢复；仍低于手动 40 MHz 的 1.05 MB/s，后续继续定位。
 - 更新 `docs/DISCOVERY.md` 与 `patches/awdl-ipc-host.patch`。
+
+## 2026-10-27：最终方案定稿（去掉 Dart 壳、单文件分发、速度四线）
+
+用户要求以“手机端更稳、传输更快、系统更稳、分发更方便”为核心，给一个最终方案。只写决定，未改代码。
+
+- 新增 `docs/FINAL_PLAN.md`：V1 保留 GPL 边界（radio GPL-2.0 + awdld GPL-3.0 + MIT 其余进程），删除 `app/`（Flutter/Dart）与“embeddable Python 发行版 + Flutter 监管”的启动方式；用户侧改为**单文件自解压 exe + 原生托盘监管**，Python 接收端保留并由监管进程隐藏拉起。
+- 明确不做的项：单进程合并（GPL-2.0-only 与 GPL-3.0 不兼容）、Dart 重写 AWDL、Wintun、80 MHz、receiver 改 C++（均为 M3 后再议）。
+- 速度按 E1 时隙/信道序列 → E2 ACK/TX 优先级 → E3 USB 帧率 → E4 mDNS 开销 四条实测线推进；依据是 23:01 日志中 iPhone 成为 sync master 后 149 仅占 16 个时隙中的 4–7 个、joined 帧约 150 帧/s，而 1.05 MB/s 约需 700 帧/s。
+- 稳定性设计：看门狗指标、恢复阶梯（重开 RX → 重新 Init → USB reset → 重启 radio → 提示拔插）、单实例、USB 选择性挂起、崩溃隔离与退避重启、日志轮转与脱敏诊断包。
+- 分发：单文件解压到 `%LOCALAPPDATA%`、无需管理员、驱动绑定仍走 Zadig 且回滚演练列为硬门槛；Realtek 固件再分发三选一仍需用户拍板。
+- 发现一个真实分发阻塞：`identity.py` 依赖外部 `openssl.exe`，干净机器（无 Git/OpenSSL）首次启动会失败；已列为 WP1.5，改用包内 `cryptography` 进程内生成证书。
+- 同步更新 `README.md` 阅读入口与 `docs/PLAN.md` 顶部口径。
+
+未做：没有删除 `app/`、没有改任何后端代码、没有跑硬件实验（本轮只落方案）。下一步按 WP0 用同一张 20 MB 文件重建基线，再决定 WP1 的自解压外壳实现方式。
