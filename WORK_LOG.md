@@ -501,3 +501,11 @@
 - 实测（radio 单独跑 + Python 客户端）：`149→36` 1.86 ms、`36→149` 14.75 ms、`149→44` 12.2 ms（原完整路径约 90 ms）；换台后 RX 正常（36 上 43 帧/2 s、RSSI -40）。
 - 找到 Q15 主体的确切位置：OWL 的 `awdl_handle_chanseq_tlv` 把对端序列存进 `awdl_peer.sequence` 后就不管了，`state->channel.sequence` 始终是静态“全 149”，所以 `daemon/core.c` 的逐时隙换台永远只看到 149。下一步是把主控序列（含编码）写回 state，再让 core 的时隙循环驱动 SET_CHANNEL；跨频段那个 2.4 GHz 时隙先跳过。
 - 重新打包并重启为 149/20（会话 20261028-005000，radio 00:50:43 就绪）。证据 `evidence/radio-fast-retune.log`；队列 Q15 → 🔜。
+
+## 2026-10-28：Q15 主体代码完成（opt-in，待手机在线验证）
+
+- `owl/src/rx.c`：收到信道序列 TLV 且发送者是当前同步主控时，把序列（含编码）写回 `state->channel.sequence` / `state->channel.enc`，打印 `adopted channel sequence of sync master <mac>`；由 `AWDL_FOLLOW_MASTER_SEQ` 环境变量开启，默认关闭。这样 `daemon/core.c` 的逐时隙换台才会真正按主控时隙表走。
+- `src/radio_usb/main.cpp`：跨频段换台新增 `AIRBRIDGE_HOP_SKIP_CROSSBAND=1` 跳过（2.4 GHz 那个时隙用完整路径要 ~90 ms，会把超帧拖死）；同频段仍是 `FastRetune`。
+- 补丁体系：新增 `patches/owl-follow-chanseq.patch`（OWL 子仓库），`tools/Apply-AwdlPatches.ps1` 改为管理三个补丁、支持子仓库、可重复执行；已验证补丁能干净应用到 OWL 锁定提交 `da255a7` 的干净 worktree。
+- 测试状态：带两个开关跑过一次，但当时 `peers 0`（iPhone 没开隔空投送），收不到序列 TLV，**未验证跟随效果**。下次需要用户在 iPhone 上打开隔空投送，再看 `adopted channel sequence` 与 radio 的 `channel x -> y (…)` 是否出现，并测吞吐。
+- 重新打包并恢复默认（开关不设）的 149/20 链路。证据 `evidence/q15-follow-sequence.log`；队列 Q15 → 🔜（代码完成，待验证）。

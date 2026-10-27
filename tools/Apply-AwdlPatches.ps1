@@ -1,6 +1,5 @@
-# Applies the tracked patches to an upstream/winawdl tree.
-# The upstream tree is a research copy and is git-ignored; the patches are the
-# tracked artifacts. Run from the repository root.
+# Applies the tracked patches to the upstream research copies.
+# upstream/ is git-ignored; these patches are the tracked artifacts.
 #
 #   powershell -ExecutionPolicy Bypass -File tools/Apply-AwdlPatches.ps1
 #   powershell -ExecutionPolicy Bypass -File tools/Apply-AwdlPatches.ps1 -Repo build\winawdl-pristine
@@ -18,9 +17,11 @@ $root = Split-Path $PSScriptRoot -Parent
 if (-not [IO.Path]::IsPathRooted($Repo)) { $Repo = Join-Path $root $Repo }
 if (-not (Test-Path $Repo)) { throw "upstream tree missing: $Repo" }
 
+# (patch file, repository it applies to, relative to the upstream copy)
 $patches = @(
-    'awdl-ipc-host.patch',     # AWDL host IPC backend + receiver proxy/mDNS changes
-    'airdrop-identity.patch'   # self-signed certificate without external openssl
+    @{ Name = 'awdl-ipc-host.patch'; Repo = $Repo },
+    @{ Name = 'airdrop-identity.patch'; Repo = $Repo },
+    @{ Name = 'owl-follow-chanseq.patch'; Repo = (Join-Path $Repo 'upstream\owl') }
 )
 
 # Windows PowerShell turns a native command's stderr into a terminating error
@@ -31,21 +32,26 @@ function Invoke-Git([string[]]$Arguments) {
     return $LASTEXITCODE
 }
 
-foreach ($name in $patches) {
-    $patch = Join-Path $root "patches\$name"
+foreach ($entry in $patches) {
+    $patch = Join-Path $root "patches\$($entry.Name)"
+    $target = $entry.Repo
     if (-not (Test-Path $patch)) { throw "patch missing: $patch" }
+    if (-not (Test-Path $target)) {
+        Write-Host "skip $($entry.Name): no tree at $target"
+        continue
+    }
 
-    if ((Invoke-Git @('-c', "safe.directory=$Repo", '-C', $Repo, 'apply', '--check', $patch)) -eq 0) {
-        if ((Invoke-Git @('-c', "safe.directory=$Repo", '-C', $Repo, 'apply', $patch)) -ne 0) {
-            throw "git apply failed: $name"
+    if ((Invoke-Git @('-c', "safe.directory=$target", '-C', $target, 'apply', '--check', $patch)) -eq 0) {
+        if ((Invoke-Git @('-c', "safe.directory=$target", '-C', $target, 'apply', $patch)) -ne 0) {
+            throw "git apply failed: $($entry.Name)"
         }
-        Write-Host "applied $name"
+        Write-Host "applied $($entry.Name)"
         continue
     }
 
-    if ((Invoke-Git @('-c', "safe.directory=$Repo", '-C', $Repo, 'apply', '--check', '-R', $patch)) -eq 0) {
-        Write-Host "already applied: $name"
+    if ((Invoke-Git @('-c', "safe.directory=$target", '-C', $target, 'apply', '--check', '-R', $patch)) -eq 0) {
+        Write-Host "already applied: $($entry.Name)"
         continue
     }
-    throw "patch conflicts with the tree and is not already applied: $name"
+    throw "patch conflicts with the tree and is not already applied: $($entry.Name)"
 }

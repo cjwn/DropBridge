@@ -1,0 +1,49 @@
+diff --git a/src/rx.c b/src/rx.c
+index 9c0d68e..f166c21 100644
+--- a/src/rx.c
++++ b/src/rx.c
+@@ -19,6 +19,7 @@
+ 
+ #include <string.h>
+ #include <errno.h>
++#include <stdlib.h>
+ #include <netinet/in.h>
+ #include <netinet/ip6.h>
+ #include <radiotap.h>
+@@ -28,6 +29,7 @@
+ #include "sync.h"
+ #include "wire.h"
+ #include "log.h"
++#include "election.h"
+ 
+ #define AWDL_SYNC_THRESHOLD 3
+ 
+@@ -58,7 +60,7 @@ wire_error:
+ }
+ 
+ int awdl_handle_chanseq_tlv(struct awdl_peer *src, const struct buf *val,
+-                            struct awdl_state *state __attribute__((unused))) {
++                            struct awdl_state *state) {
+ 	uint8_t count;
+ 	uint8_t encoding;
+ 	uint8_t duplicate_count;
+@@ -102,6 +104,19 @@ int awdl_handle_chanseq_tlv(struct awdl_peer *src, const struct buf *val,
+ 		          awdl_chan_num(list[14], encoding), awdl_chan_num(list[15], encoding));
+ 		memcpy(src->sequence, list, sizeof(list));
+ 	}
++
++	/* AirBridge32: as a slave, follow the sync master's sequence so the
++	 * daemon's per-slot channel switch actually covers the peer's slots.
++	 * Opt-in: without AWDL_FOLLOW_MASTER_SEQ the static "all master channel"
++	 * sequence is kept (the behaviour every earlier measurement used). */
++	if (getenv("AWDL_FOLLOW_MASTER_SEQ") &&
++	    awdl_election_is_sync_master(&state->election, &src->addr) &&
++	    memcmp(state->channel.sequence, list, sizeof(list))) {
++		memcpy(state->channel.sequence, list, sizeof(list));
++		state->channel.enc = encoding;
++		log_info("adopted channel sequence of sync master %s",
++		         ether_ntoa(&src->addr));
++	}
+ 	return RX_OK;
+ 
+ wire_error:

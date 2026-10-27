@@ -1,0 +1,37 @@
+# Q15 主体：让 awdld 采用同步主控的信道序列（opt-in）
+
+2026-10-28 01:00。代码已完成并编译，但**还没有在手机在线时验证**——测试时 `peers 0`，iPhone 当时没有在发 AWDL。
+
+## 为什么之前不跟随
+
+- OWL 的 `awdl_handle_chanseq_tlv`（`owl/src/rx.c`）只把对端通告的序列存进 `awdl_peer.sequence`，从不写回 `state->channel.sequence`。
+- `state->channel.sequence` 在 `awdl_state_init` 里被 `awdl_chanseq_init_static()` 填成“每个时隙都是主信道 149”。
+- `owl/daemon/core.c` 的逐时隙循环读的正是 `state->channel.sequence[slot]`，所以永远只看到 149，只会在启动时打印一次 `switch channel to 149`。
+
+## 改动（两处，都默认关闭）
+
+1. `owl/src/rx.c`：收到信道序列 TLV 时，若发送者是当前同步主控，且环境变量 `AWDL_FOLLOW_MASTER_SEQ` 存在，则把该序列（连同编码）写入 `state->channel.sequence` / `state->channel.enc`，并打印
+   `adopted channel sequence of sync master <mac>`。
+   - 之后 `daemon/core.c` 会按主控的时隙表逐槽换台。
+2. `src/radio_usb/main.cpp`：`SET_CHANNEL` 同频段用 `FastRetune`；跨频段默认仍走完整路径，但设置 `AIRBRIDGE_HOP_SKIP_CROSSBAND=1` 时跳过跨频段换台（避免 2.4 GHz 那个时隙用 ~90 ms 的完整重调把整个超帧拖死）。
+
+## 启用方式（测试用，默认关闭）
+
+```powershell
+$env:AWDL_FOLLOW_MASTER_SEQ='1'
+$env:AIRBRIDGE_HOP_SKIP_CROSSBAND='1'
+build\supervisor\Release\AirBridge32.exe --root dist\AirBridge32-headless --channel 149 --width 20
+```
+
+子进程继承监管的环境变量，所以两条开关会同时作用到 awdld 与 radio。
+
+## 已验证 / 未验证
+
+- 已验证：`patches/owl-follow-chanseq.patch` 能干净应用到 OWL 锁定提交（`da255a7`）的干净 worktree；`tools/Apply-AwdlPatches.ps1` 现在同时管理三个补丁，并可重复执行。
+- 已验证：radio 的频内快切 1.9–15 ms（见 `evidence/radio-fast-retune.log`）。
+- **未验证**：手机在线时是否真的会出现 `adopted channel sequence`、逐时隙换台是否跟得上、吞吐是否提升。下次测试需要 iPhone 打开隔空投送（否则 `peers 0`，收不到序列 TLV）。
+
+## 预期与风险
+
+- 预期：可用时隙从约 2/16 提升到接近全部，帧率从 ~150 帧/s 提到数倍，20 MB 文件回到并超过 500 KB/s。
+- 风险：时隙切换（12–15 ms）可能吃掉可用时隙；若换台比停留还慢，吞吐反而下降，需要退回默认（不跟随）。
