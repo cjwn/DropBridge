@@ -519,3 +519,12 @@
 - 落地：监管给 awdld 固定 `AWDL_ELECTION_METRIC=200`（默认即主控模式，无需环境变量）；OWL 两处改动（rx.c 跟随开关、election.c metric 覆盖）收进 `patches/owl-airbridge.patch`（重命名），`Apply-AwdlPatches.ps1` 同步更新。打包版启动确认 `sync master is now 92:06:… (met 200)`。
 - 风险：强制主控会影响同一空域其他 Apple 设备的 AWDL 选举，属于产品级取舍；336 KB/s 是一次测量，需要重复三次确认。
 - 证据：`evidence/q15-master-mode.log`；队列 Q15 → ✅。
+
+## 2026-10-28：同一配置跑到 970 KB/s（≈1 MB/s）
+
+- 打开 radio 的逐 5 秒链路计数（新增 `AIRBRIDGE_RADIO_LOG=info` 透传 + `radio: stats cb/crc/...`）后再测 29.46 MB 视频：**30.37 s = 970 KB/s**，传输中 635 帧/s（546–817）。
+- 链路计数：传输期间回调 28,620 次、CRC 增加 4,291（约 15%）、小于 24 字节的帧 2,014；15% 的 CRC 仍能维持慢启动后的窗口增长。
+- 同配置 20 分钟前那次是 363 KB/s（81.2 s），**两次差 2.7 倍**，期间没有任何软件改动（只把 radio 日志级别从 warn 改成 info）。01:34 那次 radio 经历过多次固件启动失败与 full power-cycle 重试才起来，之后跑出 970——与之前 40 MHz“退化态只有冷启动能恢复”的现象同源。
+- 结论：**1 MB/s 可达**（970 KB/s 为实测）；但同一配置也会掉到 363 KB/s，必须做链路健康检测（Q7：帧率 < 300 帧/s 持续 10 s 判为低速，进入提示/恢复流程）。
+- 顺手修了监管：radio 就绪超时从 180 s 提到 300 s（固件重试会超过 180 s），启动失败后按 1/5/30 s 退避自动重试，而不是等用户点“重新启动”。
+- 证据：`evidence/transfer-970kbs.log`。

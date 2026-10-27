@@ -435,6 +435,23 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     });
 
     uint64_t tx_sent = 0, tx_failed = 0;
+
+    // Periodic link counters: a transfer's CRC share must be visible while it
+    // runs, not only in the teardown line.
+    std::atomic<bool> stats_stop{false};
+    std::thread stats_thread([&] {
+        while (!stats_stop.load()) {
+            for (int tick = 0; tick < 50 && !stats_stop.load(); tick++) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+            if (stats_stop.load()) break;
+            logger->info(
+                "radio: stats cb={} crc={} small={} filtered={} queued={} drop={} tx={} failed={}",
+                g_rx_cb.load(), g_rx_crc.load(), g_rx_small.load(),
+                g_rx_filtered.load(), g_rx_queued.load(), g_rx_dropped.load(),
+                tx_sent, tx_failed);
+        }
+    });
     for (;;) {
         radio_link_header header{};
         if (!recv_exact(client, &header, sizeof(header))) break;
@@ -543,6 +560,8 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         if (send_failed || rx_ended) break;
     }
 
+    stats_stop = true;
+    if (stats_thread.joinable()) stats_thread.join();
     logger->info("radio: client gone; tx sent {} failed {}; stopping",
                  tx_sent, tx_failed);
     logger->info("radio: rx cb={} crc={} small={} filtered={} queued={} drop={}",

@@ -357,8 +357,12 @@ internal sealed class Supervisor
         if (File.Exists(AddressFile())) File.Delete(AddressFile());
         _log.Write("supervisor", "start chain root=" + _root + " args=" + RadioArguments);
 
+        // warn keeps the radio log quiet; AIRBRIDGE_RADIO_LOG=info turns on the
+        // per-5-s link counters (rx cb/crc) used when diagnosing a transfer.
+        string radioLevel = Environment.GetEnvironmentVariable("AIRBRIDGE_RADIO_LOG");
+        if (string.IsNullOrEmpty(radioLevel)) radioLevel = "warn";
         var radio = new Child("radio", RadioPath(), RadioArguments,
-            new Dictionary<string, string> { { "AIRBRIDGE_LOG_LEVEL", "warn" } },
+            new Dictionary<string, string> { { "AIRBRIDGE_LOG_LEVEL", radioLevel } },
             _root, "listening on 127.0.0.1:49876", _log);
         var bridge = new Child("bridge", BridgePath(), "",
             null, _root, "waiting for awdld", _log);
@@ -406,6 +410,12 @@ internal sealed class Supervisor
                 }
             }
             int childTimeout = child == awdld ? Math.Max(timeout, 90000) : timeout;
+            if (child == radio)
+            {
+                // A firmware boot failure retries for ~80 s before the next
+                // attempt; 180 s ran out mid-retry once.
+                childTimeout = Math.Max(childTimeout, 300000);
+            }
             if (!child.WaitReady(childTimeout, out error))
             {
                 StopAll();
@@ -608,9 +618,13 @@ internal sealed class TrayApp : ApplicationContext
                         {
                             _supervisor.LastError = error;
                             _supervisor.Log("start failed: " + error);
-                            _status.Text = "状态：启动失败";
+                            _status.Text = "状态：启动失败，稍后自动重试";
                             _icon.ShowBalloonTip(8000, "AirBridge32 启动失败", error,
                                 ToolTipIcon.Error);
+                            // The radio sometimes fails several firmware boots
+                            // in a row; retry with the usual backoff instead of
+                            // waiting for the user to click 重新启动.
+                            if (!_gaveUp) RequestStart(true);
                         }
                     });
                 }
