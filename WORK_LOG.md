@@ -320,3 +320,10 @@
 - 实测 TUN 仍为 Up：`IMG_3583-2.PNG` 2,911,531 字节，上传 **11.15 秒（~261 KB/s）**，SHA-256 与第一次成功文件一致。
 - 证据：`evidence/airdrop-userspace-tuned.txt`（去敏）；原始接收日志未提交。
 - 下一步：清理 `AWDL_NETD_*` PoC 调试开关，接 Dart/Flutter UI 与安装流程。
+
+## 2026-10-27：40 MHz 将吞吐提升到 ~1.05 MB/s
+
+- 20 MHz 下 2.9 MB/11.15 s（~261 KB/s）；80 MHz 设备不可见、发送失败。
+- 40 MHz 实测：`IMG_3582.PNG` 7,710,365 字节，TUN 仍 Up，上传 **7.35 秒（~1.05 MB/s）**，约 4 倍提升。
+- 结论：40 MHz 是当前 USB/devourer 路径的推荐宽度；80 MHz 暂不可用。
+- 证据：`evidence/airdrop-userspace-width40.txt`（去敏）。

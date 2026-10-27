@@ -11,3 +11,7 @@ evidence/sockets-receiver.log
 evidence/tuned-receiver.log
 
 evidence/sockets-receiver.log
+
+evidence/width40-receiver.log
+
+evidence/width80-receiver.log

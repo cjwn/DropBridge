@@ -1,0 +1,25 @@
+Phase 3 user-space AWDL data plane — 40 MHz throughput, 2026-10-27 21:08 (+08:00)
+
+Environment: v2rayN TUN `singbox_tun` Up; `ping -6 ::1` still 100% loss.
+No Wintun, no Windows IPv6 path.
+
+Radio: RTL8821CU, channel 149, width 40 MHz
+Sender: iPhone 15 Pro Max, iOS 17.5
+File: IMG_3582.PNG
+Size: 7,710,365 bytes
+PNG: 1290 x 2796, signature 89504e470d0a1a0a
+SHA-256: DD60010D833548CAFA5933B942AB6EEBBE54F3C3FA7A72DB4EA30F0FE3434717
+
+Timing:
+  21:08:18.272 /Upload headers
+  21:08:25.623 7,682,246 body bytes received
+  21:08:25.847 stored (200)
+  upload duration: ~7.35 s  (~1.05 MB/s)
+
+Width comparison (same file class, user-space stack, TUN Up):
+  20 MHz: 2.9 MB in 11.15 s (~261 KB/s)
+  40 MHz: 7.7 MB in 7.35 s (~1.05 MB/s)  <- recommended
+  80 MHz: device not visible / send failed on this USB/devourer path
+
+Raw receiver log is kept locally (contains sender name/address/tokens) and is
+not committed. This summary is redacted.
