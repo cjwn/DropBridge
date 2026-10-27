@@ -14,6 +14,7 @@ Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirB
 - [Windows 构建记录](docs/BUILD_WINDOWS.md)
 - [USB radio 后端状态](docs/RADIO_USB.md)
 - [Phase 3：AWDL/AirDrop 实测](docs/PHASE3_AWDL.md)
+- [便携版 ZIP 与启动壳](docs/PORTABLE.md)
 - [目标架构：Dart 应用 + C++ radio](docs/ARCHITECTURE.md)
 - [无线层契约对照](docs/RADIO_CONTRACT.md)
 - [硬件接入与驱动绑定检查单](docs/HARDWARE_INTAKE.md)

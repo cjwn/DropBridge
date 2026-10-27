@@ -333,3 +333,11 @@
 - `SelectedChannel.ChannelOffset` 对 80 MHz 一直传 0，中心信道被算成 149；改为按 5 GHz 80 MHz block 计算，ch149 传 offset=1（中心 155）。
 - 日志确认 `channel 149 width 80 MHz offset 1`，但 iPhone 仍看不到设备、无法发送；80 MHz 在当前 RTL8821CU + devourer USB 路径不可用。
 - 保持 40 MHz 为推荐；证据 `evidence/airdrop-userspace-width80-attempt.txt`。
+
+## 2026-10-27：便携版 Flutter 壳与 ZIP
+
+- 新增 `app/` Flutter Windows 应用：`AirBridge32.exe` 自动按顺序启动并监管 radio/bridge/awdl_netd/awdld/receiver，显示状态与日志，退出时逆序清理。
+- 新增 `tools/Package-Portable.ps1`：收集后端、PyInstaller 打包 receiver、复制 VC 运行库/许可证，生成 `dist/AirBridge32-portable.zip`（约 19.6 MB）。
+- 实测：从解压目录双击 `AirBridge32.exe` 能启动全部后端，iPhone 通过隔空投送传回 `IMG_3588.PNG`（2,578,074 字节）。
+- 已知：便携版本次约 216 KB/s，手动同链路 40 MHz 约 1.05 MB/s；下一轮定位 receiver onefile/Flutter 监管层差异。
+- 文档：`docs/PORTABLE.md`。

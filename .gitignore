@@ -19,3 +19,7 @@ evidence/width80-receiver.log
 evidence/width80b-receiver.log
 
 evidence/width80b-radio.log
+
+/dist/
+
+evidence/portable-*.log

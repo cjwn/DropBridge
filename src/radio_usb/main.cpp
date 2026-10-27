@@ -225,7 +225,10 @@ void on_rx(const Packet &packet, OutQueue &queue, FilterState &state,
 int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     g_start = std::chrono::steady_clock::now();
     auto logger = std::make_shared<Logger>();
-    logger->set_level(Logger::Level::Info);
+    const char *log_level = std::getenv("AIRBRIDGE_LOG_LEVEL");
+    logger->set_level(log_level && std::strcmp(log_level, "warn") == 0
+                          ? Logger::Level::Warn
+                          : Logger::Level::Info);
 
     WSADATA wsa{};
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
@@ -347,6 +350,8 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         return 6;
     }
     logger->info("radio: listening on 127.0.0.1:{}", port);
+    /* Always on stderr so the GUI can detect readiness even in quiet mode. */
+    std::fprintf(stderr, "radio: listening on 127.0.0.1:%u\n", port);
 
     /* Start RX before accepting a client: TX from the pipe thread must not
      * race the RX worker's first URBs. Frames heard before a client is ready

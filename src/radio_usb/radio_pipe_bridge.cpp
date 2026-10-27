@@ -51,6 +51,7 @@ bool send_all(SOCKET sock, const char *data, int len) {
 }  // namespace
 
 int main() {
+    std::setvbuf(stdout, nullptr, _IONBF, 0);
     WSADATA wsa{};
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
         std::fprintf(stderr, "bridge: WSAStartup failed\n");
