@@ -348,3 +348,10 @@
 - 便携包 receiver 改为 **embeddable Python 3.12 + 原始 receiver.py**，不再 PyInstaller；ZIP 约 27 MB。
 - 对照结论：同一个 Flutter 壳 + 系统 Python 是 2.58 MB / 3.2 s；PyInstaller/embedded 出现 12–55 s 波动，Dart 不是瓶颈。
 - 下一步：原生 C++ receiver 直接并入 `awdl_netd`，去掉 Python 与本地 TCP 跳；并补单实例/托盘。
+
+## 2026-10-27：M1 原生 mDNS 实验
+
+- 新增 `src/awdl_netd/native_mdns.cpp`，按 `mdns.py` 构造 PTR/SRV/TXT/AAAA/NSEC，非阻塞每 2 秒发 `ff02::fb:5353`；
+- `awdld` 的 `tx data` 稳定增长，确认包已发出，但 iPhone 仍看不到设备；
+- 默认恢复 Python mDNS（`AWDL_NETD_MDNS_PROXY=1`），原生实现保留在 `AWDL_NETD_NATIVE_MDNS=1` 后面；
+- 下一步抓原生 DNS 报文与 `mdns.py` 逐字节对比；详见 `docs/NATIVE_RECEIVER.md`。

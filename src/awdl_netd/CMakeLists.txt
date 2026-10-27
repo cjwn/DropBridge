@@ -37,7 +37,7 @@ else()
     target_compile_options(lwip PRIVATE -std=c11 -w)
 endif()
 
-add_executable(awdl_netd main.cpp lwip_proxy.cpp local_io.cpp)
+add_executable(awdl_netd main.cpp lwip_proxy.cpp local_io.cpp native_mdns.cpp)
 target_include_directories(awdl_netd PRIVATE
     "${LWIP_DIR}/src/include"
     "${LWIP_CONTRIB}/ports/win32/include"

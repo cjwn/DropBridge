@@ -25,6 +25,7 @@ extern "C" {
 
 extern "C" void awdl_netd_start_tcp_proxy();
 extern "C" bool awdl_netd_start_mdns_proxy();
+extern "C" void awdl_netd_start_native_mdns(const uint8_t address[16]);
 
 namespace {
 
@@ -34,6 +35,7 @@ constexpr size_t kMaxFrame = 2048;
 SOCKET g_ipc = INVALID_SOCKET;
 SOCKET g_listen = INVALID_SOCKET;
 netif g_netif;
+uint8_t g_address[16] = {0};
 
 bool send_all(SOCKET s, const uint8_t *data, size_t len) {
     while (len > 0) {
@@ -74,6 +76,7 @@ err_t awdl_netif_init(struct netif *netif) {
 }
 
 void configure_address(const uint8_t address[16]) {
+    memcpy(g_address, address, 16);
     memcpy(g_netif.hwaddr, address + 8, 6);
     g_netif.hwaddr[0] ^= 0x02;
 
@@ -171,6 +174,10 @@ int main() {
     netif_set_up(&g_netif);
     netif_set_link_up(&g_netif);
     std::thread(ipc_reader).detach();
+
+    if (std::getenv("AWDL_NETD_NATIVE_MDNS")) {
+        awdl_netd_start_native_mdns(g_address);
+    }
 
     if (std::getenv("AWDL_NETD_MDNS_PROXY")) {
         if (!awdl_netd_start_mdns_proxy()) return 1;
