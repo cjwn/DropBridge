@@ -1,13 +1,23 @@
-# Phase 3：AWDL 接入（准备完成，等待授权运行）
+# Phase 3：AWDL 接入（首次真实传输成功）
 
-状态：**构建、桥接、AWDL 控制面已实测成功；AirDrop 数据面被当前 Codex 沙箱的离线防火墙阻塞，iPhone 尚看不到设备。** 运行会创建 Wintun 虚拟网卡并发射 AWDL 帧，必须先获得用户授权。
+状态：**首次真实 AirDrop 传输成功。** iPhone 15 Pro Max（iOS 17.5）在隔空投送中看到 AirBridge32，并把一张 2.9 MB PNG 传到 Windows；文件大小与 PNG 签名已核对。测试时必须关闭 v2rayN TUN（其 IPv6 关闭 + 严格路由会让 IPv6 不可用）。
 
-## 2026-10-27 实测结果
+## 2026-10-27 首次真实传输（v2ray TUN 关闭）
 
-- `awdld -c 149` 与 iPhone 15 Pro Max（iOS 17.5）的 AWDL 同步成功：`peers 2`、`rx action` 持续增长，同步树对端 `62:65:31:c5:29:59`，Wintun `awdl0`（ifIndex 68）创建成功，peer 可达 `fe80::...%68`。
-- 但 `rx data 3 / tx data 0`，Windows 侧 mDNS/HTTP 发不出去，iPhone 隔空投送里没有 AirBridge32。
-- 根因：当前 DSH 会话的 **Codex 沙箱离线防火墙**规则（`codex_sandbox_offline_block_outbound` 等）禁止所有非回环 IPv6；`ping ::1`、链路本地 ping 全部 `General failure`，而 IPv4 回环正常。详见 `evidence/awdl-sandbox-firewall.txt`。
-- 未修改任何防火墙规则。要在本机继续，需要在沙箱外的普通管理员终端运行，或明确授权临时停用这三条规则并在测试后恢复。
+- 环境：RTL8821CU 频道 149、20 MHz；`awdld -c 149` 提权运行；Wintun `awdl0`；`receiver.py --name AirBridge32`。
+- 结果：iPhone 依次 `POST /Discover`、`POST /Ask`、`POST /Upload`，存储 `IMG_3583.PNG`。
+- 文件：2,911,531 字节，PNG 签名 `89504e470d0a1a0a`，1290×2796，SHA-256 `C899358A...C48B1`；传输约 10.1 秒。
+- AWDL：`peers 1`，`rx data 2166 (2025 joined)`，`tx data 191`。
+- 证据：`evidence/airdrop-first-transfer.txt`（去敏）；原始接收日志含发送者姓名/IP/令牌，未提交。
+- 关键前提：v2rayN TUN 必须先完全退出。开着 TUN 时 `ping ::1` 失败、`tx data 0`，iPhone 看不到设备。
+
+## 2026-10-27 首轮失败与根因
+
+- 首轮 `awdld -c 149` 已与 iPhone 的 AWDL 同步（`peers 2`、`rx action` 增长），但 `rx data 3 / tx data 0`，iPhone 看不到 AirBridge32。
+- 当时 `ping ::1`、链路本地 IPv6 全部 `General failure`。先怀疑 DSH 的 `codex_sandbox_offline_*` 防火墙规则；后续确认这些规则的 `LocalUser` 是 `CodexSandboxOffline`（SID -1004），当前 shell 是 `ndpyz`（-1001），不是活动原因。
+- 真正原因：**v2rayN TUN 正在运行**，配置为 `EnableTun=true`、`AutoRoute=true`、`StrictRoute=true`、`EnableIPv6=false`、`EnableIPv6Address=false`，IPv6 被整体掐断。
+- 完全退出 v2rayN 后 `ping ::1`、链路本地 IPv6 立即恢复；随后同一条 AWDL 链路完成真实文件传输。
+- 未修改任何防火墙或 v2ray 配置。
 
 ## 组成
 
@@ -34,11 +44,11 @@ airbridge_radio.exe（C++/devourer，独占 RTL8821CU）
 | `tools/Build-Awdl.ps1` | 可复现构建 awdld |
 | `upstream/winawdl/upstream/owl` | OWL + radiotap 子模块已取回 |
 
-## 运行顺序（需要授权）
+## 运行顺序（已实测）
 
-1. 确认有线网络/另一块网卡可上网；AWDL 使用专用 RTL8821CU。
-2. 启动 radio（先用频道 44，20 MHz）：
-   `build\radio_usb\Release\airbridge_radio.exe 44 20`
+1. **先完全退出 v2rayN/TUN**（确认 `sing-box.exe` 也退出），否则 IPv6 不可用；确认另一块网卡可上网，AWDL 使用专用 RTL8821CU。
+2. 启动 radio（频道 149，20 MHz）：
+   `build\radio_usb\Release\airbridge_radio.exe 149 20`
 3. 启动桥：
    `build\radio_usb\Release\radio_pipe_bridge.exe`
 4. 启动 AWDL：

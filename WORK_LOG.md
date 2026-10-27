@@ -262,3 +262,13 @@
 - 根因：当前 DSH 会话的 Codex 沙箱离线防火墙规则（`codex_sandbox_offline_block_outbound` 等）禁止所有非回环 IPv6；`ping ::1`、链路本地、全局 IPv6 全部 `General failure`，IPv4 回环正常。详见 `evidence/awdl-sandbox-firewall.txt`。
 - 未修改任何防火墙规则；测试进程已停止。
 - 下一步：在沙箱外的普通管理员终端运行，或明确授权临时停用三条 block 规则并在测试后恢复。
+
+## 2026-10-27：首次真实 AirDrop 传输成功（iPhone → Windows）
+
+- 关闭 v2rayN/TUN 后 IPv6 恢复（`ping ::1`、链路本地均正常），确认首轮失败是 v2ray TUN 的 `EnableIPv6=false` + `StrictRoute=true` 导致，不是沙箱防火墙。
+- 按 PHASE3_AWDL.md 启动 radio 149 + 桥 + 提权 awdld + `receiver.py --name AirBridge32`。
+- iPhone 15 Pro Max（iOS 17.5）在隔空投送中看到 AirBridge32，依次 `POST /Discover`、`POST /Ask`、`POST /Upload`，传输一张 PNG。
+- 结果：`IMG_3583.PNG`，2,911,531 字节，PNG 签名有效，1290×2796，SHA-256 `C899358AE8D761C900946DD24F49DBC41F1CE04B05C859B9C071CF8F822C48B1`，约 10.1 秒。
+- AWDL 计数：`peers 1`，`rx data 2166 (2025 joined)`，`tx data 191`。
+- 证据：`evidence/airdrop-first-transfer.txt`（去敏）；原始接收日志含发送者姓名/IP/令牌，已加入 `.gitignore`，不提交。
+- 待办：v2ray TUN 开启时的 IPv6/link-local 排除或系统代理模式；5 GHz 空口 TX/ACK；Dart/Flutter UI 与打包。

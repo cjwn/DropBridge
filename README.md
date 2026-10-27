@@ -2,7 +2,7 @@
 
 Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirBridge32 为任务书暂定产品名；没有 ESP32 固件要求。
 
-**当前：Phase 1 进行中。RTL8821CU-only 的 devourer 已在 Windows 上构建成功并通过 74 项无硬件自检；目标网卡 `0bda:c820` 的 MI_02 已绑定 WinUSB，libusb 可 open/claim interface 2；芯片 ID 只读确认为 `0x09`（RTL8821C）；首次完整 bring-up + 固件下载已在频道 6 成功；被动 RX 在 2.4 GHz 和 5 GHz 各通过；2.4 GHz 空口 TX 已由 ESP32-S3 见证：3/3 完整 reset 轮次各收到 20/20 个唯一序号。5 GHz、硬件 ACK、AWDL 和 AirDrop 仍未验证。**
+**当前：Phase 3 首次真实 AirDrop 传输成功。iPhone 15 Pro Max（iOS 17.5）在隔空投送中看到 AirBridge32，并通过 AWDL/Wintun 把一张 2.9 MB PNG（1290×2796）传到 Windows；文件大小与 PNG 签名已核对。无线侧使用专用 RTL8821CU：频道 149、AWDL 控制面同步、TCP radio、命名管道桥和 AirDrop 接收服务全部跑通。测试时必须关闭 v2rayN 的 TUN（其 `EnableIPv6=false` + `StrictRoute=true` 会让 IPv6 不可用）；v2ray 兼容配置、5 GHz 空口 TX/ACK、GUI 和打包仍未完成。**
 
 目标是让 iPhone 系统原生隔空投送通过专用 RTL8821CU USB 网卡把文件交给 Windows，不依赖 WSL2、虚拟机或 iPhone 第三方应用。
 
@@ -12,6 +12,8 @@ Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirB
 - [源码审计及 Go / No-Go](docs/PHASE0_AUDIT.md)
 - [阶段计划与验收](docs/PLAN.md)
 - [Windows 构建记录](docs/BUILD_WINDOWS.md)
+- [USB radio 后端状态](docs/RADIO_USB.md)
+- [Phase 3：AWDL/AirDrop 实测](docs/PHASE3_AWDL.md)
 - [目标架构：Dart 应用 + C++ radio](docs/ARCHITECTURE.md)
 - [无线层契约对照](docs/RADIO_CONTRACT.md)
 - [硬件接入与驱动绑定检查单](docs/HARDWARE_INTAKE.md)
@@ -58,12 +60,15 @@ python .\tools\check_project.py   # 文档、证据与版本锁一致性
 - `docs/RADIO_CONTRACT.md`：管道 v3 契约与 8821C 的 BlockAck 接收缺口。
 - `docs/LICENSE_MATRIX.md`：许可证矩阵；Realtek 固件再分发仍未解决。
 
+- `evidence/airdrop-first-transfer.txt`：Phase 3 首次真实 AirDrop 传输（iPhone → Windows，2,911,531 字节 PNG，1290×2796，SHA-256 已记录；原始接收日志含个人信息，未提交）。
+- `docs/PHASE3_AWDL.md`：`awdld`/Wintun/桥/接收服务的运行顺序、首次实测结果与 v2ray TUN 阻塞说明。
+
 ## 仍未完成
 
-1. 5 GHz 与硬件 ACK：ESP32-S3 见证只能覆盖 2.4 GHz，无法证明 ACK/BlockAck 或 AWDL 的 5 GHz 调度。
-2. 反向验证：ESP32 发已知帧、网卡接收并核对内容；以及单播 ACK 行为。
-3. WinUSB 回滚到 `netrtwlanu` 的演练。
-4. Phase 1 的换信道、TX report 和拔插恢复实测。
-5. 8821C USB 版 radio 后端尚未编写。
+1. **v2ray TUN 兼容**：当前 TUN 关闭时可用；需要在 TUN 开启时把 IPv6/link-local 排除，或改用系统代理模式。
+2. **5 GHz 空口 TX/ACK**：ESP32-S3 只能见证 2.4 GHz；5 GHz 的 TX 和硬件 ACK/BlockAck 仍需第三方观察设备或 iPhone 侧确认。
+3. **Dart/Flutter 应用与 UI**：目前是命令行 radio + awdld + Python 接收服务，还不是用户可见的单一程序。
+4. **打包/安装**：Wintun、管理员权限、防火墙、驱动回滚和卸载流程尚未产品化。
+5. **WinUSB 回滚演练**：仍保留为发布前必须完成的恢复路径。
 
 本轮不复制上游实现，不赋予第三方代码统一许可证。产品发布许可证将在复用范围确定后处理。

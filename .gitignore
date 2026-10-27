@@ -3,3 +3,5 @@
 *.local.json
 __pycache__/
 .pio/
+
+evidence/awdl2-receiver.log

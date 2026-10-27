@@ -1,0 +1,27 @@
+Phase 3 first real AirDrop transfer — 2026-10-27 19:46:43 to 19:47:02 (+08:00)
+
+Sender: iPhone 15 Pro Max, iOS 17.5 (user-provided)
+Receiver: AirBridge32 on awdl0 (Wintun), RTL8821CU radio on channel 149
+Flow: POST /Discover -> POST /Ask -> POST /Upload
+File: IMG_3583.PNG (single file, public.png)
+Announced size: 2,911,531 bytes
+Stored size:    2,911,531 bytes
+PNG signature:  89 50 4e 47 0d 0a 1a 0a
+PNG IHDR:       1290 x 2796
+SHA-256:        C899358AE8D761C900946DD24F49DBC41F1CE04B05C859B9C071CF8F822C48B1
+
+Upload accounting:
+  body received   2,899,707 bytes
+  decoded archive 2,913,792 bytes
+  stored file     2,911,531 bytes
+  duration        ~10.1 s (19:46:52.120 -> 19:47:02.225)
+
+AWDL counters at transfer:
+  peers 1, rx data 2166 (2025 joined), tx data 191
+  sync tree to peer 8e:b4:97:21:00:a9 (fe80::8cb4:97ff:fe21:a9%68)
+
+Environment note:
+  v2rayN/TUN was fully stopped before this run. With TUN on and IPv6 disabled,
+  IPv6 was unusable and AWDL data could not flow.
+  Raw receiver log is kept locally but not committed: it contains the sender
+  name, link-local address and transfer tokens. This summary is redacted.

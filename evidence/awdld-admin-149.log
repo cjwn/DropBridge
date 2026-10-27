@@ -1,248 +1,37 @@
-19:02:04 INFO : AWDL address 82:89:b2:c4:5e:4c on channel 149
-19:02:04 INFO : host interface awdl0, index 68
-19:02:04 DEBUG: switch channel to 149 (slot 0)
-19:02:04 DEBUG: peer 62:65:31:c5:29:59 () changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:02:04 INFO : add peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6)
-19:02:04 INFO : peer 62:65:31:c5:29:59 is reachable at fe80::6065:31ff:fec5:2959%68
-19:02:04 DEBUG: peer 8e:b4:97:21:00:a9 () changed channel sequence to 36,36,149,0,0,0,0,36,6,36,149,36,0,0,0,36
-19:02:04 INFO : add peer 8e:b4:97:21:00:a9 ()
-19:02:04 INFO : peer 8e:b4:97:21:00:a9 is reachable at fe80::8cb4:97ff:fe21:a9%68
-19:02:05 DEBUG: new election tree: 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 175)
-19:02:06 INFO : sync master is now 62:65:31:c5:29:59, chosen among:
-19:02:06 INFO :   8e:b4:97:21:00:a9 follows 82:89:b2:c4:5e:4c under 62:65:31:c5:29:59 (met 526, ctr 175, height 2), itself (met 115, ctr 99), heard 407 ms ago
-19:02:06 INFO :   62:65:31:c5:29:59 follows 62:65:31:c5:29:59 under 62:65:31:c5:29:59 (met 526, ctr 175, height 0), itself (met 526, ctr 175), heard 85 ms ago
-19:02:06 INFO : peers 2 | rx action 37, data 0 | tx action 47, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 175)
-19:02:08 INFO : peers 2 | rx action 67, data 0 | tx action 96, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 176)
-19:02:09 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:02:10 INFO : peers 2 | rx action 102, data 0 | tx action 145, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 176)
-19:02:10 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:02:12 INFO : peers 2 | rx action 131, data 0 | tx action 193, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 177)
-19:02:14 INFO : peers 2 | rx action 156, data 0 | tx action 240, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 178)
-19:02:16 INFO : peers 2 | rx action 184, data 0 | tx action 288, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 178)
-19:02:18 INFO : peers 2 | rx action 213, data 0 | tx action 337, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 179)
-19:02:18 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:02:19 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:02:20 INFO : peers 2 | rx action 249, data 0 | tx action 385, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 179)
-19:02:22 INFO : peers 2 | rx action 274, data 0 | tx action 433, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 180)
-19:02:24 INFO : peers 2 | rx action 296, data 2 | tx action 481, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 181)
-19:02:26 INFO : peers 2 | rx action 321, data 3 | tx action 528, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 181)
-19:02:27 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:02:28 INFO : peers 2 | rx action 355, data 3 | tx action 575, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 182)
-19:02:28 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:02:30 INFO : peers 2 | rx action 384, data 3 | tx action 621, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 183)
-19:02:32 INFO : peers 2 | rx action 411, data 3 | tx action 668, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 183)
-19:02:34 INFO : peers 2 | rx action 438, data 3 | tx action 716, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 184)
-19:02:36 INFO : peers 2 | rx action 465, data 3 | tx action 764, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 185)
-19:02:36 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:02:37 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:02:38 INFO : peers 2 | rx action 500, data 3 | tx action 812, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 185)
-19:02:40 INFO : peers 2 | rx action 530, data 3 | tx action 861, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 186)
-19:02:42 INFO : peers 2 | rx action 551, data 3 | tx action 909, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 186)
-19:02:44 INFO : peers 2 | rx action 580, data 3 | tx action 957, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 187)
-19:02:45 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:02:46 INFO : peers 2 | rx action 612, data 3 | tx action 1001, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 188)
-19:02:46 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:02:48 INFO : peers 2 | rx action 643, data 3 | tx action 1050, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 188)
-19:02:50 INFO : peers 2 | rx action 673, data 3 | tx action 1099, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 189)
-19:02:52 INFO : peers 2 | rx action 692, data 3 | tx action 1148, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 189)
-19:02:54 INFO : peers 2 | rx action 721, data 3 | tx action 1193, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 190)
-19:02:54 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:02:55 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:02:56 INFO : peers 2 | rx action 758, data 3 | tx action 1242, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 191)
-19:02:58 INFO : peers 2 | rx action 783, data 3 | tx action 1290, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 192)
-19:03:00 INFO : peers 2 | rx action 812, data 3 | tx action 1339, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 192)
-19:03:02 INFO : peers 2 | rx action 841, data 3 | tx action 1387, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 193)
-19:03:03 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:03:04 INFO : peers 2 | rx action 875, data 3 | tx action 1435, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 193)
-19:03:04 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:03:06 INFO : peers 2 | rx action 904, data 3 | tx action 1484, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 194)
-19:03:08 INFO : peers 2 | rx action 933, data 3 | tx action 1534, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 195)
-19:03:10 INFO : peers 2 | rx action 961, data 3 | tx action 1582, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 195)
-19:03:12 INFO : peers 2 | rx action 989, data 3 | tx action 1629, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 196)
-19:03:12 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:03:13 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:03:14 INFO : peers 2 | rx action 1020, data 3 | tx action 1678, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 197)
-19:03:16 INFO : peers 2 | rx action 1045, data 3 | tx action 1726, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 197)
-19:03:18 INFO : peers 2 | rx action 1075, data 3 | tx action 1773, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 198)
-19:03:20 INFO : peers 2 | rx action 1102, data 3 | tx action 1822, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 199)
-19:03:21 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:03:22 INFO : peers 2 | rx action 1132, data 3 | tx action 1870, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 199)
-19:03:22 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:03:24 INFO : peers 2 | rx action 1159, data 3 | tx action 1919, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 200)
-19:03:26 INFO : peers 2 | rx action 1188, data 3 | tx action 1967, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 200)
-19:03:28 INFO : peers 2 | rx action 1218, data 3 | tx action 2016, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 201)
-19:03:30 INFO : peers 2 | rx action 1244, data 3 | tx action 2063, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 202)
-19:03:30 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:03:31 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:03:32 INFO : peers 2 | rx action 1278, data 3 | tx action 2110, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 202)
-19:03:34 INFO : peers 2 | rx action 1309, data 3 | tx action 2157, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 203)
-19:03:36 INFO : peers 2 | rx action 1338, data 3 | tx action 2202, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 204)
-19:03:38 INFO : peers 2 | rx action 1368, data 3 | tx action 2251, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 204)
-19:03:39 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:03:40 INFO : peers 2 | rx action 1399, data 3 | tx action 2299, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 205)
-19:03:40 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:03:42 INFO : peers 2 | rx action 1430, data 3 | tx action 2348, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 206)
-19:03:44 INFO : peers 2 | rx action 1459, data 3 | tx action 2395, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 206)
-19:03:46 INFO : peers 2 | rx action 1486, data 3 | tx action 2443, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 207)
-19:03:48 INFO : peers 2 | rx action 1516, data 3 | tx action 2491, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 207)
-19:03:48 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:03:49 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:03:50 INFO : peers 2 | rx action 1552, data 3 | tx action 2539, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 208)
-19:03:52 INFO : peers 2 | rx action 1576, data 3 | tx action 2586, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 209)
-19:03:54 INFO : peers 2 | rx action 1597, data 3 | tx action 2634, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 209)
-19:03:56 INFO : peers 2 | rx action 1626, data 3 | tx action 2683, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 210)
-19:03:57 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:03:58 INFO : peers 2 | rx action 1661, data 3 | tx action 2730, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 211)
-19:03:58 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:04:00 INFO : peers 2 | rx action 1691, data 3 | tx action 2778, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 211)
-19:04:02 INFO : peers 2 | rx action 1719, data 3 | tx action 2826, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 212)
-19:04:04 INFO : peers 2 | rx action 1747, data 3 | tx action 2874, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 212)
-19:04:06 INFO : peers 2 | rx action 1775, data 3 | tx action 2923, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 213)
-19:04:06 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:04:07 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:04:08 INFO : peers 2 | rx action 1809, data 3 | tx action 2971, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 214)
-19:04:10 INFO : peers 2 | rx action 1840, data 3 | tx action 3019, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 214)
-19:04:12 INFO : peers 2 | rx action 1870, data 3 | tx action 3067, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 215)
-19:04:14 INFO : peers 2 | rx action 1898, data 3 | tx action 3115, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 216)
-19:04:15 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:04:16 INFO : peers 2 | rx action 1931, data 3 | tx action 3161, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 216)
-19:04:16 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:04:18 INFO : peers 2 | rx action 1962, data 3 | tx action 3209, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 217)
-19:04:20 INFO : peers 2 | rx action 1992, data 3 | tx action 3258, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 218)
-19:04:22 INFO : peers 2 | rx action 2019, data 3 | tx action 3306, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 218)
-19:04:24 INFO : peers 2 | rx action 2039, data 3 | tx action 3353, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 219)
-19:04:24 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:04:25 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:04:26 INFO : peers 2 | rx action 2074, data 3 | tx action 3400, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 220)
-19:04:28 INFO : peers 2 | rx action 2102, data 3 | tx action 3448, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 220)
-19:04:30 INFO : peers 2 | rx action 2132, data 3 | tx action 3495, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 221)
-19:04:32 INFO : peers 2 | rx action 2157, data 3 | tx action 3542, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 221)
-19:04:33 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:04:34 INFO : peers 2 | rx action 2184, data 3 | tx action 3590, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 222)
-19:04:34 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:04:36 INFO : peers 2 | rx action 2216, data 3 | tx action 3639, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 223)
-19:04:38 INFO : peers 2 | rx action 2241, data 3 | tx action 3689, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 223)
-19:04:40 INFO : peers 2 | rx action 2271, data 3 | tx action 3735, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 224)
-19:04:42 INFO : peers 2 | rx action 2299, data 3 | tx action 3785, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 225)
-19:04:42 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:04:43 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:04:44 INFO : peers 2 | rx action 2332, data 3 | tx action 3835, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 225)
-19:04:46 INFO : peers 2 | rx action 2360, data 3 | tx action 3883, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 226)
-19:04:48 INFO : peers 2 | rx action 2387, data 3 | tx action 3930, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 226)
-19:04:50 INFO : peers 2 | rx action 2414, data 3 | tx action 3979, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 227)
-19:04:51 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:04:52 INFO : peers 2 | rx action 2448, data 3 | tx action 4028, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 228)
-19:04:52 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:04:54 INFO : peers 2 | rx action 2481, data 3 | tx action 4078, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 228)
-19:04:56 INFO : peers 2 | rx action 2507, data 3 | tx action 4125, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 229)
-19:04:58 INFO : peers 2 | rx action 2536, data 3 | tx action 4174, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 230)
-19:05:00 INFO : peers 2 | rx action 2566, data 3 | tx action 4223, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 230)
-19:05:00 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:05:01 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:05:02 INFO : peers 2 | rx action 2602, data 3 | tx action 4273, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 231)
-19:05:04 INFO : peers 2 | rx action 2631, data 3 | tx action 4321, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 232)
-19:05:06 INFO : peers 2 | rx action 2657, data 3 | tx action 4369, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 232)
-19:05:08 INFO : peers 2 | rx action 2683, data 3 | tx action 4417, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 233)
-19:05:09 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:05:10 INFO : peers 2 | rx action 2714, data 3 | tx action 4465, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 233)
-19:05:10 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:05:12 INFO : peers 2 | rx action 2748, data 3 | tx action 4512, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 234)
-19:05:14 INFO : peers 2 | rx action 2775, data 3 | tx action 4559, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 235)
-19:05:16 INFO : peers 2 | rx action 2805, data 3 | tx action 4608, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 235)
-19:05:18 INFO : peers 2 | rx action 2833, data 3 | tx action 4657, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 236)
-19:05:18 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:05:19 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:05:20 INFO : peers 2 | rx action 2867, data 3 | tx action 4705, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 237)
-19:05:22 INFO : peers 2 | rx action 2897, data 3 | tx action 4752, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 237)
-19:05:24 INFO : peers 2 | rx action 2919, data 3 | tx action 4799, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 238)
-19:05:26 INFO : peers 2 | rx action 2945, data 3 | tx action 4848, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 239)
-19:05:27 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:05:28 INFO : peers 2 | rx action 2976, data 3 | tx action 4896, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 239)
-19:05:28 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:05:30 INFO : peers 2 | rx action 3006, data 3 | tx action 4945, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 240)
-19:05:32 INFO : peers 2 | rx action 3033, data 3 | tx action 4993, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 240)
-19:05:34 INFO : peers 2 | rx action 3061, data 3 | tx action 5040, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 241)
-19:05:36 INFO : peers 2 | rx action 3088, data 3 | tx action 5088, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 242)
-19:05:36 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:05:37 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:05:38 INFO : peers 2 | rx action 3117, data 3 | tx action 5135, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 242)
-19:05:40 INFO : peers 2 | rx action 3144, data 3 | tx action 5183, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 243)
-19:05:42 INFO : peers 2 | rx action 3171, data 3 | tx action 5232, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 244)
-19:05:44 INFO : peers 2 | rx action 3196, data 3 | tx action 5280, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 244)
-19:05:45 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:05:46 INFO : peers 2 | rx action 3228, data 3 | tx action 5328, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 245)
-19:05:46 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:05:48 INFO : peers 2 | rx action 3263, data 3 | tx action 5375, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 246)
-19:05:50 INFO : peers 2 | rx action 3288, data 3 | tx action 5424, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 246)
-19:05:52 INFO : peers 2 | rx action 3315, data 3 | tx action 5471, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 247)
-19:05:54 INFO : peers 2 | rx action 3342, data 3 | tx action 5516, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 247)
-19:05:54 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:05:55 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:05:56 INFO : peers 2 | rx action 3376, data 3 | tx action 5564, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 248)
-19:05:58 INFO : peers 2 | rx action 3405, data 3 | tx action 5613, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 249)
-19:06:00 INFO : peers 2 | rx action 3435, data 3 | tx action 5662, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 249)
-19:06:02 INFO : peers 2 | rx action 3462, data 3 | tx action 5709, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 250)
-19:06:03 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:06:04 INFO : peers 2 | rx action 3493, data 3 | tx action 5756, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 251)
-19:06:04 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:06:06 INFO : peers 2 | rx action 3527, data 3 | tx action 5804, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 251)
-19:06:08 INFO : peers 2 | rx action 3555, data 3 | tx action 5853, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 252)
-19:06:10 INFO : peers 2 | rx action 3584, data 3 | tx action 5899, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 253)
-19:06:12 INFO : peers 2 | rx action 3613, data 3 | tx action 5946, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 253)
-19:06:12 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:06:13 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:06:14 INFO : peers 2 | rx action 3646, data 3 | tx action 5995, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 254)
-19:06:16 INFO : peers 2 | rx action 3675, data 3 | tx action 6042, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 254)
-19:06:18 INFO : peers 2 | rx action 3707, data 3 | tx action 6090, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 255)
-19:06:20 INFO : peers 2 | rx action 3735, data 3 | tx action 6138, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 256)
-19:06:21 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:06:22 INFO : peers 2 | rx action 3764, data 3 | tx action 6187, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 256)
-19:06:22 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:06:24 INFO : peers 2 | rx action 3796, data 3 | tx action 6236, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 257)
-19:06:26 INFO : peers 2 | rx action 3822, data 3 | tx action 6283, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 258)
-19:06:28 INFO : peers 2 | rx action 3844, data 3 | tx action 6328, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 258)
-19:06:30 INFO : peers 2 | rx action 3872, data 3 | tx action 6375, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 259)
-19:06:30 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:06:31 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:06:32 INFO : peers 2 | rx action 3908, data 3 | tx action 6425, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 260)
-19:06:34 INFO : peers 2 | rx action 3936, data 3 | tx action 6473, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 260)
-19:06:36 INFO : peers 2 | rx action 3964, data 3 | tx action 6520, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 261)
-19:06:38 INFO : peers 2 | rx action 3989, data 3 | tx action 6569, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 261)
-19:06:39 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:06:40 INFO : peers 2 | rx action 4020, data 3 | tx action 6618, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 262)
-19:06:40 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:06:42 INFO : peers 2 | rx action 4054, data 3 | tx action 6664, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 263)
-19:06:44 INFO : peers 2 | rx action 4080, data 3 | tx action 6712, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 263)
-19:06:46 INFO : peers 2 | rx action 4108, data 3 | tx action 6759, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 264)
-19:06:48 INFO : peers 2 | rx action 4138, data 3 | tx action 6807, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 265)
-19:06:48 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:06:49 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:06:50 INFO : peers 2 | rx action 4174, data 3 | tx action 6856, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 265)
-19:06:52 INFO : peers 2 | rx action 4203, data 3 | tx action 6904, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 266)
-19:06:54 INFO : peers 2 | rx action 4231, data 3 | tx action 6951, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 267)
-19:06:56 INFO : peers 2 | rx action 4257, data 3 | tx action 6999, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 267)
-19:06:57 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:06:58 INFO : peers 2 | rx action 4287, data 3 | tx action 7045, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 268)
-19:06:58 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:07:00 INFO : peers 2 | rx action 4319, data 3 | tx action 7092, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 269)
-19:07:02 INFO : peers 2 | rx action 4347, data 3 | tx action 7140, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 269)
-19:07:04 INFO : peers 2 | rx action 4377, data 3 | tx action 7188, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 270)
-19:07:06 INFO : peers 2 | rx action 4404, data 3 | tx action 7237, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 270)
-19:07:06 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:07:07 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:07:08 INFO : peers 2 | rx action 4438, data 3 | tx action 7283, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 271)
-19:07:10 INFO : peers 2 | rx action 4467, data 3 | tx action 7333, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 272)
-19:07:12 INFO : peers 2 | rx action 4496, data 3 | tx action 7381, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 272)
-19:07:14 INFO : peers 2 | rx action 4525, data 3 | tx action 7427, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 273)
-19:07:15 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:07:16 INFO : peers 2 | rx action 4554, data 3 | tx action 7475, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 274)
-19:07:16 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:07:18 INFO : peers 2 | rx action 4588, data 3 | tx action 7524, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 274)
-19:07:20 INFO : peers 2 | rx action 4614, data 3 | tx action 7572, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 275)
-19:07:22 INFO : peers 2 | rx action 4643, data 3 | tx action 7622, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 275)
-19:07:24 INFO : peers 2 | rx action 4672, data 3 | tx action 7667, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 276)
-19:07:24 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149,0,0
-19:07:25 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
-19:07:26 INFO : peers 2 | rx action 4707, data 3 | tx action 7715, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 277)
-19:07:28 INFO : peers 2 | rx action 4726, data 3 | tx action 7762, data 0 | sync tree 82:89:b2:c4:5e:4c -> 62:65:31:c5:29:59 (met 526, ctr 277)
-19:07:28 ERROR: radio daemon disconnected
+19:46:23 INFO : AWDL address 32:a6:aa:7a:29:5f on channel 149
+19:46:23 INFO : host interface awdl0, index 68
+19:46:23 DEBUG: switch channel to 149 (slot 0)
+19:46:23 DEBUG: peer 8e:b4:97:21:00:a9 () changed channel sequence to 36,36,149,0,0,0,0,36,6,36,149,36,0,0,0,36
+19:46:23 INFO : add peer 8e:b4:97:21:00:a9 ()
+19:46:23 INFO : peer 8e:b4:97:21:00:a9 is reachable at fe80::8cb4:97ff:fe21:a9%68
+19:46:24 DEBUG: new election tree: 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 118)
+19:46:25 INFO : sync master is now 8e:b4:97:21:00:a9, chosen among:
+19:46:25 INFO :   8e:b4:97:21:00:a9 follows 8e:b4:97:21:00:a9 under 8e:b4:97:21:00:a9 (met 115, ctr 119, height 0), itself (met 115, ctr 119), heard 656 ms ago
+19:46:25 INFO : peers 1 | rx action 4, data 0 | tx action 48, data 23 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 118)
+19:46:27 INFO : peers 1 | rx action 8, data 0 | tx action 96, data 25 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 119)
+19:46:29 INFO : peers 1 | rx action 11, data 0 | tx action 145, data 25 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 120)
+19:46:31 INFO : peers 1 | rx action 15, data 0 | tx action 193, data 28 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 120)
+19:46:33 INFO : peers 1 | rx action 19, data 0 | tx action 240, data 29 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 121)
+19:46:35 INFO : peers 1 | rx action 23, data 0 | tx action 288, data 53 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 122)
+19:46:37 INFO : peers 1 | rx action 25, data 0 | tx action 336, data 56 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 122)
+19:46:39 INFO : peers 1 | rx action 29, data 0 | tx action 385, data 73 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 123)
+19:46:41 INFO : peers 1 | rx action 32, data 0 | tx action 433, data 82 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 123)
+19:46:43 INFO : peers 1 | rx action 36, data 0 | tx action 482, data 83 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 124)
+19:46:45 INFO : peers 1 | rx action 40, data 14 (1 joined) | tx action 531, data 92 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 125)
+19:46:47 INFO : peers 1 | rx action 44, data 14 (1 joined) | tx action 579, data 93 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 125)
+19:46:49 INFO : peers 1 | rx action 47, data 16 (1 joined) | tx action 627, data 96 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 126)
+19:46:51 INFO : peers 1 | rx action 51, data 42 (13 joined) | tx action 675, data 107 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 127)
+19:46:53 INFO : peers 1 | rx action 55, data 160 (113 joined) | tx action 724, data 119 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 127)
+19:46:55 INFO : peers 1 | rx action 59, data 490 (426 joined) | tx action 773, data 130 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 128)
+19:46:57 INFO : peers 1 | rx action 63, data 1004 (912 joined) | tx action 820, data 150 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 129)
+19:46:59 INFO : peers 1 | rx action 67, data 1533 (1418 joined) | tx action 869, data 163 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 129)
+19:47:01 INFO : peers 1 | rx action 70, data 1925 (1795 joined) | tx action 917, data 175 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 130)
+19:47:03 INFO : peers 1 | rx action 74, data 2166 (2025 joined) | tx action 966, data 184 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 130)
+19:47:05 INFO : peers 1 | rx action 78, data 2166 (2025 joined) | tx action 1014, data 187 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 131)
+19:47:07 INFO : peers 1 | rx action 82, data 2166 (2025 joined) | tx action 1062, data 189 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 132)
+19:47:09 INFO : peers 1 | rx action 86, data 2166 (2025 joined) | tx action 1111, data 190 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 132)
+19:47:11 INFO : peers 1 | rx action 90, data 2166 (2025 joined) | tx action 1159, data 191 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 133)
+19:47:13 INFO : peers 1 | rx action 93, data 2166 (2025 joined) | tx action 1206, data 192 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 134)
+19:47:15 INFO : peers 1 | rx action 97, data 2166 (2025 joined) | tx action 1255, data 193 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 134)
+19:47:17 INFO : peers 1 | rx action 101, data 2166 (2025 joined) | tx action 1302, data 194 | sync tree 32:a6:aa:7a:29:5f -> 8e:b4:97:21:00:a9 (met 115, ctr 135)
+19:47:19 ERROR: radio daemon disconnected
