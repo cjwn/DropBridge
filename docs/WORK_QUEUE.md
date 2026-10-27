@@ -35,6 +35,7 @@
 | Q12 | 原生 mDNS 收尾 | Q11 | iPhone 能只靠原生 mDNS 发现 | ⬜ | — |
 | Q13 | 分发验收（干净 VM + 许可清单） | Q5 | FINAL_PLAN 的验收指标全绿 | ⬜ | — |
 | Q14 | 移除 Flutter 壳与旧便携打包 | Q5 真机传文件通过 | `app/` 删除、`Package-Portable.ps1` 标 legacy、README 更新 | ⬜ | — |
+| Q15 | awdld 跟随/协商信道序列（同信道） | 硬件授权 | 149 时隙占空比提升；20 MB ≥ 500 KB/s | ⬜ 最大速度杠杆：现在只用到约 2/16 个时隙 | — |
 
 ## 3. 每项的具体做法
 
@@ -86,6 +87,8 @@
 **Q6 结果**：5 MiB 滚动（`.log.1`）、会话保留 10 个、托盘“复制诊断信息”写剪贴板。证据 `evidence/supervisor-recovery.log`。
 
 **Q7 进展**：看门狗 5 s 周期；只有 receiver 死亡时单独重启（实测检测 ≤5 s、恢复 <1 s、radio pid 不变）；其它后端死亡整链重启并退避 1/5/30 s，10 分钟 5 次后停止。剩余：radio 假死检测（需要 TX/ACK 统计或自检帧）、24 h 泄漏、固件重试的可见状态。同日实测到一次 `FW ready check failed (0x80 != 0xC078)` 后重试成功，启动拖到 >60 s。
+
+**Q15 背景（2026-10-28 凌晨）**：40 MHz 会退化到 37 KB/s（6–18 s 空窗、TCP 退避），只有 USB 拔插冷启动能恢复；冷启动后 40 MHz 190 KB/s、20 MHz 202 KB/s，均为约 150 帧/s × 1.45 KB。awdld 整晚只 `switch channel to 149` 一次，不跟随对端的 36/6 时隙，因此常态只用约 2/16 个时隙。明细 `evidence/transfer-regression-2026-10-28.log`。
 
 ### Q14 移除 Flutter 壳
 

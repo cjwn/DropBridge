@@ -173,7 +173,10 @@ internal sealed class Child
 
 internal sealed class Supervisor
 {
-    public const string ChannelArguments = "149 40";
+    private readonly int _channel;
+    private readonly int _width;
+    public string RadioArguments { get { return _channel + " " + _width; } }
+    public string AwdldArguments { get { return "-c " + _channel + " -s 2 -j 400 -v"; } }
     private readonly string _root;
     private readonly string _backend;
     private readonly string _data;
@@ -182,9 +185,12 @@ internal sealed class Supervisor
     public volatile bool Running;
     public string LastError = "";
 
-    public Supervisor(string root, string sessionStamp, bool prepareDirectories)
+    public Supervisor(string root, string sessionStamp, bool prepareDirectories,
+                      int channel = 149, int width = 40)
     {
         _root = root;
+        _channel = channel;
+        _width = width;
         _backend = Path.Combine(root, "backend");
         _data = Path.Combine(root, "data");
         _log = new LogSink(Path.Combine(_data, "logs", sessionStamp), prepareDirectories);
@@ -262,10 +268,10 @@ internal sealed class Supervisor
         var text = new StringBuilder();
         text.AppendLine("root: " + _root);
         text.AppendLine("logs: " + LogDirectory);
-        text.AppendLine("radio: " + RadioPath() + " " + ChannelArguments);
+        text.AppendLine("radio: " + RadioPath() + " " + RadioArguments);
         text.AppendLine("bridge: " + BridgePath());
         text.AppendLine("netd: " + NetdPath() + "  [AWDL_NETD_MDNS_PROXY=1]");
-        text.AppendLine("awdld: " + AwdldPath() + " -c 149 -s 2 -j 400 -v");
+        text.AppendLine("awdld: " + AwdldPath() + " " + AwdldArguments);
         text.AppendLine("receiver: " + PythonPath() + " -u " + ReceiverPath());
         foreach (string problem in Validate()) text.AppendLine("MISSING: " + problem);
         return text.ToString();
@@ -346,9 +352,9 @@ internal sealed class Supervisor
             return false;
         }
         if (File.Exists(AddressFile())) File.Delete(AddressFile());
-        _log.Write("supervisor", "start chain root=" + _root + " args=" + ChannelArguments);
+        _log.Write("supervisor", "start chain root=" + _root + " args=" + RadioArguments);
 
-        var radio = new Child("radio", RadioPath(), ChannelArguments,
+        var radio = new Child("radio", RadioPath(), RadioArguments,
             new Dictionary<string, string> { { "AIRBRIDGE_LOG_LEVEL", "warn" } },
             _root, "listening on 127.0.0.1:49876", _log);
         var bridge = new Child("bridge", BridgePath(), "",
@@ -359,7 +365,7 @@ internal sealed class Supervisor
                 { "AWDL_NETD_MDNS_PROXY", "1" },
                 { "AWDL_NETD_ADDR_FILE", AddressFile() },
             }, _root, "waiting for awdld", _log);
-        var awdld = new Child("awdld", AwdldPath(), "-c 149 -s 2 -j 400 -v",
+        var awdld = new Child("awdld", AwdldPath(), AwdldArguments,
             null, _root, "host interface", _log);
         var receiver = NewReceiver();
 
@@ -798,6 +804,8 @@ internal static class Program
         int smokeSeconds = -1;
         int autoExitSeconds = -1;
         int autostart = 0;
+        int channel = 149;
+        int width = 40;
         for (int index = 0; index < args.Length; index++)
         {
             switch (args[index])
@@ -816,6 +824,12 @@ internal static class Program
                     break;
                 case "--auto-exit":
                     if (index + 1 < args.Length) int.TryParse(args[++index], out autoExitSeconds);
+                    break;
+                case "--channel":
+                    if (index + 1 < args.Length) int.TryParse(args[++index], out channel);
+                    break;
+                case "--width":
+                    if (index + 1 < args.Length) int.TryParse(args[++index], out width);
                     break;
                 case "--autostart-on":
                     autostart = 1;
@@ -842,7 +856,7 @@ internal static class Program
 
         if (check)
         {
-            var supervisor = new Supervisor(root, stamp, false);
+            var supervisor = new Supervisor(root, stamp, false, channel, width);
             string plan = supervisor.Plan();
             if (string.IsNullOrEmpty(output))
             {
@@ -855,7 +869,7 @@ internal static class Program
 
         if (smokeSeconds > 0)
         {
-            var supervisor = new Supervisor(root, stamp, true);
+            var supervisor = new Supervisor(root, stamp, true, channel, width);
             string error;
             bool started = supervisor.StartAll(180, out error);
             var report = new StringBuilder();
@@ -876,7 +890,7 @@ internal static class Program
         {
             if (!created) return 0;
             Application.EnableVisualStyles();
-            var supervisor = new Supervisor(root, stamp, true);
+            var supervisor = new Supervisor(root, stamp, true, channel, width);
             using (var context = new TrayApp(supervisor, autoExitSeconds))
             {
                 Application.Run(context);
