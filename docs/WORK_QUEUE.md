@@ -35,7 +35,7 @@
 | Q12 | 原生 mDNS 收尾 | Q11 | iPhone 能只靠原生 mDNS 发现 | ⬜ | — |
 | Q13 | 分发验收（干净 VM + 许可清单） | Q5 | FINAL_PLAN 的验收指标全绿 | ⬜ | — |
 | Q14 | 移除 Flutter 壳与旧便携打包 | Q5 真机传文件通过 | `app/` 删除、`Package-Portable.ps1` 标 legacy、README 更新 | ⬜ | — |
-| Q15 | awdld 跟随/协商信道序列（同信道） | 硬件授权 | 149 时隙占空比提升；20 MB ≥ 500 KB/s | 🔜 代码已完成（opt-in）：radio 频内 FastRetune + awdld 采用主控序列；**待 iPhone 在线时验证** | `evidence/q15-follow-sequence.log` |
+| Q15 | awdld 跟随/协商信道序列（同信道） | 硬件授权 | 149 时隙占空比提升；20 MB ≥ 500 KB/s | ✅ 2026-10-28：改为**我们当同步主控**（metric 200），20 MHz 实测 **336 KB/s**（默认 202、跟随 101、40 MHz 主控 172） | `evidence/q15-master-mode.log` |
 
 ## 3. 每项的具体做法
 

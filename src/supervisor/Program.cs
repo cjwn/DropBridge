@@ -368,8 +368,12 @@ internal sealed class Supervisor
                 { "AWDL_NETD_MDNS_PROXY", "1" },
                 { "AWDL_NETD_ADDR_FILE", AddressFile() },
             }, _root, "waiting for awdld", _log);
+        // Measured 2026-10-28: as the AWDL sync master (metric above the
+        // iPhone's 65) the phone keeps its data in our 149 MHz slots and
+        // throughput roughly doubles; as a slave it only uses ~2/16 slots.
         var awdld = new Child("awdld", AwdldPath(), AwdldArguments,
-            null, _root, "host interface", _log);
+            new Dictionary<string, string> { { "AWDL_ELECTION_METRIC", "200" } },
+            _root, "host interface", _log);
         var receiver = NewReceiver();
 
         _children.Clear();

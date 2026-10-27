@@ -21,7 +21,7 @@ if (-not (Test-Path $Repo)) { throw "upstream tree missing: $Repo" }
 $patches = @(
     @{ Name = 'awdl-ipc-host.patch'; Repo = $Repo },
     @{ Name = 'airdrop-identity.patch'; Repo = $Repo },
-    @{ Name = 'owl-follow-chanseq.patch'; Repo = (Join-Path $Repo 'upstream\owl') }
+    @{ Name = 'owl-airbridge.patch'; Repo = (Join-Path $Repo 'upstream\owl') }
 )
 
 # Windows PowerShell turns a native command's stderr into a terminating error

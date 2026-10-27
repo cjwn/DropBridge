@@ -1,3 +1,30 @@
+diff --git a/src/election.c b/src/election.c
+index fda2e9d..8bacdc7 100644
+--- a/src/election.c
++++ b/src/election.c
+@@ -19,6 +19,7 @@
+ 
+ #include <string.h>
+ #include <stdio.h>
++#include <stdlib.h>
+ 
+ #include "election.h"
+ #include "peers.h"
+@@ -37,8 +38,13 @@ int awdl_election_is_sync_master(const struct awdl_election_state *state, const
+ }
+ 
+ static void awdl_election_reset_metric(struct awdl_election_state *state) {
++	/* AirBridge32: a peer is accepted when its metric is higher, so a higher
++	 * self metric makes this node the sync master and lets it dictate an
++	 * all-149 MHz sequence (the fast path). Opt-in via env. */
++	const char *metric = getenv("AWDL_ELECTION_METRIC");
+ 	state->self_counter = AWDL_ELECTION_COUNTER_INIT;
+-	state->self_metric = AWDL_ELECTION_METRIC_INIT;
++	state->self_metric = metric ? (uint32_t) strtoul(metric, NULL, 10)
++	                            : AWDL_ELECTION_METRIC_INIT;
+ }
+ 
+ static void awdl_election_reset_self(struct awdl_election_state *state) {
 diff --git a/src/rx.c b/src/rx.c
 index 9c0d68e..f166c21 100644
 --- a/src/rx.c

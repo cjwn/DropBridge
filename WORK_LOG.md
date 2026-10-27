@@ -509,3 +509,13 @@
 - 补丁体系：新增 `patches/owl-follow-chanseq.patch`（OWL 子仓库），`tools/Apply-AwdlPatches.ps1` 改为管理三个补丁、支持子仓库、可重复执行；已验证补丁能干净应用到 OWL 锁定提交 `da255a7` 的干净 worktree。
 - 测试状态：带两个开关跑过一次，但当时 `peers 0`（iPhone 没开隔空投送），收不到序列 TLV，**未验证跟随效果**。下次需要用户在 iPhone 上打开隔空投送，再看 `adopted channel sequence` 与 radio 的 `channel x -> y (…)` 是否出现，并测吞吐。
 - 重新打包并恢复默认（开关不设）的 149/20 链路。证据 `evidence/q15-follow-sequence.log`；队列 Q15 → 🔜（代码完成，待验证）。
+
+## 2026-10-28：Q15 有结论——当同步主控，336 KB/s（+66%）
+
+- 用户开了隔空投送后先验证跟随模式：`adopted channel sequence of sync master 8e:b4…` 正常出现，awdld 确实按 36/149/6 逐槽切（109 次），但**吞吐 101 KB/s，只有默认的一半**。原因：手机只在它的 149 时隙里给我们发数据，跟着跳到 36 只是白等 + 换台开销。跟随方向否定。
+- 改试反向：OWL 的选举规则是 metric 更高者当主控（`compare(peer, self) < 0` 拒绝对端）；iPhone 的 metric 是 65，我们设 `AWDL_ELECTION_METRIC=200` 后稳定成为 `sync master`（日志确认 `sync master is now <我们的地址> (met 200)`），序列变成全 149。
+- 实测（同一张 2,578,074 B 照片）：**7.68 s = 336 KB/s**，传输中 joined 帧 196–266/s（默认模式 ~150/s）。**比默认快约 66%。**
+- 40 MHz + 主控实测更慢：7,368,180 B / 42.7 s = 172 KB/s，与用户“40 MHz 会死”的体感一致，继续用 20 MHz。
+- 落地：监管给 awdld 固定 `AWDL_ELECTION_METRIC=200`（默认即主控模式，无需环境变量）；OWL 两处改动（rx.c 跟随开关、election.c metric 覆盖）收进 `patches/owl-airbridge.patch`（重命名），`Apply-AwdlPatches.ps1` 同步更新。打包版启动确认 `sync master is now 92:06:… (met 200)`。
+- 风险：强制主控会影响同一空域其他 Apple 设备的 AWDL 选举，属于产品级取舍；336 KB/s 是一次测量，需要重复三次确认。
+- 证据：`evidence/q15-master-mode.log`；队列 Q15 → ✅。
