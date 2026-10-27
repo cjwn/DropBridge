@@ -1,8 +1,32 @@
-﻿diff --git a/airdrop/receiver.py b/airdrop/receiver.py
-index 622a21f..e1eedf6 100644
+﻿diff --git a/airdrop/mdns.py b/airdrop/mdns.py
+index bae0caf..036a077 100644
+--- a/airdrop/mdns.py
++++ b/airdrop/mdns.py
+@@ -23,9 +23,9 @@ TTL_SERVICE = 4500
+ TTL_HOST = 120
+ # AWDL drops multicast sent outside the right slot, so one announcement is
+ # not enough for a sender to notice us.
+-ANNOUNCE_PERIOD_S = 2.0
++ANNOUNCE_PERIOD_S = 0.5
+ # Senders repeat a query several times within a few milliseconds.
+-MIN_REPLY_GAP_S = 0.1
++MIN_REPLY_GAP_S = 0.02
+ POINTER_MASK = 0xC0
+ # More labels and pointers than any valid name has.
+ MAX_NAME_STEPS = 128
+diff --git a/airdrop/receiver.py b/airdrop/receiver.py
+index 622a21f..d9229c6 100644
 --- a/airdrop/receiver.py
 +++ b/airdrop/receiver.py
-@@ -16,6 +16,7 @@ import ssl
+@@ -4,6 +4,7 @@
+ and serves /Discover, /Ask and /Upload there. Nothing received is opened."""
+ import argparse
+ import errno
++import ipaddress
+ import json
+ import logging
+ import os
+@@ -16,6 +17,7 @@ import ssl
  import struct
  import sys
  import tempfile
@@ -10,7 +34,29 @@ index 622a21f..e1eedf6 100644
  import time
  from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
  
-@@ -89,14 +90,22 @@ class Receiver(ThreadingHTTPServer):
+@@ -41,6 +43,21 @@ DEFAULT_MAX_RECEIVE_PERCENT = 30
+ MODEL_RE = re.compile(r'^[A-Za-z]+[0-9]+,[0-9]+$')
+ MAX_NAME_CHARS = 63
+ PATH_SEPARATOR = re.compile(r'[\\/]')
++
++
++def stable_service_id(address):
++    """A stable 12-hex AirDrop instance ID derived from the AWDL IPv6 IID.
++
++    The upstream implementation used a fresh secrets.token_hex(6) on every
++    start, so iPhone treated each launch as a new receiver and had to
++    rediscover it. The AWDL address is stable for this adapter, so derive the
++    ID from its interface identifier instead.
++    """
++    try:
++        packed = ipaddress.IPv6Address(str(address).split('%')[0]).packed
++        return packed[8:14].hex()
++    except (ipaddress.AddressValueError, ValueError):
++        return secrets.token_hex(6)
+ INTERFACE_WAIT_SECONDS = 20
+ BIND_ATTEMPTS = 5
+ BIND_PAUSE_SECONDS = 2
+@@ -89,14 +106,22 @@ class Receiver(ThreadingHTTPServer):
      daemon_threads = True
      allow_reuse_address = False
  
@@ -35,7 +81,7 @@ index 622a21f..e1eedf6 100644
          return client_address[3] == self.settings.interface_index
  
      def process_request(self, request, client_address):
-@@ -408,6 +417,14 @@ def parse_args(argv):
+@@ -408,6 +433,14 @@ def parse_args(argv):
                          default=DEFAULT_MAX_RECEIVE_PERCENT,
                          help='largest transfer, as a percentage of free disk space')
      parser.add_argument('--iface', default=DEFAULT_INTERFACE)
@@ -50,7 +96,7 @@ index 622a21f..e1eedf6 100644
      parser.add_argument('--port', type=int, default=DEFAULT_PORT)
      parser.add_argument('--flags', type=lambda text: int(text, 0), default=DEFAULT_FLAGS,
                          help='receiver capability bits to advertise')
-@@ -436,12 +453,12 @@ def wait_for_interface(alias):
+@@ -436,12 +469,12 @@ def wait_for_interface(alias):
      return found
  
  
@@ -65,7 +111,7 @@ index 622a21f..e1eedf6 100644
          except OSError as error:
              if error.errno != errno.EADDRINUSE:
                  raise
-@@ -459,6 +476,51 @@ def tls_context(keys_dir):
+@@ -459,6 +492,57 @@ def tls_context(keys_dir):
      return context
  
  
@@ -95,8 +141,13 @@ index 622a21f..e1eedf6 100644
 +        self.sock.close()
 +
 +    def _run(self):
-+        self.sock.send(self.service.response())
-+        next_announce = time.time() + 2.0
++        response = self.service.response()
++        # An iPhone that has just opened the AirDrop sheet may miss the first
++        # AWDL slot; a short burst makes the receiver appear immediately.
++        for _ in range(3):
++            self.sock.send(response)
++            time.sleep(0.1)
++        next_announce = time.time() + 0.5
 +        while not self.stopping.is_set():
 +            self.sock.settimeout(0.2)
 +            try:
@@ -108,16 +159,17 @@ index 622a21f..e1eedf6 100644
 +            if packet:
 +                asked = mdns.question_names(packet) & self.service.names()
 +                if asked:
-+                    self.sock.send(self.service.response())
++                    self.sock.send(response)
++                    self.sock.send(response)
 +            if time.time() >= next_announce:
-+                self.sock.send(self.service.response())
-+                next_announce = time.time() + 2.0
++                self.sock.send(response)
++                next_announce = time.time() + 0.5
 +
 +
  def main(argv=None):
      settings = parse_args(argv)
      redactor = redact.Redactor(redact.local_words())
-@@ -473,9 +535,54 @@ def main(argv=None):
+@@ -473,13 +557,60 @@ def main(argv=None):
          context = tls_context(settings.keys)
      except identity.IdentityError as error:
          raise SystemExit(str(error)) from None
@@ -142,7 +194,8 @@ index 622a21f..e1eedf6 100644
 +                logging.warning('mdns address file not readable: %s', error)
 +        announcer = None
 +        if mdns_address:
-+            service_id = secrets.token_hex(6)
++            service_id = stable_service_id(mdns_address)
++            logging.info('AirDrop service id %s (stable)', service_id)
 +            announcer = ProxyAnnouncer(
 +                mdns.Service(SERVICE_TYPE, service_id, f'{service_id}.local',
 +                             mdns_address, settings.port,
@@ -173,6 +226,12 @@ index 622a21f..e1eedf6 100644
      server = bind_receiver(settings.port, settings)
      server.socket = context.wrap_socket(server.socket, server_side=True,
                                          do_handshake_on_connect=False)
+-    service_id = secrets.token_hex(6)
++    service_id = stable_service_id(address)
++    logging.info('AirDrop service id %s (stable)', service_id)
+     announcer = mdns.Announcer(
+         mdns.Service(SERVICE_TYPE, service_id, f'{service_id}.local', address,
+                      settings.port, f'flags={settings.flags}'),
 diff --git a/awdl/CMakeLists.txt b/awdl/CMakeLists.txt
 index 87868b0..2aad484 100644
 --- a/awdl/CMakeLists.txt

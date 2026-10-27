@@ -23,3 +23,5 @@ evidence/width80b-radio.log
 /dist/
 
 evidence/portable-*.log
+
+evidence/native-mdns-*.log

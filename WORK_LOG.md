@@ -355,3 +355,10 @@
 - `awdld` 的 `tx data` 稳定增长，确认包已发出，但 iPhone 仍看不到设备；
 - 默认恢复 Python mDNS（`AWDL_NETD_MDNS_PROXY=1`），原生实现保留在 `AWDL_NETD_NATIVE_MDNS=1` 后面；
 - 下一步抓原生 DNS 报文与 `mdns.py` 逐字节对比；详见 `docs/NATIVE_RECEIVER.md`。
+
+## 2026-10-27：发现稳定性：稳定实例 ID + 更快公告
+
+- `receiver.py` 不再每次 `secrets.token_hex(6)`；改为从 AWDL IPv6 IID 派生稳定 12 位 ID，重启不变。
+- `ANNOUNCE_PERIOD_S` 2.0 → 0.5 秒；启动连发 3 次；查询双回复；`MIN_REPLY_GAP_S` 0.1 → 0.02。
+- 实测用户反馈：比之前快，但还不是“一打开就在”；剩余延迟可能在 iPhone 的 AWDL/BLE 扫描。
+- 文档：`docs/DISCOVERY.md`。
