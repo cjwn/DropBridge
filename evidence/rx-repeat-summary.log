@@ -1,0 +1,4 @@
+﻿capturedAtUtc: 2026-10-27T06:41:29.9652538Z
+run 1: devourer [I] RtlJaguar2Device: RX loop exited (546 frames, 407 reads) | rx smoke:        485 ok / 61 corrupt in 10 s | verdict:         HEALTHY
+run 2: devourer [I] RtlJaguar2Device: RX loop exited (1037 frames, 789 reads) | rx smoke:        663 ok / 374 corrupt in 10 s | verdict:         HEALTHY
+run 3: devourer [I] RtlJaguar2Device: RX loop exited (502 frames, 356 reads) | rx smoke:        425 ok / 77 corrupt in 10 s | verdict:         HEALTHY
