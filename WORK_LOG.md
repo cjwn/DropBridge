@@ -191,3 +191,16 @@
 - 证据：`evidence/esp32-witness-radio-tx2.log`、`evidence/esp32-witness-control-tx.log`、`evidence/radio-usb-run-tx2.log`、`evidence/tx-control.log`。
 
 下一步：拔插 RTL8821CU，先复跑 `txdemo` 对照；确认空口恢复后，再复测 TCP TX。
+
+## 2026-10-27：TCP RX + TX 打通（2.4 GHz，ESP32 见证 20/20）
+
+- 拔插后 `txdemo` 对照恢复 20/20，确认之前的 0 帧是网卡 TX 假死，不是后端结论。
+- 复测 TCP TX 仍 0；逐步排除 RX 并发（`AIRBRIDGE_NO_RX=1` 也 0）和 TX 速率（补 `SetTxMode("1M")` 仍 0）。
+- **根因**：`tools/radio_link_client.py` 解析 `txdemo` 的 `beacon_frame` 时，把源码注释里的 `0x40 0x00`、`0x08 0x01` 当成帧字节，body 从 100 字节变成 104 字节，帧头错位；芯片收到畸形帧，`send_packet` 仍返回 true。
+- 修复：解析前去掉 `//` 与 `/* */` 注释。修复后：
+  - `AIRBRIDGE_NO_RX=1`：ESP32 收到 20/20 唯一序号 0..19，RSSI -10，长度 104。
+  - 正常模式（RX 环同时运行）：同样 20/20，RSSI -10..-9，长度 104；radio 侧 `tx sent 20 failed 0`，RX 仍工作。
+- 新增 `AIRBRIDGE_TX_RATE`（默认 1M，`SetTxMode`）与 `AIRBRIDGE_NO_RX` 测试开关。
+- 证据：`evidence/esp32-witness-radio-tx6.log`、`evidence/esp32-witness-radio-tx7-full.log`、`evidence/radio-usb-run-tx7-full.log`。
+
+下一步：TCP `SET_CHANNEL` 实测、`SET_ADDRESS`/BSSID 过滤与硬件 ACK，然后 Dart 客户端。

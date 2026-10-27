@@ -1,23 +1,28 @@
 # USB radio 后端（`src/radio_usb`）状态
 
-状态：**TCP 传输与硬件 RX 已打通；TX 尚未通过空口见证，Phase 2 未完成。**
+状态：**TCP 传输、硬件 RX、2.4 GHz TX 已打通；Phase 2 的核心链路可用，换信道/地址/ACK 与 Dart 客户端未测。**
 
 ## 已实现并验证
 
-- `airbridge_radio.exe`：libusb 打开 `0bda:c820`、claim interface 2、`CreateRadio`、`InitWrite`、`StartRxLoop`。
-- `radio_link` v3 帧格式（MIT）跑在 **localhost TCP（127.0.0.1:49876）** 上；HELLO 带 8 字节消息头，客户端解析为 version 3 / channel 6 / width 20。
-- RX：客户端 10 秒收到 **311 帧、28957 字节**，含真实 beacon 帧（RSSI 约 -114..-121）。RX 回调经有界队列交给独立写线程，慢客户端不会阻塞 USB RX 环。
-- 端口用 `SO_EXCLUSIVEADDRUSE`；此前 `SO_REUSEADDR` 导致客户端连到别的本地服务。
+- `airbridge_radio.exe`：libusb 打开 `0bda:c820`、claim interface 2、`CreateRadio`、`InitWrite`、`SetTxMode`、`StartRxLoop`。
+- `radio_link` v3 帧格式（MIT）跑在 **localhost TCP（127.0.0.1:49876）** 上；HELLO 带 8 字节消息头。
+- 端口用 `SO_EXCLUSIVEADDRUSE`，避免其他本地服务抢连。
+- RX：客户端 10 秒收到 **311 帧、28957 字节**，含真实 beacon；RX 回调经有界队列 + 独立写线程，慢客户端不会阻塞 USB RX 环。
+- TX（RX 环同时运行）：客户端经 TCP 发 20 帧，ESP32-S3 空口收到 **20/20 唯一序号 0..19**，RSSI -10..-9，长度 104，哈希与 `txdemo` 一致。
+- `AIRBRIDGE_NO_RX=1` 可跳过 RX 环，用于隔离 TX 测试；该模式同样 20/20。
+- `AIRBRIDGE_TX_RATE` 默认 `1M`，通过 `SetTxMode` 在 bring-up 后设置。
 
-## 未通过 / 已知问题
+## TX 曾经发不出去的原因
 
-1. **TX 空口未验证，且当前网卡疑似进入 TX 不工作的状态。** TCP TX 提交 20 帧、0 失败，但 ESP32 收到 0 帧；随后用已知能上空的 `txdemo` 做对照，同样 0 帧（`DEVOURER_SKIP_RESET=1`）。RX 仍正常。结论：**不能据此判定后端 TX 有 bug；网卡在多次 reset 后需要拔插/重新上电再测。**
-2. **启动慢。** 反复 reset 后 bring-up 可到约 2 分钟；期间出现 `FW ready 0x80 != 0xC078`，devourer 自动重试后恢复。
-3. **未测**：SET_CHANNEL、SET_BSSID_FILTER/SET_ADDRESS 的硬件效果、断连重连、TX report/ACK、Dart 客户端。
-4. **Dart 兼容性**：保留 TCP 而不是命名管道，Dart `Socket` 可直接使用；`radio_link` 帧不变。
-5. 已把 RX 环提前到 `accept` 之前启动，并给 TX 帧加 20 ms 间隔；这一版尚未在“重新上电后的网卡”上复测。
+客户端从 `upstream/devourer/examples/tx/main.cpp` 解析 `beacon_frame` 时，把源码注释里的 `0x40 0x00`、`0x08 0x01` 也当成了帧字节，导致 body 从 100 字节变成 104 字节、帧头错位。芯片收到的是畸形帧，所以 `send_packet` 返回成功但空口没有合法帧。修复方法是解析前先去掉 `//` 与 `/* */` 注释。
 
-## 构建
+## 已知问题
+
+1. **启动慢**：反复 reset 后 bring-up 约 40–120 秒，期间可能出现 `FW ready 0x80 != 0xC078`，devourer 自动重试后恢复。
+2. **未测**：SET_CHANNEL 的实际切换与耗时、SET_BSSID_FILTER/SET_ADDRESS 的硬件 ACK 效果、断连重连、TX report/BlockAck、Dart 客户端。
+3. **固件状态**：多次 reset 后曾出现 TX 假死（`txdemo` 也发不出），拔插网卡后恢复；测试之间建议重新上电。
+
+## 构建与运行
 
 ```powershell
 $env:VCPKG_ROOT = "build/deps/vcpkg"
@@ -39,11 +44,11 @@ python tools/radio_link_client.py rx 10
 python tools/radio_link_client.py tx 20
 ```
 
-- RX 已通过（311 帧/10 s）。
-- TX 当前只验证到“radio 收到并调用 send_packet”，空口未见；ESP32 见证日志 `evidence/esp32-witness-radio-tx.log` 匹配数为 0。
+- RX 通过：311 帧/10 s。
+- TX 通过：ESP32-S3 见证 20/20，`evidence/esp32-witness-radio-tx7-full.log`。
 
 ## 下一步
 
-1. 把 RX 环在 accept 之前启动（或客户端 HELLO 后等待 RX 就绪）再测 TX，排除“TX 早于 RX 环”的时序问题。
-2. 若仍无空口帧，检查 `send_packet` 返回后的 TX report/队列状态，并对比 `txdemo`（已知能上空中）的调用顺序。
-3. 通过后再测 SET_CHANNEL、地址/过滤、Dart 客户端，最后接 AWDL。
+1. TCP `SET_CHANNEL` 实测：切到频道 36/44，记录耗时和是否还能收。
+2. `SET_ADDRESS`/`SET_BSSID_FILTER` 与 `SetStationIdentity` 的空口 ACK 验证。
+3. 断连/重连、Dart `Socket` 客户端、最后接 AWDL。

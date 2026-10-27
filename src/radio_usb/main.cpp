@@ -40,6 +40,7 @@
 
 #include "DeviceConfig.h"
 #include "IRadio.h"
+#include "RadiotapBuilder.h"
 #include "RxPacket.h"
 #include "SelectedChannel.h"
 #include "UsbOpen.h"
@@ -278,6 +279,14 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     }
     logger->info("radio: ready on channel {} width {} MHz", channel, width_mhz);
 
+    /* The demos always set a TX mode before injecting; a rate-less frame with
+     * no mode can fall back to an unusable default and never reach the air.
+     * Match txdemo's default (1M legacy) unless the caller overrides it. */
+    const char *rate_env = std::getenv("AIRBRIDGE_TX_RATE");
+    const std::string rate = rate_env && *rate_env ? rate_env : "1M";
+    radio->SetTxMode(devourer::parse_tx_mode_str(rate));
+    logger->info("radio: tx mode {}", rate);
+
     const SOCKET listener = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (listener == INVALID_SOCKET) {
         logger->error("radio: socket failed");
@@ -319,17 +328,23 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     std::atomic<bool> client_ready{false};
     std::atomic<bool> send_failed{false};
     std::atomic<bool> rx_ended{false};
-    std::thread rx_thread([&] {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        try {
-            radio->StartRxLoop([&](const Packet &packet) {
-                on_rx(packet, queue, state, client_ready);
-            });
-        } catch (const std::exception &error) {
-            logger->error("radio: RX loop died: {}", error.what());
-        }
-        rx_ended = true;
-    });
+    const bool no_rx = env_flag("AIRBRIDGE_NO_RX");
+    std::thread rx_thread;
+    if (!no_rx) {
+        rx_thread = std::thread([&] {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            try {
+                radio->StartRxLoop([&](const Packet &packet) {
+                    on_rx(packet, queue, state, client_ready);
+                });
+            } catch (const std::exception &error) {
+                logger->error("radio: RX loop died: {}", error.what());
+            }
+            rx_ended = true;
+        });
+    } else {
+        logger->info("radio: AIRBRIDGE_NO_RX=1, RX loop skipped");
+    }
 
     const SOCKET client = accept(listener, nullptr, nullptr);
     if (client == INVALID_SOCKET) {

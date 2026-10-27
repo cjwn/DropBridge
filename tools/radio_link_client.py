@@ -73,7 +73,12 @@ def canonical_frame():
     match = re.search(r"uint8_t beacon_frame\[\]\s*=\s*\{(.*?)\};", text, re.S)
     if not match:
         raise SystemExit("cannot find beacon_frame in tx demo")
-    values = [int(v, 16) for v in re.findall(r"0x([0-9a-fA-F]{2})", match.group(1))]
+    block = match.group(1)
+    # The initializer has comments containing "0x40 0x00" / "0x08 0x01";
+    # strip comments before harvesting bytes or the frame is shifted.
+    block = re.sub(r"/\*.*?\*/", "", block, flags=re.S)
+    block = re.sub(r"//[^\n]*", "", block)
+    values = [int(v, 16) for v in re.findall(r"0x([0-9a-fA-F]{2})", block)]
     if len(values) < 20:
         raise SystemExit("beacon_frame too short")
     # First 10 bytes are radiotap; the rest is the 802.11 probe request.
