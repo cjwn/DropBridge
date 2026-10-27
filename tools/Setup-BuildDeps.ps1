@@ -4,7 +4,12 @@
 #
 # Usage:  powershell -ExecutionPolicy Bypass -File tools/Setup-BuildDeps.ps1
 [CmdletBinding()]
-param()
+param(
+    # Adds OpenSSL so the Windows station crypto selftests (supplicant,
+    # station_sm, ccmp_framing) are built instead of skipped. sta_client_headless
+    # is Linux-only because its data plane needs a TAP device.
+    [switch]$WithOpenSsl
+)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -30,6 +35,12 @@ Write-Host 'Installing libusb and pkgconf for x64-windows...'
 & $vcpkgExe install 'libusb:x64-windows' 'pkgconf:x64-windows'
 if ($LASTEXITCODE -ne 0) { throw "vcpkg install failed (exit $LASTEXITCODE)" }
 
+if ($WithOpenSsl) {
+    Write-Host 'Installing OpenSSL for x64-windows (station crypto selftests)...'
+    & $vcpkgExe install 'openssl:x64-windows'
+    if ($LASTEXITCODE -ne 0) { throw "vcpkg install openssl failed (exit $LASTEXITCODE)" }
+}
+
 $installed = Join-Path $vcpkgRoot 'installed\x64-windows'
 if (-not (Test-Path (Join-Path $installed 'lib\libusb-1.0.lib'))) {
     throw "libusb import library missing under $installed"
@@ -40,8 +51,12 @@ if (-not (Test-Path (Join-Path $installed 'lib\pkgconfig\libusb-1.0.pc'))) {
 if (-not (Test-Path (Join-Path $installed 'tools\pkgconf\pkgconf.exe'))) {
     throw "pkgconf missing under $installed"
 }
+if ($WithOpenSsl -and -not (Test-Path (Join-Path $installed 'include\openssl\ssl.h'))) {
+    throw "OpenSSL headers missing under $installed"
+}
 
 Write-Host ''
 Write-Host 'Ready. Dependency root:'
 Write-Host "  $installed"
+if ($WithOpenSsl) { Write-Host '  OpenSSL installed: station crypto selftests will build.' }
 Write-Host 'Next: powershell -ExecutionPolicy Bypass -File tools/Build-Devourer.ps1'

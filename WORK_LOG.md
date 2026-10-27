@@ -39,3 +39,23 @@
 下一步：先确认是否授权对 MI_02 做 WinUSB 绑定并执行一次最小初始化。建议把网卡直连主板 USB 口（当前经 `05e3:0608` hub）。授权后按 PLAN Phase 1 顺序：芯片 ID → 固定频道 RX → 有限 TX → 独立见证与 TX report → 换信道 → 拔插恢复。
 
 验证命令：python tools/check_project.py；tools/Inspect-Hardware.ps1；tools/Build-Devourer.ps1；git status --short。
+
+## 2026-10-27：绑定手册、只读 USB 探针、OpenSSL 自检
+
+用户确认交付形态：**用户看到一个程序**（一个安装包/托盘入口）即可，后台允许多进程。已写入 `docs/PLAN.md` 的架构决定：GPL-2.0 无线进程 + GPL-3.0 AWDL 进程 + MIT 应用层，不承诺单进程单 exe。
+
+完成：
+
+- `docs/BINDING_RUNBOOK.md`：Zadig 绑定 MI_02 到 WinUSB 的逐步操作、只读校验、回滚和失败处理。AI 不执行绑定；需要管理员权限和用户授权。
+- `tools/Check-Binding.ps1`：只读报告 MI_02 的驱动/服务/问题码，退出码 0=WinUSB、1=仍是厂商驱动、2=设备不在。当前基线为 `RtlWlanu`。
+- `tools/usb_probe/` + `tools/Build-UsbProbe.ps1`：libusb 只读探针，只做 open + 打印描述符/端点 + claim/release，不初始化芯片、不写寄存器、不发帧。
+- 绑定前基线（`evidence/usb-open-baseline.log`）：设备可枚举（bus 1、address 19、High Speed、`bcdUSB 2.00`），`libusb_open` 返回 `LIBUSB_ERROR_NOT_FOUND`，与厂商驱动占用 MI_02 的预期一致。
+- OpenSSL 3.6.5 装入 `build/deps` 后重建：`ctest` 74/74 通过（3 项跳过），`supplicant`、`station_sm`、`ccmp_framing` 三项加密自检通过；`sta_client_headless` 是 Linux-only（TAP），Windows 不构建。产物哈希不变。
+- 首次重建遇到 `CMake error : Cannot restore timestamp ... generate.stamp`（MSB8066），重跑一次即通过；已写入 `docs/BUILD_WINDOWS.md` 的“已知构建异常”。
+- 更新 README、PLAN、PHASE0_AUDIT、BUILD_WINDOWS、HARDWARE_INTAKE、check_project.py。
+
+未做：
+
+- 没有绑定 WinUSB、没有读芯片 ID、没有 Init/固件下载、没有任何 TX；没有改驱动/网络/防火墙。
+
+下一步：用户以管理员按运行手册绑定 MI_02 → 我用 `usb_probe.exe` 验证 open/claim → 再单独申请 `Init` 授权。

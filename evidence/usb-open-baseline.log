@@ -1,0 +1,6 @@
+﻿libusb https://libusb.info
+target 0bda:c820
+bus 1 address 19 speed 3
+descriptor: bcdUSB=0200 class=ef subclass=02 protocol=01 maxPacket0=64
+open failed: LIBUSB_ERROR_NOT_FOUND
+hint: MI_02 is still bound to a vendor driver; follow docs/BINDING_RUNBOOK.md first.

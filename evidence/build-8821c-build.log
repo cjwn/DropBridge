@@ -1,86 +1,90 @@
 ﻿适用于 .NET Framework MSBuild 版本 17.14.51+25f168cee
 
-  BssTableSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\BssTableSelftest.exe
-  ChannelBusySelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChannelBusySelftest.exe
-  BulkOutTimeoutSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\BulkOutTimeoutSelftest.exe
   BusyWindowSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\BusyWindowSelftest.exe
-  Dot11Selftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\Dot11Selftest.exe
+  BssTableSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\BssTableSelftest.exe
   devourer.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\devourer.lib
-  NoiseFloorMathSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\NoiseFloorMathSelftest.exe
+  CcmpSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\CcmpSelftest.exe
+  Dot11Selftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\Dot11Selftest.exe
+  BulkOutTimeoutSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\BulkOutTimeoutSelftest.exe
+  ChannelBusySelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChannelBusySelftest.exe
   NhmEnvMathSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\NhmEnvMathSelftest.exe
-  StreamStdinSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\StreamStdinSelftest.exe
-  TriggerParseSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TriggerParseSelftest.exe
+  NoiseFloorMathSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\NoiseFloorMathSelftest.exe
   AckResponderSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\AckResponderSelftest.exe
-  duplex.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\duplex.exe
-  doctor.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\doctor.exe
-  chipstate.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\chipstate.exe
+  AdapterHealthSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\AdapterHealthSelftest.exe
+  RadioIfaceSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RadioIfaceSelftest.exe
+  ChanMigWireSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanMigWireSelftest.exe
   Mt7612uUsbIdsSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\Mt7612uUsbIdsSelftest.exe
+  ChanMigReplay.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanMigReplay.exe
   Mt7612uTsfReadSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\Mt7612uTsfReadSelftest.exe
-  dwelltx.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\dwelltx.exe
-  TdmaTsfSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TdmaTsfSelftest.exe
-  StationArmSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\StationArmSelftest.exe
-  UeRxAttributionSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\UeRxAttributionSelftest.exe
-  chanmig.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\chanmig.exe
-  chanscout.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\chanscout.exe
-  Mt7612uRxQueueSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\Mt7612uRxQueueSelftest.exe
-  Mt7612uMappingSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\Mt7612uMappingSelftest.exe
-  reglat.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\reglat.exe
-  RxPhystSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RxPhystSelftest.exe
-  precoder.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\precoder.exe
-  TxPowerQuantSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxPowerQuantSelftest.exe
-  TxQueueSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxQueueSelftest.exe
-  TxQuiesceSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxQuiesceSelftest.exe
-  LogEventSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\LogEventSelftest.exe
-  KestrelAddrCamSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\KestrelAddrCamSelftest.exe
-  sense.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\sense.exe
-  rxdemo.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\rxdemo.exe
+  RadiotapNoackSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RadiotapNoackSelftest.exe
+  RadiotapTxFlagsSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RadiotapTxFlagsSelftest.exe
   RateDiffsSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RateDiffsSelftest.exe
-  TsfSyncSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TsfSyncSelftest.exe
-  TxPktBankSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxPktBankSelftest.exe
-  LinkHealthSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\LinkHealthSelftest.exe
-  TxPktPwrSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxPktPwrSelftest.exe
-  HopsetWireSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetWireSelftest.exe
-  svctx.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\svctx.exe
-  streamtx.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\streamtx.exe
   RadiotapNoaggSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RadiotapNoaggSelftest.exe
-  TxCapsSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxCapsSelftest.exe
+  Mt7612uRxQueueSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\Mt7612uRxQueueSelftest.exe
+  ChanMigProtoSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanMigProtoSelftest.exe
+  ChanMigClockSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanMigClockSelftest.exe
+  Mt7612uMappingSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\Mt7612uMappingSelftest.exe
+  RxPhystSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RxPhystSelftest.exe
+  RxQualitySelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RxQualitySelftest.exe
+  ScanPlanSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ScanPlanSelftest.exe
+  ReceiptSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ReceiptSelftest.exe
+  CcaGatesProbe.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\CcaGatesProbe.exe
+  LogEventSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\LogEventSelftest.exe
+  BusyWindowProbe.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\BusyWindowProbe.exe
+  LinkHealthSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\LinkHealthSelftest.exe
+  StationArmSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\StationArmSelftest.exe
+  StreamStdinSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\StreamStdinSelftest.exe
+  StreamTelemetrySelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\StreamTelemetrySelftest.exe
+  StationSmSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\StationSmSelftest.exe
+  BfReportDecodeSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\BfReportDecodeSelftest.exe
+  SurveyAggSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\SurveyAggSelftest.exe
+  SupplicantSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\SupplicantSelftest.exe
+  SweepSpecSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\SweepSpecSelftest.exe
+  KestrelAddrCamSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\KestrelAddrCamSelftest.exe
+  TdmaTsfSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TdmaTsfSelftest.exe
   TimesyncSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TimesyncSelftest.exe
+  TriggerParseSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TriggerParseSelftest.exe
+  ToneMaskSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ToneMaskSelftest.exe
+  TsfSyncSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TsfSyncSelftest.exe
   TxAggSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxAggSelftest.exe
+  HopsetWireSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetWireSelftest.exe
+  TxCapsSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxCapsSelftest.exe
+  TxPktBankSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxPktBankSelftest.exe
+  TxPktPwrSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxPktPwrSelftest.exe
+  TxQueueSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxQueueSelftest.exe
+  TxPowerQuantSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxPowerQuantSelftest.exe
+  TxQuiesceSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\TxQuiesceSelftest.exe
+  UeRxAttributionSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\UeRxAttributionSelftest.exe
   HopsetSenseSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetSenseSelftest.exe
+  chanscout.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\chanscout.exe
+  chanmig.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\chanmig.exe
+  chipstate.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\chipstate.exe
+  doctor.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\doctor.exe
+  duplex.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\duplex.exe
+  dwelltx.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\dwelltx.exe
+  precoder.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\precoder.exe
+  HopsetScheduleSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetScheduleSelftest.exe
+  reglat.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\reglat.exe
+  rxdemo.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\rxdemo.exe
+  sense.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\sense.exe
+  streamtx.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\streamtx.exe
+  svctx.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\svctx.exe
+  timesync.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\timesync.exe
   tdma.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\tdma.exe
   HopsetProtoSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetProtoSelftest.exe
-  RadiotapNoackSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RadiotapNoackSelftest.exe
-  timesync.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\timesync.exe
   txdemo.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\txdemo.exe
-  ToneMaskSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ToneMaskSelftest.exe
-  HopsetScheduleSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetScheduleSelftest.exe
-  SweepSpecSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\SweepSpecSelftest.exe
   txpower.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\txpower.exe
   HopsetProbeSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetProbeSelftest.exe
-  ChanMigProtoSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanMigProtoSelftest.exe
-  SurveyAggSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\SurveyAggSelftest.exe
   HopsetPolicySelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetPolicySelftest.exe
   HopsetFusionSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetFusionSelftest.exe
-  StreamTelemetrySelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\StreamTelemetrySelftest.exe
   HopsetAdaptiveE2eSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetAdaptiveE2eSelftest.exe
-  ChanMigGateSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanMigGateSelftest.exe
   HopsetActivationSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopsetActivationSelftest.exe
-  ScanPlanSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ScanPlanSelftest.exe
   HopScheduleSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HopScheduleSelftest.exe
-  AdapterCapsSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\AdapterCapsSelftest.exe
   HeRadiotapSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\HeRadiotapSelftest.exe
   EnvConfigSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\EnvConfigSelftest.exe
-  RxQualitySelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RxQualitySelftest.exe
   DwellExecSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\DwellExecSelftest.exe
   ChanScoreSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanScoreSelftest.exe
-  ReceiptSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ReceiptSelftest.exe
-  ChanMigWireSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanMigWireSelftest.exe
-  CcaGatesProbe.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\CcaGatesProbe.exe
-  RadiotapTxFlagsSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RadiotapTxFlagsSelftest.exe
-  AdapterHealthSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\AdapterHealthSelftest.exe
+  ChanMigGateSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanMigGateSelftest.exe
   ChanDefSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanDefSelftest.exe
-  RadioIfaceSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\RadioIfaceSelftest.exe
-  BfReportDecodeSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\BfReportDecodeSelftest.exe
-  ChanMigReplay.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanMigReplay.exe
-  ChanMigClockSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\ChanMigClockSelftest.exe
-  BusyWindowProbe.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\BusyWindowProbe.exe
+  AdapterCapsSelftest.vcxproj -> J:\New soft project\DropBridge\build\devourer-8821c\Release\AdapterCapsSelftest.exe
+  Building Custom Rule J:/New soft project/DropBridge/upstream/devourer/CMakeLists.txt

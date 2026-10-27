@@ -7,12 +7,17 @@ root = Path(__file__).resolve().parents[1]
 required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
             "docs/PHASE0_AUDIT.md", "docs/BUILD_WINDOWS.md",
             "docs/RADIO_CONTRACT.md", "docs/LICENSE_MATRIX.md",
-            "docs/HARDWARE_INTAKE.md", "docs/用户任务书.md",
+            "docs/HARDWARE_INTAKE.md", "docs/BINDING_RUNBOOK.md",
+            "docs/用户任务书.md",
             "evidence/build-configure.log", "evidence/build-8821c-configure.log",
+            "evidence/build-8821c-configure-full.log",
             "evidence/build-8821c-build.log", "evidence/build-8821c-ctest.log",
+            "evidence/usb-open-baseline.log", "evidence/usb-probe-build.log",
             "evidence/hardware-identity.json", "evidence/upstream-issues.json",
             "tools/Build-Devourer.ps1", "tools/Setup-BuildDeps.ps1",
-            "tools/Inspect-Hardware.ps1"]
+            "tools/Build-UsbProbe.ps1", "tools/usb_probe/usb_probe.c",
+            "tools/usb_probe/CMakeLists.txt",
+            "tools/Inspect-Hardware.ps1", "tools/Check-Binding.ps1"]
 for name in required:
     assert (root / name).is_file(), f"Missing: {name}"
 hw = json.loads((root / "evidence/hardware-identity.json").read_text(encoding="utf-8-sig"))

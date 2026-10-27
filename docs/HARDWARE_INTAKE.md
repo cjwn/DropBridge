@@ -43,6 +43,8 @@ Phase 0 只要求完成第 1、2 项并留下记录。
 - 权限：绑定需要管理员；绑定完成后，普通权限进程能否打开设备要实测；
 - 网络：绑定后该网卡不再供 Windows 普通 Wi-Fi 使用；保持有线/I226 或另一块网卡上网。
 
+具体的 Zadig 步骤、绑定后校验和回滚见 [BINDING_RUNBOOK.md](BINDING_RUNBOOK.md)；只读状态检查用 `tools/Check-Binding.ps1`。
+
 禁止事项（项目约定）：
 
 - 不自动替换驱动、不改网络/防火墙；
@@ -74,8 +76,11 @@ USB VID:PID / 接口 / 端点：
 
 失败也要保留原始输出和时间标记，不能只留成功结论。
 
-## 6. 当前状态（2026-10-27 12:36 +08:00）
+## 6. 当前状态（2026-10-27 13:08 +08:00）
 
-- 本机只读枚举：27 个 USB 设备，**没有 `VID_0BDA` 设备**，即目标 RTL8821CU 网卡当前未接入。
-- 现有无线网卡是 Intel Wi-Fi 6E AX211（非目标设备）；有线 I226-V 处于连接状态。
-- 因此 Phase 0 的「真实设备身份」项仍未完成，不能开始驱动绑定。
+- 目标网卡已接入：`0bda:c820`，复合设备；MI_00 蓝牙，MI_02 Wi-Fi 厂商接口；MI_02 由 `netrtwlanu.inf` 1030.38.712.2019（服务 `RtlWlanu`）管理，网络适配器 `WLAN 2` 处于 Disconnected。
+- 只读枚举当时共 30 个 USB 设备；完整实例路径在 `evidence/usb-devices.local.json`（git 忽略）。
+- 现有无线网卡还有 Intel Wi-Fi 6E AX211（非目标）；有线 I226-V 处于连接状态，可用于上网。
+- **尚未绑定 WinUSB，尚未读芯片 ID**。驱动绑定步骤见 [BINDING_RUNBOOK.md](BINDING_RUNBOOK.md)，只读检查用 `tools/Check-Binding.ps1`；绑定需要管理员权限和明确授权。
+- 绑定前基线（`evidence/usb-open-baseline.log`）：只读探针能枚举到设备（bus 1、address 19、High Speed、`bcdUSB 2.00`），但 `libusb_open` 返回 `LIBUSB_ERROR_NOT_FOUND`，符合“厂商驱动仍占用 MI_02”的预期。绑定后再跑同一探针，应能 `open` 并 `claim` 接口。
+- 因此 Phase 0 的「真实设备身份」只完成了 VID/PID、接口与现有驱动；芯片 ID 仍是未验证状态。

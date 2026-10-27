@@ -110,11 +110,11 @@ Windows 设备绑定方案：目标是让 libusb 通过 WinUSB 访问专用 Wi-F
 
 ### I.2 Windows 构建（通过）
 
-- 源码 OpenIPC/devourer `f7e0731`；C8821C-only；MSVC 19.44.35228.0；Windows SDK 10.0.26100.0；CMake 3.31.6；vcpkg 2026-09-26；libusb 1.0.30；pkgconf 3.0.3。
+- 源码 OpenIPC/devourer `f7e0731`；C8821C-only；MSVC 19.44.35228.0；Windows SDK 10.0.26100.0；CMake 3.31.6；vcpkg 2026-09-26；libusb 1.0.30；pkgconf 3.0.3；OpenSSL 3.6.5。
 - 依赖隔离在 `build/deps`，未执行 `vcpkg integrate install`，未改 PATH。
 - 关键坑：CMake 的 PkgConfig 不会自动加 `--msvc-syntax`，必须设置 `PKG_CONFIG_ARGN=--msvc-syntax`，否则 MSVC 无法使用 `-L/-l` 形式的 libusb 参数。
-- 产物：`devourer.lib`、`rxdemo.exe`、`txdemo.exe` 及全部自检程序；`ctest` 71/71 通过，3 项跳过（`la_csi_math`、两项 MT7612U，均与 8821C 无关）。
-- 未构建：`supplicant`、`station_sm`、`ccmp_framing`、`sta_client_headless` 四项 OpenSSL 加密自检（本机无 OpenSSL）。
+- 产物：`devourer.lib`、`rxdemo.exe`、`txdemo.exe` 及全部自检程序；`ctest` 74/74 通过，3 项跳过（`la_csi_math`、两项 MT7612U，均与 8821C 无关）。
+- 加密自检：安装 OpenSSL 后 `supplicant`、`station_sm`、`ccmp_framing` 构建并通过；`sta_client_headless` 是 Linux-only（TAP），Windows 按设计不构建。
 - 细节与哈希见 `docs/BUILD_WINDOWS.md`，日志 `evidence/build-8821c-*.log`。这证明的是**Windows 编译与无硬件自检**，不是硬件可用。
 
 ### I.3 无线层契约与 8821C 缺口
@@ -136,7 +136,7 @@ Windows 设备绑定方案：目标是让 libusb 通过 WinUSB 访问专用 Wi-F
 | 任务 | 状态 |
 | --- | --- |
 | 1. 真实设备身份 | 部分完成：VID/PID、接口、现有驱动已记录；芯片 ID 未读 |
-| 2. Windows 构建 | 完成：C8821C-only 编译 + 71 项自检通过 |
+| 2. Windows 构建 | 完成：C8821C-only 编译 + 74 项自检通过（含 3 项 OpenSSL 加密自检） |
 | 3. API 契约对照 | 完成（静态）：见 `docs/RADIO_CONTRACT.md` |
 | 4. 许可证与固件 | 识别完成，未解决：见 `docs/LICENSE_MATRIX.md` |
 

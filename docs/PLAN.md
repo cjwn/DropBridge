@@ -4,24 +4,25 @@
 
 目标数据流：iPhone 原生 AirDrop → RTL8821CU → WinUSB/libusb → devourer C8821C → USB radio 进程 → radio_link v3 命名管道 → WinAWDL/OWL Windows AWDL 与 IPv6 → AirDrop 接收/用户确认 → 安全保存文件。
 
-这是一条待验证的目标路线；当前只有研究资料和只读枚举工具。无线层优先 C++/C，上层先复用，不提前决定重写为单一语言或系统服务。首轮不用数据库、GUI、安装器。
+这是一条待验证的目标路线；当前有研究资料、隔离的 Windows 构建产物和只读枚举工具，无线层尚未上硬件验证。无线层优先 C++/C，上层先复用，不提前决定重写为单一语言或系统服务。首轮不用数据库、GUI、安装器。
+
+交付形态（2026-10-27 决定）：用户侧是**一个程序**——一个安装包、一个托盘或后台入口；实现上允许 2～3 个进程：GPL-2.0 的 USB 无线进程、GPL-3.0 的 AWDL 进程、MIT 的应用层，用 MIT 的 `radio_link` 管道通信。**不承诺单进程单 exe**：devourer 是 GPL-2.0-only，OWL/WinAWDL 的 AWDL 层是 GPL-3.0-or-later，二者不能链接成一个作品。
 
 ## Phase 0：补齐进入实验的条件（进行中）
 
-已完成：源任务书归档、五个仓库固定版本、专用分支检查、关键调用链审计、初次本地配置尝试、Git 约定；隔离依赖下的 C8821C-only Windows 构建与 71 项无硬件自检；目标网卡只读身份（`0bda:c820`）；WinAWDL ↔ devourer 契约对照；许可证矩阵。
+已完成：源任务书归档、五个仓库固定版本、专用分支检查、关键调用链审计、初次本地配置尝试、Git 约定；隔离依赖下的 C8821C-only Windows 构建与 74 项无硬件自检（含 3 项 OpenSSL 加密自检）；目标网卡只读身份（`0bda:c820`）；WinAWDL ↔ devourer 契约对照；许可证矩阵；Zadig 绑定手册与只读 USB 探针。
 
 未完成任务：
 1. 芯片 ID 确认：需要一次经授权的 `Init` 读取 `SYS_CFG2 0x00FC`（RTL8821C 预期 `0x09`），并记录失败恢复。
-2. WinUSB 绑定 MI_02 与恢复演练：记录原驱动 `netrtwlanu.inf` 1030.38.712.2019，绑定后只读打开，再恢复普通驱动。绑定与首次 Init 都需要用户明确授权。
-3. （可选）在 `build/deps` 安装 OpenSSL，补齐 `supplicant`、`station_sm`、`ccmp_framing`、`sta_client_headless` 四项自检。
+2. WinUSB 绑定 MI_02 与恢复演练：按 `docs/BINDING_RUNBOOK.md` 执行，绑定后先用 `usb_probe.exe` 只读 open/claim，再恢复普通驱动。绑定与首次 Init 都需要用户明确授权。
 
 退出条件：真实设备身份有记录（含芯片 ID）；Windows 构建通过（已达成）；最小实验和驱动恢复路径可执行。任一条件缺失，Phase 0 保持未完成。
 
 ## Phase 1：独立 USB 无线后端
 
-前置：只读身份已记录（`0bda:c820`，MI_02 为厂商接口，现有驱动 `netrtwlanu.inf`）；绑定只针对 MI_02，保留 MI_00 蓝牙和有线/I226 上网。先记录原驱动，准备针对唯一目标接口的绑定和恢复方案，再由用户授权实际驱动变更。
+前置：只读身份已记录（`0bda:c820`，MI_02 为厂商接口，现有驱动 `netrtwlanu.inf`）；绑定只针对 MI_02，保留 MI_00 蓝牙和有线/I226 上网。绑定前先跑 `build/usb_probe/Release/usb_probe.exe`，确认当前驱动下 open 失败的基线，再按 `docs/BINDING_RUNBOOK.md` 以管理员绑定。
 
-顺序：芯片 ID/初始化 → 固定频道有限 RX → 显式有限 TX → 空口见证与 TX report/ACK 关联 → 双向 unicast → 换频道 → 取消/退出/重开/拔插恢复。先用 `rxdemo` 验证初始化与 RX，再用 `txdemo` 发指定帧；每次发送前说明帧、频道和次数。
+顺序：只读 open/claim → 芯片 ID/初始化 → 固定频道有限 RX → 显式有限 TX → 空口见证与 TX report/ACK 关联 → 双向 unicast → 换频道 → 取消/退出/重开/拔插恢复。先用 `rxdemo` 验证初始化与 RX，再用 `txdemo` 发指定帧；每次发送前说明帧、频道和次数。
 
 验收：每项至少三次重复记录；RX 有真实预期帧，TX 有独立见证，ACK 不以 USB 发送返回值代替；记录切换延迟分布和失败次数；退出无残留占用，目标设备可恢复普通驱动。失败先定位，不能以开启 monitor mode 代替通过。
 
