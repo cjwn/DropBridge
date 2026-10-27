@@ -493,3 +493,11 @@
 - 结论二：冷启动后 40 MHz ≈ 20 MHz ≈ 190–200 KB/s；awdld 整晚只 `switch channel to 149` 一次，不跟随对端 36/6 时隙，常态只用约 2/16 个时隙。**最大速度杠杆是让 awdld 跟随/协商信道序列**（新增 Q15）。
 - 监管新增 `--channel` / `--width` 参数，用于这种 A/B（本次 20 MHz 对照就是用它跑的）。
 - 证据：`evidence/transfer-regression-2026-10-28.log`；队列 Q7 补注、新增 Q15。
+
+## 2026-10-28：默认改 20 MHz；Q15 第一步——radio 频内快切
+
+- 按用户要求把常态带宽改成 **149 / 20 MHz**：监管默认 `width=20`，托盘状态栏改为跟随实际配置（`BandText`），headless 包与单文件 exe 重新打包（16.0 MB），并用单文件 exe 起了一条 149/20 实例验证（00:45:35 就绪）。提交 `4a4f06a`。
+- Q15 第一步：`src/radio_usb/main.cpp` 的 `SET_CHANNEL` 同频段改用 devourer `FastRetune`，跨频段仍走完整 `SetMonitorChannel`，并把耗时写进日志。
+- 实测（radio 单独跑 + Python 客户端）：`149→36` 1.86 ms、`36→149` 14.75 ms、`149→44` 12.2 ms（原完整路径约 90 ms）；换台后 RX 正常（36 上 43 帧/2 s、RSSI -40）。
+- 找到 Q15 主体的确切位置：OWL 的 `awdl_handle_chanseq_tlv` 把对端序列存进 `awdl_peer.sequence` 后就不管了，`state->channel.sequence` 始终是静态“全 149”，所以 `daemon/core.c` 的逐时隙换台永远只看到 149。下一步是把主控序列（含编码）写回 state，再让 core 的时隙循环驱动 SET_CHANNEL；跨频段那个 2.4 GHz 时隙先跳过。
+- 重新打包并重启为 149/20（会话 20261028-005000，radio 00:50:43 就绪）。证据 `evidence/radio-fast-retune.log`；队列 Q15 → 🔜。

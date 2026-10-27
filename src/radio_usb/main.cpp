@@ -11,7 +11,8 @@
  *   HELLO (radio -> client)   once on connect
  *   RX    (radio -> client)   radiotap + 802.11 frame
  *   TX    (client -> radio)   radiotap + 802.11 frame
- *   SET_CHANNEL (client)      one byte, real SetMonitorChannel
+ *   SET_CHANNEL (client)      one byte; FastRetune inside one band, full
+ *                             SetMonitorChannel across bands
  *   SET_BSSID_FILTER (client) six bytes, filter on addr3
  *   SET_ADDRESS (client)      six bytes, own MAC for hardware ACK
  */
@@ -451,12 +452,28 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
             }
         } else if (header.type == RADIO_LINK_SET_CHANNEL &&
                    payload.size() == 1) {
+            const uint8_t previous = radio->GetSelectedChannel().Channel;
+            const uint8_t target = payload[0];
             SelectedChannel next = radio->GetSelectedChannel();
-            next.Channel = payload[0];
+            next.Channel = target;
+            // AWDL hops between slots; a full retune (~90 ms) cannot keep up,
+            // while FastRetune stays inside one band (~1-3 ms). Cross-band
+            // (5 GHz <-> 2.4 GHz) still needs the full path.
+            const bool same_band = (previous > 14) == (target > 14);
+            const auto started = std::chrono::steady_clock::now();
             try {
-                radio->SetMonitorChannel(next);
-                channel = payload[0];
-                logger->info("radio: channel -> {}", channel);
+                if (target == previous) {
+                    // nothing to do
+                } else if (same_band) {
+                    radio->FastRetune(target);
+                } else {
+                    radio->SetMonitorChannel(next);
+                }
+                const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(
+                    std::chrono::steady_clock::now() - started).count();
+                channel = target;
+                logger->info("radio: channel {} -> {} ({} us, {})", previous,
+                             target, elapsed, same_band ? "fast" : "full");
             } catch (const std::exception &error) {
                 logger->error("radio: channel change failed: {}", error.what());
             }

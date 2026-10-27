@@ -1,0 +1,31 @@
+# Q15 第一步：radio 的频内快速换台（FastRetune）
+
+2026-10-28 00:55。目的：AWDL 一个时隙只有十几毫秒，原来的 `SET_CHANNEL` 走完整 `SetMonitorChannel`（约 90 ms），无法跟随时隙；先给 radio 换成 devourer 的 `FastRetune`，再谈 awdld 跟随序列。
+
+## 改动
+
+`src/radio_usb/main.cpp` 的 `SET_CHANNEL` 处理：
+
+- 同频段（都是 5 GHz 或都是 2.4 GHz）→ `radio->FastRetune(target)`；
+- 跨频段（5 GHz ↔ 2.4 GHz）→ 原来的 `SetMonitorChannel`；
+- 两条路径都记录耗时：`radio: channel 149 -> 36 (1864 us, fast)`。
+
+## 实测（radio 单独跑，149 / 20 MHz，Python 客户端发 SET_CHANNEL）
+
+```text
+radio: channel 149 -> 36 (1864 us, fast)
+radio: channel 36 -> 149 (14751 us, fast)
+radio: channel 149 -> 44 (12215 us, fast)
+```
+
+- 第一次 1.9 ms，后两次 12–15 ms：Jaguar2 的 FastRetune 在部分目标信道上仍要重跑信道相关表（spur 等），但都比完整路径快一个量级。
+- 换台后 RX 正常：36 上 43 帧/2 s（RSSI -40 的邻居 AP）、149 上 0 帧、44 上 11 帧。
+- 结论：频内跟随可行，但 12 ms 对“每个时隙都换”仍然偏紧；实际是否够用取决于 AWDL 时隙长度（待 Q15 下一步实测）。
+
+## 下一步（Q15 主体）
+
+让 awdld 采用同步主控（iPhone）通告的信道序列：
+
+- OWL 的 `awdl_handle_chanseq_tlv` 只把对端序列存进 `awdl_peer.sequence`，从未写回 `state->channel.sequence`；`daemon/core.c` 的每个时隙换台逻辑因此永远只看到我们自己那条“全 149”的静态序列。
+- 需要：识别同步主控、连同编码一起保存对端序列、写回 `state->channel.sequence`，然后由 `core.c` 的时隙循环驱动 `SET_CHANNEL`。
+- 跨频段那一个 2.4 GHz 时隙（序列里的 `6`）用完整路径会拖慢，可先跳过（保持 5 GHz）。
