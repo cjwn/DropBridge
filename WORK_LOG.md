@@ -27,7 +27,7 @@
 - 关键构建坑：CMake 的 PkgConfig 不会自动加 `--msvc-syntax`，必须设置 `PKG_CONFIG_ARGN`，否则 MSVC 链接器无法使用 `-L/-l`。
 - 新增可复现脚本 `tools/Setup-BuildDeps.ps1`、`tools/Build-Devourer.ps1`，已端到端跑通（exit 0）。
 - 目标网卡于 12:41 接入并完成只读身份采集：`0bda:c820`，复合设备；MI_00 蓝牙（`oem154.inf` 1.5.1012.3），MI_02 Wi-Fi 厂商接口 `ff/ff/ff`（`netrtwlanu.inf` 1030.38.712.2019，`RtlWlanu`，适配器 `WLAN 2` 未连接）。**芯片 ID 未读**。摘要 `evidence/hardware-identity.json`，完整实例路径只在本地忽略文件。
-- 契约对照：`AcceptBlockAck`/`EndBlockAck` 在锁定 fork 仅 Kestrel 实现，OpenIPC 头部已删除，Jaguar2 从未实现 → 8821C 接收方向硬件 BlockAck 不可用；radio 与 `PcieTransport::tx_kick` 耦合，USB 必须新增 radio 主程序。见 `docs/RADIO_CONTRACT.md`。
+- 契约对照：`AcceptBlockAck`/`EndBlockAck` 是 fork 为 8852C 新增、上游从未包含，且只有 Kestrel 实现；Jaguar2 没有实现 → 8821C 接收方向硬件 BlockAck 不可用；radio 与 `PcieTransport::tx_kick` 耦合，USB 必须新增 radio 主程序。fork 基于 OpenIPC `5be2b72` 加 13 个补丁，比上游头落后约两周。见 `docs/RADIO_CONTRACT.md`。
 - 许可证矩阵 `docs/LICENSE_MATRIX.md`：GPL-2.0 radio + GPL-3.0 awdl + MIT 应用层靠进程边界隔离；Realtek 固件再分发未解决。
 - `tools/Inspect-Hardware.ps1` 增加目标 VID/PID 检测并改为 ASCII 输出（原中文在 PS 5.1 无 BOM 下会乱码）；`tools/check_project.py` 扩展到新文档/证据。
 - 文档同步：README、PHASE0_AUDIT（I 节）、PLAN、BUILD_WINDOWS、HARDWARE_INTAKE、RADIO_CONTRACT、LICENSE_MATRIX。

@@ -123,7 +123,7 @@ Windows 设备绑定方案：目标是让 libusb 通过 WinUSB 访问专用 Wi-F
 
 1. 管道 `radio_link` v3（MIT）是可复用接缝；USB 后端不需要改线格式。
 2. WinAWDL 的 radio 不是接口无关的：`serve_client()` 直接持有 `PcieTransport` 并调用 `tx_kick()`，`main()` 用 `CreateRadioPcie()`；USB 必须新增一个 radio 主程序，不能只替换一个类。
-3. `IRadio::AcceptBlockAck()` / `EndBlockAck()` 在锁定 fork 中只有 Kestrel 实现，Jaguar2（8821C）从未实现；OpenIPC 头部又把这两个虚函数删除了。结果：8821C 无法让硬件应答接收方向的 BlockAck，radio 的 `answer_block_ack()` 会提前返回，iPhone 不会获得聚合许可，接收退化为单 MPDU。这是功能降级，不是「聚合已支持」。
+3. `IRadio::AcceptBlockAck()` / `EndBlockAck()` 是 fork 为 8852C 新增的补丁（`57b6f14`），OpenIPC 上游从未包含，Jaguar2（8821C）也没有实现。结果：8821C 无法让硬件应答接收方向的 BlockAck，radio 的 `answer_block_ack()` 会提前返回，iPhone 不会获得聚合许可，接收退化为单 MPDU。这是功能降级，不是「聚合已支持」。
 4. `SetStationIdentity`、`SetAmpduMode`、`GetTxStats` 在 Jaguar2 有源码实现，但均未在 Windows/USB/8821C 上实测。
 5. 换信道：PCIe 版被显式忽略；USB 的 `SetMonitorChannel()` 可做真实切换，但 AWDL 截止时间未测。
 
