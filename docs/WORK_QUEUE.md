@@ -21,7 +21,7 @@
 
 | ID | 事项 | 依赖 | 完成判据 | 状态 | 证据 |
 | --- | --- | --- | --- | --- | --- |
-| Q1 | receiver 离线吞吐台 | 无 | 20 MB 三次，给出 Python/TLS/zlib 侧 MB/s 上限与结论 | 🔜 | — |
+| Q1 | receiver 离线吞吐台 | 无 | 20 MB 三次，给出 Python/TLS/zlib 侧 MB/s 上限与结论 | ✅ 2026-10-27：compressed 228 MB/s、stored 278 MB/s，非瓶颈 | `evidence/bench-receiver.md` |
 | Q2 | 身份证书去掉外部 openssl | 无 | 无 Git/OpenSSL 的 PATH 下能生成证书并 `/Discover` 200 | ⬜ | — |
 | Q3 | 无壳手动链路脚本 | 写脚本无依赖；**跑需授权** | 一键起停、日志分离、退出无残留 | ⬜ | — |
 | Q4 | 单文件自解压原型 | 无 | 干净 VM 双击可跑，≤30 MB，退出可清理 | ⬜ | — |
@@ -43,6 +43,8 @@
 - 不测什么：不经过 `awdl_netd` 的 lwIP 代理，所以数字是 **receiver + 磁盘** 的上限，不是整链路。
 - 判据：≥10 MB/s → Python 不是瓶颈，速度问题在空口/调度；3–10 MB/s → 隐患；<3 MB/s → 先修 receiver 再谈射频。
 - 产出：`evidence/bench-receiver.md`（机器、版本、3 次原始数字、结论）。
+
+**结果（2026-10-27，已完成）**：20 MB 三次，compressed 中位数 **227.7 MB/s**、stored **277.9 MB/s**；`--trace` 全开为 274/260 MB/s，日志仅 2.6 KB。SHA-256 全部一致。结论：Python/TLS/zlib/cpio/磁盘约有 200 倍余量，**不是瓶颈**；速度问题锁定在空口调度、ACK 与 USB 帧率（Q8–Q10）。唯一保留：客户端与服务端同进程，数字是下限，但离阈值太远，不影响结论。
 
 ### Q2 身份证书去 openssl
 

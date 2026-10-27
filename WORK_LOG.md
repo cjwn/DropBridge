@@ -392,3 +392,15 @@
 - `AGENTS.md` 的必读清单加入 `docs/FINAL_PLAN.md`、`docs/WORK_QUEUE.md`，并规定交接以队列为准。
 - README 阅读入口加队列链接。
 - 下一步：Q1 离线吞吐台（不改射频、不发帧）；Q2 身份证书去 openssl；Q3 手动链路脚本（跑之前要授权）。
+
+## 2026-10-27：Q1 完成——receiver 不是速度瓶颈（228 MB/s）
+
+新增 `tools/bench_receiver.py`：在 `127.0.0.1` 起真实 receiver（TLS + chunked + DVZip + cpio + 落盘），服务端计时 `/Upload` 开始到 `stored`。
+
+- 20 MB 随机字节、3 次：compressed 中位数 **227.7 MB/s**（152/228/236），stored 中位数 **277.9 MB/s**。SHA-256 全部一致。
+- `--trace` 全开复测：274.2 / 259.8 MB/s，日志 2.6 KB —— 调试日志不是开销。
+- 结论：Python/TLS/zlib/cpio/磁盘有约 200 倍余量；1.05 MB/s 只用到 0.45%。速度问题锁定在空口调度、ACK 与 USB 帧率，不再考虑“换语言/去 Python”。
+- 证据：`evidence/bench-receiver.md`、`evidence/bench-receiver-trace.md`。
+- 局限：客户端与服务端同进程，数字是下限；但不影响“远高于需求”的结论。
+- 顺带发现：官方 `test_receiver.py` 在本机 9 个里 8 个失败（连 `::1`，本机 IPv6 回环被 TUN 挡，`WinError 10013`）；bench 用 `127.0.0.1` 绕开，测试环境需要另行修（未列入队列）。
+- 队列：Q1 → ✅；下一项 Q2。
