@@ -43,7 +43,15 @@ internal sealed class LogSink
         {
             try
             {
-                File.AppendAllText(Path.Combine(_dir, name + ".log"),
+                string path = Path.Combine(_dir, name + ".log");
+                var info = new FileInfo(path);
+                if (info.Exists && info.Length > 5 * 1024 * 1024)
+                {
+                    string rotated = path + ".1";
+                    if (File.Exists(rotated)) File.Delete(rotated);
+                    File.Move(path, rotated);
+                }
+                File.AppendAllText(path,
                     DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + Environment.NewLine,
                     Encoding.UTF8);
             }
@@ -190,6 +198,12 @@ internal sealed class Supervisor
 
     public string ReceivedDirectory { get { return Path.Combine(_data, "received"); } }
     public string LogDirectory { get { return _log.DirectoryPath; } }
+    public string Root { get { return _root; } }
+
+    public void Log(string message)
+    {
+        _log.Write("supervisor", message);
+    }
 
     public bool AllAlive
     {
@@ -257,6 +271,44 @@ internal sealed class Supervisor
         return text.ToString();
     }
 
+    private Child NewReceiver()
+    {
+        return new Child("receiver", PythonPath(),
+            "-u \"" + ReceiverPath() + "\" --name AirBridge32 --listen 127.0.0.1" +
+            " --mdns-address-file \"" + AddressFile() + "\"" +
+            " --outdir \"" + ReceivedDirectory + "\"" +
+            " --keys \"" + Path.Combine(_data, "keys") + "\" --trace",
+            new Dictionary<string, string> { { "PYTHONUNBUFFERED", "1" } },
+            _root, "receiving as", _log);
+    }
+
+    public List<string> DeadNames()
+    {
+        var names = new List<string>();
+        foreach (Child child in _children)
+        {
+            if (child.HasExited) names.Add(child.Name);
+        }
+        return names;
+    }
+
+    // The receiver is the only backend that can be replaced without touching the
+    // radio (which needs ~40 s to re-initialise). Any other death still means a
+    // full restart.
+    public bool RestartReceiver(out string error)
+    {
+        for (int index = _children.Count - 1; index >= 0; index--)
+        {
+            if (_children[index].Name == "receiver") _children.RemoveAt(index);
+        }
+        Child receiver = NewReceiver();
+        _children.Add(receiver);
+        if (!receiver.Start(out error)) return false;
+        if (!receiver.WaitReady(60000, out error)) return false;
+        Running = true;
+        return true;
+    }
+
     public bool StartAll(int readyTimeoutSeconds, out string error)
     {
         error = null;
@@ -281,13 +333,7 @@ internal sealed class Supervisor
             }, _root, "waiting for awdld", _log);
         var awdld = new Child("awdld", AwdldPath(), "-c 149 -s 2 -j 400 -v",
             null, _root, "host interface", _log);
-        var receiver = new Child("receiver", PythonPath(),
-            "-u \"" + ReceiverPath() + "\" --name AirBridge32 --listen 127.0.0.1" +
-            " --mdns-address-file \"" + AddressFile() + "\"" +
-            " --outdir \"" + ReceivedDirectory + "\"" +
-            " --keys \"" + Path.Combine(_data, "keys") + "\" --trace",
-            new Dictionary<string, string> { { "PYTHONUNBUFFERED", "1" } },
-            _root, "receiving as", _log);
+        var receiver = NewReceiver();
 
         _children.Clear();
         _children.Add(radio);
@@ -350,6 +396,11 @@ internal sealed class TrayApp : ApplicationContext
     private SynchronizationContext _ui;
     private FileSystemWatcher _watcher;
     private bool _reportedExit;
+    private int _starting;
+    private readonly object _startGate = new object();
+    private int _failures;
+    private DateTime _windowStart = DateTime.UtcNow;
+    private bool _gaveUp;
 
     public TrayApp(Supervisor supervisor, int autoExitSeconds)
     {
@@ -361,6 +412,8 @@ internal sealed class TrayApp : ApplicationContext
             delegate { OpenFolder(_supervisor.ReceivedDirectory); }));
         menu.Items.Add(new ToolStripMenuItem("打开日志", null,
             delegate { OpenFolder(_supervisor.LogDirectory); }));
+        menu.Items.Add(new ToolStripMenuItem("复制诊断信息", null,
+            delegate { CopyDiagnostics(); }));
         _autostart = new ToolStripMenuItem("开机自启", null,
             delegate { ToggleAutostart(); }) { Checked = AutostartEnabled() };
         menu.Items.Add(_autostart);
@@ -444,27 +497,87 @@ internal sealed class TrayApp : ApplicationContext
 
     private void StartBackends()
     {
-        _status.Text = "状态：启动中…";
+        RequestStart(false);
+    }
+
+    private int NextBackoffSeconds()
+    {
+        if ((DateTime.UtcNow - _windowStart).TotalMinutes >= 10)
+        {
+            _failures = 0;
+            _windowStart = DateTime.UtcNow;
+        }
+        _failures++;
+        _supervisor.Log("restart attempt " + _failures);
+        if (_failures > 5) return -1;
+        if (_failures <= 1) return 1;
+        if (_failures <= 2) return 5;
+        return 30;
+    }
+
+    // One start at a time: menu clicks and watchdog restarts must not race.
+    private void RequestStart(bool automatic)
+    {
+        if (Interlocked.CompareExchange(ref _starting, 1, 0) != 0) return;
+        _status.Text = automatic ? "状态：正在重启后端…" : "状态：启动中…";
         var worker = new Thread(delegate()
         {
-            string error;
-            bool started = _supervisor.StartAll(180, out error);
-            Ui(delegate
+            try
             {
-                if (started)
+                int delay = automatic ? NextBackoffSeconds() : 0;
+                if (delay < 0)
                 {
-                    _reportedExit = false;
-                    _status.Text = "状态：运行中（ch149 / 40 MHz）";
-                    _icon.ShowBalloonTip(3000, "AirBridge32",
-                        "接收已就绪，可以在手机上发送了。", ToolTipIcon.Info);
+                    Ui(delegate
+                    {
+                        _gaveUp = true;
+                        _status.Text = "状态：多次失败，已停止";
+                        _icon.ShowBalloonTip(10000, "AirBridge32",
+                            "后端反复失败，已停止自动重启。请查看日志后从托盘菜单重试。",
+                            ToolTipIcon.Error);
+                    });
+                    return;
                 }
-                else
+                if (delay > 0) Thread.Sleep(delay * 1000);
+                lock (_startGate)
                 {
-                    _supervisor.LastError = error;
-                    _status.Text = "状态：启动失败";
-                    _icon.ShowBalloonTip(8000, "AirBridge32 启动失败", error, ToolTipIcon.Error);
+                    _supervisor.StopAll();
+                    string error;
+                    bool started = _supervisor.StartAll(180, out error);
+                    Ui(delegate
+                    {
+                        if (started)
+                        {
+                            _reportedExit = false;
+                            _gaveUp = false;
+                            _failures = 0;
+                            _windowStart = DateTime.UtcNow;
+                            _status.Text = "状态：运行中（ch149 / 40 MHz）";
+                            if (automatic)
+                            {
+                                _icon.ShowBalloonTip(4000, "AirBridge32",
+                                    "后端已自动恢复。", ToolTipIcon.Info);
+                            }
+                            else
+                            {
+                                _icon.ShowBalloonTip(3000, "AirBridge32",
+                                    "接收已就绪，可以在手机上发送了。", ToolTipIcon.Info);
+                            }
+                        }
+                        else
+                        {
+                            _supervisor.LastError = error;
+                            _supervisor.Log("start failed: " + error);
+                            _status.Text = "状态：启动失败";
+                            _icon.ShowBalloonTip(8000, "AirBridge32 启动失败", error,
+                                ToolTipIcon.Error);
+                        }
+                    });
                 }
-            });
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _starting, 0);
+            }
         });
         worker.IsBackground = true;
         worker.Start();
@@ -472,19 +585,102 @@ internal sealed class TrayApp : ApplicationContext
 
     private void CheckChildren()
     {
-        if (!_supervisor.Running) return;
+        if (!_supervisor.Running || _gaveUp) return;
         if (_supervisor.AllAlive)
         {
             _status.Text = "状态：运行中（ch149 / 40 MHz）";
             return;
         }
+        // A dead backend leaves a half-working system: restore it, loudly.
+        List<string> dead = _supervisor.DeadNames();
         _supervisor.Running = false;
-        _status.Text = "状态：后端已退出";
+        _supervisor.Log("backends exited: " + string.Join(",", dead.ToArray()));
+        _status.Text = "状态：后端退出，正在恢复…";
         if (!_reportedExit)
         {
             _reportedExit = true;
-            _icon.ShowBalloonTip(6000, "AirBridge32",
-                "有后端进程退出。可从托盘菜单重新启动。", ToolTipIcon.Warning);
+            _icon.ShowBalloonTip(5000, "AirBridge32",
+                "有后端进程退出，正在自动恢复。", ToolTipIcon.Warning);
+        }
+        if (dead.Count == 1 && dead[0] == "receiver" && RestartReceiverOnly())
+        {
+            return;
+        }
+        RequestStart(true);
+    }
+
+    // Only the Python side can be replaced without re-initialising the radio.
+    private bool RestartReceiverOnly()
+    {
+        if (Interlocked.CompareExchange(ref _starting, 1, 0) != 0) return false;
+        ThreadPool.QueueUserWorkItem(delegate(object state)
+        {
+            try
+            {
+                _supervisor.Log("restarting receiver only");
+                string error;
+                bool restarted = _supervisor.RestartReceiver(out error);
+                if (!restarted) _supervisor.Log("receiver restart failed: " + error);
+                Ui(delegate
+                {
+                    if (restarted)
+                    {
+                        _reportedExit = false;
+                        _status.Text = "状态：运行中（ch149 / 40 MHz）";
+                        _icon.ShowBalloonTip(3000, "AirBridge32",
+                            "接收端已恢复，无需重新初始化网卡。", ToolTipIcon.Info);
+                    }
+                    else
+                    {
+                        RequestStart(true);
+                    }
+                });
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _starting, 0);
+            }
+        });
+        return true;
+    }
+
+    private void CopyDiagnostics()
+    {
+        var text = new StringBuilder();
+        text.AppendLine("AirBridge32 diagnostics");
+        text.AppendLine("time: " + DateTime.Now.ToString("o"));
+        text.AppendLine("exe: " + Application.ExecutablePath);
+        text.AppendLine("root: " + _supervisor.Root);
+        text.AppendLine("running: " + _supervisor.Running + "  allAlive: " + _supervisor.AllAlive);
+        text.AppendLine("os: " + Environment.OSVersion.VersionString);
+        text.AppendLine("logs: " + _supervisor.LogDirectory);
+        try
+        {
+            foreach (string file in Directory.GetFiles(_supervisor.LogDirectory, "*.log"))
+            {
+                text.AppendLine("--- " + Path.GetFileName(file));
+                string[] lines = File.ReadAllLines(file);
+                int start = Math.Max(0, lines.Length - 40);
+                for (int index = start; index < lines.Length; index++)
+                {
+                    text.AppendLine(lines[index]);
+                }
+            }
+        }
+        catch (IOException error)
+        {
+            text.AppendLine("cannot read logs: " + error.Message);
+        }
+        try
+        {
+            Clipboard.SetText(text.ToString());
+            _icon.ShowBalloonTip(3000, "AirBridge32",
+                "诊断信息已复制到剪贴板。", ToolTipIcon.Info);
+        }
+        catch (Exception)
+        {
+            _icon.ShowBalloonTip(3000, "AirBridge32",
+                "复制失败，可在日志目录自行打包。", ToolTipIcon.Warning);
         }
     }
 

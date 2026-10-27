@@ -455,3 +455,13 @@
 - 未验证：气泡/菜单外观、开机自启实际写入、真实文件传输与“收到文件”通知（需要 iPhone）、24 h 常驻。
 - 语言决定：C# + WinForms 取代 Win32 C++（.NET Framework 4.8 是 Windows 自带，产物 20 KB）；已回写 FINAL_PLAN。
 - 证据：`evidence/supervisor-tray.log`；队列 Q5 → ✅，新增 Q14（Q5 真机传文件通过后再删 `app/`）。
+
+## 2026-10-27：Q6 完成、Q7 部分——看门狗与分级恢复
+
+- 日志：单个 `.log` 超 5 MiB 滚动成 `.log.1`，会话目录保留 10 个；托盘新增“复制诊断信息”（root/状态/OS/各日志末 40 行，写剪贴板）。
+- 看门狗 5 s 检查存活；**只有 receiver 死**时单独重启，其它后端死才整链重启（退避 1/5/30 s，10 分钟 5 次后停）。
+- 实测（真机）：`Stop-Process` 杀 receiver（pid 48096）→ 5 s 内发现 → 0.2 s 内起新 receiver（32968）并 ready，`airbridge_radio` pid 前后不变（42468）。
+- 对照：早先版本整链重启要 42 s（radio 固件重初始化），所以选择了选择性重启。
+- 同日遇到一次已知固件启动失败：`FW ready check failed (0x80 != 0xC078)`，cpu-reset 重试后恢复，启动被拖到 >60 s；说明固件重试需要可见状态和更长超时（Q7 剩余）。
+- 重新打包：headless ZIP 与单文件 exe 均 16.0 MB，监管 24 KB。
+- 证据：`evidence/supervisor-recovery.log`；队列 Q6 → ✅，Q7 → 🔜（假死检测、24 h 未做）。
