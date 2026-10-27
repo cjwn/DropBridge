@@ -1,0 +1,8 @@
+﻿awdl_netd.exe : awdl_netd: timeout slots=128
+所在位置 行:3 字符: 1
++ & "$root\build\awdl_netd\Release\awdl_netd.exe" 2>&1 | Tee-Object -Fi ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (awdl_netd: timeout slots=128:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+awdl_netd: netif up

@@ -272,3 +272,13 @@
 - AWDL 计数：`peers 1`，`rx data 2166 (2025 joined)`，`tx data 191`。
 - 证据：`evidence/airdrop-first-transfer.txt`（去敏）；原始接收日志含发送者姓名/IP/令牌，已加入 `.gitignore`，不提交。
 - 待办：v2ray TUN 开启时的 IPv6/link-local 排除或系统代理模式；5 GHz 空口 TX/ACK；Dart/Flutter UI 与打包。
+
+## 2026-10-27：用户态 AWDL 数据面 PoC 骨架
+
+- 目标：TUN 常开且不改 v2ray 默认设置时，让 AirDrop 绕过 Windows IPv6 栈。
+- 取回 lwIP 2.2.2，新增 `src/awdl_netd`：IPv6-only / NO_SYS / mDNS / TCP 用户态栈；构建通过，假握手可让 netif 起来并回 mDNS/MLD 包。
+- 新增 awdld 的 IPC host 后端（`host_if_ipc.c`，`-DAWDL_HOST_IPC=ON`），awdld 不再创建 Wintun；构建通过。
+- `receiver.py` 增加 `--listen 127.0.0.1` 代理模式，关闭自带 mDNS，TLS/HTTP/Upload 逻辑不变。
+- 由于 `upstream/` 被忽略，改动以 `patches/awdl-ipc-host.patch` + `tools/Apply-AwdlPatches.ps1` 跟踪。
+- 状态：骨架/构建通过；**尚未接真实 radio/iPhone 做端到端传输**。
+- 文档：`docs/USERSPACE_DATAPATH.md`。

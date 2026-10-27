@@ -1,0 +1,5 @@
+﻿适用于 .NET Framework MSBuild 版本 17.14.51+25f168cee
+
+  lwip.vcxproj -> J:\New soft project\DropBridge\build\awdl_netd\Release\lwip.lib
+  main.cpp
+  awdl_netd.vcxproj -> J:\New soft project\DropBridge\build\awdl_netd\Release\awdl_netd.exe

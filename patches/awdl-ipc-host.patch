@@ -1,0 +1,293 @@
+﻿diff --git a/airdrop/receiver.py b/airdrop/receiver.py
+index 622a21f..a903eaf 100644
+--- a/airdrop/receiver.py
++++ b/airdrop/receiver.py
+@@ -89,14 +89,22 @@ class Receiver(ThreadingHTTPServer):
+     daemon_threads = True
+     allow_reuse_address = False
+ 
+-    def __init__(self, port, settings, watcher=None):
++    def __init__(self, port, settings, watcher=None, proxy=False):
+         self.settings = settings
+         self.watcher = watcher or Watcher()
+         self.live = set()
+-        super().__init__(('::', port), Handler)
++        self.proxy = proxy
++        if proxy:
++            self.address_family = socket.AF_INET
++            super().__init__(('127.0.0.1', port), Handler)
++        else:
++            super().__init__(('::', port), Handler)
+ 
+     def verify_request(self, request, client_address):
+         # The socket listens on every interface; AirDrop only arrives on one.
++        # In proxy mode awdl_netd is the only client.
++        if self.proxy:
++            return True
+         return client_address[3] == self.settings.interface_index
+ 
+     def process_request(self, request, client_address):
+@@ -408,6 +416,8 @@ def parse_args(argv):
+                         default=DEFAULT_MAX_RECEIVE_PERCENT,
+                         help='largest transfer, as a percentage of free disk space')
+     parser.add_argument('--iface', default=DEFAULT_INTERFACE)
++    parser.add_argument('--listen', default=None,
++                        help='bind this IPv4 address for the user-space AWDL proxy; disables mDNS')
+     parser.add_argument('--port', type=int, default=DEFAULT_PORT)
+     parser.add_argument('--flags', type=lambda text: int(text, 0), default=DEFAULT_FLAGS,
+                         help='receiver capability bits to advertise')
+@@ -436,12 +446,12 @@ def wait_for_interface(alias):
+     return found
+ 
+ 
+-def bind_receiver(port, settings):
++def bind_receiver(port, settings, proxy=False):
+     """A port still held by the previous run is waited out, never side-stepped:
+     the announcement names this port only."""
+     for attempt in range(1, BIND_ATTEMPTS + 1):
+         try:
+-            return Receiver(port, settings)
++            return Receiver(port, settings, proxy=proxy)
+         except OSError as error:
+             if error.errno != errno.EADDRINUSE:
+                 raise
+@@ -473,9 +483,31 @@ def main(argv=None):
+         context = tls_context(settings.keys)
+     except identity.IdentityError as error:
+         raise SystemExit(str(error)) from None
+-    settings.interface_index, address = wait_for_interface(settings.iface)
++    if settings.listen:
++        settings.interface_index = 0
++        address = settings.listen
++    else:
++        settings.interface_index, address = wait_for_interface(settings.iface)
+     redactor.name(address, 'own-address')
+ 
++    if settings.listen:
++        # User-space AWDL data plane: awdl_netd terminates IPv6/TCP and
++        # forwards the stream here; mDNS is advertised by awdl_netd instead.
++        server = bind_receiver(settings.port, settings, proxy=True)
++        server.socket = context.wrap_socket(server.socket, server_side=True,
++                                            do_handshake_on_connect=False)
++        logging.info('receiving as %s (%s) on proxy %s:%d into %s',
++                     settings.name, settings.model, settings.listen,
++                     settings.port, settings.dest)
++        try:
++            server.serve_forever()
++        except KeyboardInterrupt:
++            pass
++        finally:
++            server.reset_sessions()
++            server.server_close()
++        return
++
+     server = bind_receiver(settings.port, settings)
+     server.socket = context.wrap_socket(server.socket, server_side=True,
+                                         do_handshake_on_connect=False)
+diff --git a/awdl/CMakeLists.txt b/awdl/CMakeLists.txt
+index 87868b0..2aad484 100644
+--- a/awdl/CMakeLists.txt
++++ b/awdl/CMakeLists.txt
+@@ -39,10 +39,16 @@ target_link_libraries(awdl PUBLIC owl_build radiotap)
+ 
+ # The host adapter is kept clear of owl_build: -mno-ms-bitfields must not
+ # reach the Windows networking structures it fills in.
+-add_library(host_if STATIC win/host_if.c win/host_frame.c)
++option(AWDL_HOST_IPC "Use the user-space awdl_netd IPC backend" OFF)
++if(AWDL_HOST_IPC)
++    add_library(host_if STATIC win/host_if_ipc.c win/host_frame.c)
++    target_link_libraries(host_if PRIVATE ws2_32)
++else()
++    add_library(host_if STATIC win/host_if.c win/host_frame.c)
++    target_link_libraries(host_if PRIVATE iphlpapi)
++endif()
+ target_include_directories(host_if PUBLIC win)
+ target_compile_options(host_if PRIVATE -Wall -Wextra -Werror)
+-target_link_libraries(host_if PRIVATE iphlpapi)
+ 
+ set(WIN_SOURCES
+     win/main.c win/ev_win.c win/io_win.c win/netutils_win.c win/radio_client.c
+@@ -51,7 +57,7 @@ set(WIN_SOURCES
+ add_executable(awdld "${OWL}/daemon/core.c" ${WIN_SOURCES})
+ set_source_files_properties(${WIN_SOURCES} PROPERTIES
+     COMPILE_OPTIONS "-Wall;-Wextra;-Werror")
+-target_link_libraries(awdld PRIVATE awdl host_if bcrypt)
++target_link_libraries(awdld PRIVATE awdl host_if bcrypt ws2_32)
+ # Static, so the daemon does not need the MinGW runtime DLLs beside it.
+ # The wrap routes OWL's log calls through main.c, which can redact them.
+ target_link_options(awdld PRIVATE -static -Wl,--wrap=log_log)
+diff --git a/awdl/win/host_if_ipc.c b/awdl/win/host_if_ipc.c
+new file mode 100644
+index 0000000..506549c
+--- /dev/null
++++ b/awdl/win/host_if_ipc.c
+@@ -0,0 +1,169 @@
++/* SPDX-License-Identifier: GPL-3.0-or-later */
++/* IPC host backend for the user-space AWDL data plane PoC.
++ *
++ * Instead of creating a Wintun adapter, this connects to awdl_netd on
++ * 127.0.0.1:49877 and exchanges raw IPv6 packets. awdl_netd runs lwIP and
++ * proxies AirDrop's TCP 8771 to the local receiver, so the Windows IPv6
++ * stack (and any v2ray TUN) is not involved. */
++#define WIN32_LEAN_AND_MEAN
++#include <winsock2.h>
++#include <ws2tcpip.h>
++#include <windows.h>
++
++#include "host_if.h"
++
++#include <stdio.h>
++#include <stdlib.h>
++#include <string.h>
++
++#define IPC_PORT 49877
++#define IPC_CONNECT_TRIES 200
++
++struct host_if {
++    SOCKET sock;
++    WSAEVENT event;
++    uint8_t header[2];
++    int header_got;
++    uint8_t packet[HOST_IF_MAX_PACKET];
++    int packet_len;
++    int packet_got;
++};
++
++static int send_all(SOCKET sock, const uint8_t *data, int len) {
++    while (len > 0) {
++        int n = send(sock, (const char *) data, len, 0);
++        if (n > 0) {
++            data += n;
++            len -= n;
++            continue;
++        }
++        if (n < 0 && WSAGetLastError() == WSAEWOULDBLOCK) {
++            Sleep(1);
++            continue;
++        }
++        return -1;
++    }
++    return 0;
++}
++
++struct host_if *host_if_open(const uint8_t address[16], char *error, size_t error_len) {
++    struct host_if *host = (struct host_if *) calloc(1, sizeof(*host));
++    if (!host) return NULL;
++    host->sock = INVALID_SOCKET;
++    host->event = WSA_INVALID_EVENT;
++
++    host->sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
++    if (host->sock == INVALID_SOCKET) {
++        snprintf(error, error_len, "socket failed (%d)", WSAGetLastError());
++        host_if_close(host);
++        return NULL;
++    }
++
++    struct sockaddr_in addr;
++    memset(&addr, 0, sizeof(addr));
++    addr.sin_family = AF_INET;
++    addr.sin_port = htons(IPC_PORT);
++    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
++
++    int connected = 0;
++    for (int i = 0; i < IPC_CONNECT_TRIES; i++) {
++        if (connect(host->sock, (const struct sockaddr *) &addr, sizeof(addr)) == 0) {
++            connected = 1;
++            break;
++        }
++        if (WSAGetLastError() != WSAECONNREFUSED &&
++            WSAGetLastError() != WSAETIMEDOUT) {
++            break;
++        }
++        Sleep(100);
++    }
++    if (!connected) {
++        snprintf(error, error_len, "awdl_netd not reachable on 127.0.0.1:%d", IPC_PORT);
++        host_if_close(host);
++        return NULL;
++    }
++
++    uint8_t hello[20];
++    memcpy(hello, "AWDL", 4);
++    memcpy(hello + 4, address, 16);
++    if (send_all(host->sock, hello, sizeof(hello)) != 0) {
++        snprintf(error, error_len, "handshake write failed");
++        host_if_close(host);
++        return NULL;
++    }
++
++    host->event = WSACreateEvent();
++    if (host->event == WSA_INVALID_EVENT ||
++        WSAEventSelect(host->sock, host->event, FD_READ | FD_CLOSE) == SOCKET_ERROR) {
++        snprintf(error, error_len, "event setup failed (%d)", WSAGetLastError());
++        host_if_close(host);
++        return NULL;
++    }
++    u_long nonblocking = 1;
++    ioctlsocket(host->sock, FIONBIO, &nonblocking);
++    return host;
++}
++
++void host_if_close(struct host_if *host) {
++    if (!host) return;
++    if (host->event != WSA_INVALID_EVENT) WSACloseEvent(host->event);
++    if (host->sock != INVALID_SOCKET) closesocket(host->sock);
++    free(host);
++}
++
++void *host_if_read_event(const struct host_if *host) {
++    return (void *) host->event;
++}
++
++unsigned long host_if_index(const struct host_if *host) {
++    (void) host;
++    return 1;
++}
++
++int host_if_read(struct host_if *host, uint8_t *packet) {
++    if (!host) return 0;
++    for (;;) {
++        if (host->header_got < 2) {
++            int n = recv(host->sock, (char *) host->header + host->header_got,
++                         2 - host->header_got, 0);
++            if (n > 0) {
++                host->header_got += n;
++                if (host->header_got == 2) {
++                    host->packet_len = host->header[0] | (host->header[1] << 8);
++                    host->packet_got = 0;
++                    if (host->packet_len <= 0 || host->packet_len > HOST_IF_MAX_PACKET) {
++                        return 0;
++                    }
++                }
++                continue;
++            }
++            if (n < 0 && WSAGetLastError() == WSAEWOULDBLOCK) return 0;
++            return 0;
++        }
++
++        int n = recv(host->sock, (char *) host->packet + host->packet_got,
++                     host->packet_len - host->packet_got, 0);
++        if (n > 0) {
++            host->packet_got += n;
++            if (host->packet_got == host->packet_len) {
++                memcpy(packet, host->packet, (size_t) host->packet_len);
++                int len = host->packet_len;
++                host->header_got = 0;
++                host->packet_len = 0;
++                host->packet_got = 0;
++                return len;
++            }
++            continue;
++        }
++        if (n < 0 && WSAGetLastError() == WSAEWOULDBLOCK) return 0;
++        return 0;
++    }
++}
++
++int host_if_write(struct host_if *host, const uint8_t *packet, int len) {
++    if (!host || len <= 0 || len > HOST_IF_MAX_PACKET) return -1;
++    uint8_t header[2] = { (uint8_t) (len & 0xff), (uint8_t) ((len >> 8) & 0xff) };
++    if (send_all(host->sock, header, sizeof(header)) != 0) return -1;
++    if (send_all(host->sock, packet, len) != 0) return -1;
++    return 0;
++}
