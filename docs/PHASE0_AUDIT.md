@@ -124,7 +124,7 @@ Windows 设备绑定方案：目标是让 libusb 通过 WinUSB 访问专用 Wi-F
 1. 管道 `radio_link` v3（MIT）是可复用接缝；USB 后端不需要改线格式。
 2. WinAWDL 的 radio 不是接口无关的：`serve_client()` 直接持有 `PcieTransport` 并调用 `tx_kick()`，`main()` 用 `CreateRadioPcie()`；USB 必须新增一个 radio 主程序，不能只替换一个类。
 3. `IRadio::AcceptBlockAck()` / `EndBlockAck()` 是 fork 为 8852C 新增的补丁（`57b6f14`），OpenIPC 上游从未包含，Jaguar2（8821C）也没有实现。结果：8821C 无法让硬件应答接收方向的 BlockAck，radio 的 `answer_block_ack()` 会提前返回，iPhone 不会获得聚合许可，接收退化为单 MPDU。这是功能降级，不是「聚合已支持」。
-4. `SetStationIdentity`、`SetAmpduMode`、`GetTxStats` 在 Jaguar2 有源码实现，但均未在 Windows/USB/8821C 上实测。
+4. `SetStationIdentity`、`SetAmpduMode`、`GetTxStats` 在 Jaguar2 有源码实现，但均未在 Windows/USB/8821C 上实测。实机 `adapter.caps` 报告 `ack_responder=0`、`station_mode=0`、`tx_retry_limit=0`、`tx_no_agg=0`；这些是能力声明（很可能是尚未做空口验证），不能据此判定实现不存在，但 Phase 2 前必须用空口测试确认。
 5. 换信道：PCIe 版被显式忽略；USB 的 `SetMonitorChannel()` 可做真实切换，但 AWDL 截止时间未测。
 
 ### I.4 许可证
@@ -161,3 +161,17 @@ Windows 设备绑定方案：目标是让 libusb 通过 WinUSB 访问专用 Wi-F
 - 证据：`evidence/init-first.log`。
 
 结论：Phase 1 的「初始化/固件」项已通过一次；尚未做接收、发送、换信道和拔插恢复。Phase 0 仍只差 WinUSB 回滚演练。
+
+### I.8 首次被动 RX（2026-10-27 14:32–14:33）
+
+两次 `doctor --listen-secs`，均为零发帧：
+
+| 信道 | 频段 | 时长 | 总帧 | FCS 正常 | CRC 错 | 判定 |
+| --- | --- | --- | --- | --- | --- | --- |
+| 6 | 2.4 GHz | 15 s | 750 | 500 | 250（33%） | HEALTHY |
+| 36 | 5 GHz | 12 s | 6286 | 4956 | 1330（21%） | HEALTHY |
+
+- 接收路径确实在工作；5 GHz 出现了 12668 字节的大完成，说明芯片侧聚合接收是通的。
+- CRC 比例偏高，但这是拥挤环境下的单次样本，**不能当链路质量结论**；需要同信道三次重复和更干净的对照，之后再判断是否需要调 CCA/RX 参数。
+- 接收方向的 BlockAck 协议仍未验证；这里的聚合是环境 AP 发出的，不代表我们作为接收方能应答。
+- 证据：`evidence/rx-first.log`、`evidence/rx-second-5g.log`。

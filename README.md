@@ -2,7 +2,7 @@
 
 Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirBridge32 为任务书暂定产品名；没有 ESP32 固件要求。
 
-**当前：Phase 1 已开始。RTL8821CU-only 的 devourer 已在 Windows 上构建成功并通过 74 项无硬件自检；目标网卡 `0bda:c820` 的 MI_02 已绑定 WinUSB，libusb 可 open/claim interface 2；芯片 ID 只读确认为 `0x09`（RTL8821C）；第一次完整 bring-up + 固件下载已在频道 6 成功（`cut=4 (UMC) 1T1R`，RX 已使能，零发帧）。尚未收包、未发帧，AirDrop 链路未验证；尚无可用 AirDrop 接收程序。**
+**当前：Phase 1 进行中。RTL8821CU-only 的 devourer 已在 Windows 上构建成功并通过 74 项无硬件自检；目标网卡 `0bda:c820` 的 MI_02 已绑定 WinUSB，libusb 可 open/claim interface 2；芯片 ID 只读确认为 `0x09`（RTL8821C）；首次完整 bring-up + 固件下载已在频道 6 成功；被动 RX 在 2.4 GHz 频道 6（15 秒 500 帧 FCS 正常）和 5 GHz 频道 36（12 秒 4956 帧 FCS 正常）各通过一次，零发帧。尚未发送任何无线帧，AirDrop 链路未验证。**
 
 目标是让 iPhone 系统原生隔空投送通过专用 RTL8821CU USB 网卡把文件交给 Windows，不依赖 WSL2、虚拟机或 iPhone 第三方应用。
 
@@ -47,6 +47,7 @@ python .\tools\check_project.py   # 文档、证据与版本锁一致性
 - `evidence/binding-result.log`：绑定后 `Check-Binding.ps1` 与 `usb_probe.exe` 的验证记录（open OK、claim interface 2、端点列表）。
 - `evidence/chip-id-read.log`：只读读取 `SYS_CFG2 0x00FC = 0x09`，确认 RTL8821C；没有 Init、没有固件下载、没有发帧。
 - `evidence/init-first.log`：第一次完整 bring-up（频道 6）：固件下载、BB/RF 表、IQK、RX 使能、`cut=4 (UMC) 1T1R`；零发帧。
+- `evidence/rx-first.log`、`evidence/rx-second-5g.log`：两次限时被动 RX（频道 6 / 36）的帧数、FCS 正常/CRC 错与 `HEALTHY` 判定；零发帧。
 - `evidence/build-8821c-*.log`：本机 MSVC 19.44 + libusb 1.0.30 + OpenSSL 3.6.5 的配置、编译和 74 项自检记录。
 - `evidence/usb-open-baseline.log`：绑定 WinUSB 之前，libusb 找不到设备接口（`LIBUSB_ERROR_NOT_FOUND`）的基线记录。
 - `evidence/build-configure.log`：首次配置因缺 PkgConfig 失败的原始记录，保留作历史。
@@ -56,9 +57,10 @@ python .\tools\check_project.py   # 文档、证据与版本锁一致性
 
 ## 仍未完成
 
-1. 第一次被动 RX：固定频道、有限时长、干净停止（需要先写一个有界 RX 探针，或确认 rxdemo 的停止方式）。
-2. WinUSB 回滚到 `netrtwlanu` 的演练。
-3. Phase 1 的 TX、TX report、换信道和拔插恢复实测。
-4. 8821C USB 版 radio 后端尚未编写。
+1. RX 的重复性：同一信道三次重复，记录 CRC 比例波动；当前 2.4 GHz 约 33%、5 GHz 约 21%，原因未定位。
+2. TX 与独立见证：需要第二个接收设备/抓包手段，项目规则不允许用 USB 提交成功代替空口验证。
+3. WinUSB 回滚到 `netrtwlanu` 的演练。
+4. Phase 1 的 TX report、换信道和拔插恢复实测。
+5. 8821C USB 版 radio 后端尚未编写。
 
 本轮不复制上游实现，不赋予第三方代码统一许可证。产品发布许可证将在复用范围确定后处理。

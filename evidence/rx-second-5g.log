@@ -1,0 +1,116 @@
+﻿capturedAtUtc: 2026-10-27T06:33:51.5142927Z
+exit: 0
+doctor.exe : devourer [I] USB adapter 1-8.3 locked for exclusive access
+所在位置 行:4 字符: 8
++ $out = & $exe --vid 0x0bda --pid 0xc820 --channel 36 --listen-secs 12 ...
++        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (devourer [I] US...xclusive access:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+devourer [I] Creating RtlJaguar2Device C8821C (PID 0xc820, chip-id 0x09)
+devourer [I] USB device 0bda:c820
+devourer [I] Running USB bus at 480MBit/s
+devourer [I] selected USB interface 2
+devourer [I] endpoint[0]: addr=0x84 attrs=0x2 bulk=1 in=1
+devourer [I] selected bulk IN endpoint: 0x84
+devourer [I] endpoint[1]: addr=0x5 attrs=0x2 bulk=1 in=0
+devourer [I] endpoint[2]: addr=0x6 attrs=0x2 bulk=1 in=0
+devourer [I] endpoint[3]: addr=0x87 attrs=0x3 bulk=0 in=1
+devourer [I] endpoint[4]: addr=0x8 attrs=0x2 bulk=1 in=0
+devourer [I] bulk OUT endpoints: 0x05 0x06 0x08 
+devourer [I] libusb_clear_halt(bulk IN 0x84) rc=0
+devourer [I] OutEpQueueSel(7), OutEpNumber(3)
+devourer [I] Boot from EFUSE, Autoload OK !
+{"ev":"adapter.caps","supported":1,"chip":"RTL8821C","names":"RTL8811CU/RTL8821CU","chip_id":"0x09","gen":"jaguar2","variant":"C8821C","transport":"usb","tx_chains":1,"rx_chains":1,"n_ss":1,"stbc":0,"ldpc":1,"sgi":1,"bw_max":80,"bw":[5,10,20,40,80],"txpwr_max":63,"txpwr_step_qdb":2,"txpwr_step_measured":1,"txpwr_min_qdb":-126,"txpwr_max_qdb":126,"txpwr_rate_diffs":1,"txpwr_rate_diffs_hw":1,"txpwr_rate_diffs_measured":1,"tune_2g4":[2412,2484],"tune_5g":[5080,6165],"char_2g4":[2412,2484],"char_5g":[5180,5825],"ldpc_rx_ht":1,"ldpc_rx_vht":1,"ldpc_rx_flag":1,"vht_2g4":0,"per_pkt_txpwr":1,"per_pkt_txpwr_steps":6,"per_pkt_txpwr_step_qdb":0,"per_pkt_txpwr_min_qdb":-44,"per_pkt_txpwr_max_qdb":24,"per_pkt_txpwr_measured":1,"narrowband":1,"fastretune":1,"ack_responder":0,"station_mode":0,"tx_retry_limit":0,"tx_no_agg":0,"he_er_su":0,"per_chain_rssi":0,"hw_rx_tsf":1,"hw_beacon_txtsf":1,"tsf_write":1,"tbtt_follows_tsf":0,"xtal_cap_max":63,"xtal_cap_default":42}
+devourer [I] Jaguar2: pre_init_system_cfg done
+devourer [I] Jaguar2: power-off (card-disable) sequence applied
+devourer [I] Jaguar2: power-on sequence complete (card active)
+devourer [I] Jaguar2 chip: 8821C cut=4 (UMC) 1T1R (SYS_CFG1=0x00494537)
+devourer [I] Jaguar2: init_system_cfg done (bw=0 cut=4)
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 3360 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 1488 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 3144 bytes
+devourer [I] Jaguar2 DLFW: download OK, CPU enabled �?polling FW boot
+devourer [I] Jaguar2 DLFW: FW ready (0x80 = 0xC078)
+devourer [I] RtlJaguar2Device: firmware booted (bw=0)
+devourer [I] Jaguar2: priority_queue_cfg done (rsvd_boundary=452)
+devourer [I] Jaguar2: init_mac_cfg done
+devourer [I] Jaguar2: init_usb_cfg (RXDMA_MODE=0x1e, RX-agg EN)
+devourer [I] RtlJaguar2Device: MAC cfg + BB/RF enabled
+devourer [I] Jaguar2: EFUSE rfe_type=0x22
+devourer [I] bulk_send EP 5 OK 80 bytes
+devourer [I] bulk_send EP 5 OK 80 bytes
+devourer [I] Jaguar2: FW general/phydm info H2C sent (rfe=34 rf=1T1R cut=4 pkg=0 fw_txbuf_off=56 h2cq head=0xfa00 read=
+0xfa40 PENDING)
+devourer [I] Jaguar2: applying BB phy_reg (3356 words) + agc_tab (3200 words)
+devourer [I] Jaguar2: applying RF radioa (5424 words) + radiob (0 words)
+devourer [I] Jaguar2: BB/AGC/RF tables applied (rfe_type=0x22)
+devourer [I] RtlJaguar2Device: PHY tables applied
+devourer [I] Jaguar2/8821C: channel set ch=36 bw=0 cch=36 BTG (rf18=13d24)
+devourer [I] Jaguar2/8821C: LCK applied (RF-fw poke)
+devourer [I] Jaguar2/8821C IQK done (is_btg=0): LOK fail=0 | TXK retry=0 | RXK gs_retry(g1=0 g2=2) 1shot_retry(k1=0 k2=
+0) | TX/RX fail=0/0 RXK failcode=0 (0=gs1,1=rxk1,2=rxk2; only meaningful if that step ran)
+devourer [I] Jaguar2: TX/RX path re-asserted post-IQK
+devourer [I] Jaguar2/8821C: bf_init (MU/TXBF MAC setup + 0x1c94)
+devourer [I] Jaguar2/8821C: per-rate TXAGC (vendor formula) ch36 5G cck_base=0 ofdm_base=46 ht_base=43 lmt cck/ofdm/ht=
+63/27/27
+devourer [I] Jaguar2/8821C: coex WL-only antenna (rfe_mod=2 wlg@btg=1 main=1 inv=0 is_5g=1)
+devourer [I] Jaguar2: RX enabled (CR=0x06ff, RCR=0xf000032f, IGI=0x40)
+devourer [I] Jaguar2 8821C thermal-track: baseline=26 ch=36 default_ofdm=24
+devourer [I] RtlJaguar2Device: thermal-track thread started
+devourer [I] Jaguar2: ready for TX (monitor inject, ch=36)
+devourer [I] Jaguar2 8821C thermal-track: avg=29 d=3 swing=2
+devourer [I] efuse-stability: reads=4 mismatched=0 invalid_id=0 id=0x8129
+devourer [I] RtlJaguar2Device: DIG thread started
+devourer [I] RtlJaguar2Device: entering RX loop (ch=36)
+devourer [I] RX: async ring of 8 URBs submitted (+0 spare, 0 zerocopy DMA, 8 heap)
+devourer [I] Jaguar2 RX: completion #1 -> 944 bytes
+devourer [I] Jaguar2 RX: completion #2 -> 12668 bytes
+devourer [I] Jaguar2 RX: completion #3 -> 576 bytes
+devourer [I] Jaguar2 RX: completion #4 -> 240 bytes
+devourer [I] Jaguar2 RX: completion #5 -> 768 bytes
+devourer [I] Jaguar2 RX: completion #6 -> 336 bytes
+devourer [I] Jaguar2 RX: completion #7 -> 336 bytes
+devourer [I] Jaguar2 RX: completion #8 -> 336 bytes
+devourer [I] RtlJaguar2Device: RX loop exited (6286 frames, 1733 reads)
+
+== adapter doctor ==
+bring-up:        yes
+efuse MAC:       68:8f:c9:b2:55:42
+efuse stability: 4 reads, 0 mismatched, 0 bad-id (last id 0x8129)
+fw boot:         checksum yes, MCU ready yes
+rx smoke:        4956 ok / 1330 corrupt in 12 s
+verdict:         HEALTHY
+{"ev":"doctor.verdict","verdict":"HEALTHY","reasons":"0x0","efuse_reads":4,"efuse_mismatch":0,"efuse_bad_id":0,"efuse_id":"0x8129","fw_attempted":1,"fw_ready":1,"rx_ok":4956,"rx_crc":1330,"init":1}
