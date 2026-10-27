@@ -34,7 +34,7 @@ required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
             "tools/radio_link_client.py", "tools/radio_link_client.dart",
             "src/radio_usb/CMakeLists.txt", "src/radio_usb/main.cpp",
             "src/radio_usb/radio_link.h", "src/radio_usb/radio_pipe_bridge.cpp",
-            "tools/Build-Awdl.ps1",
+            "tools/Build-Awdl.ps1", "tools/Run-AwdlAdmin.ps1",
             "tools/Inspect-Hardware.ps1", "tools/Check-Binding.ps1"]
 for name in required:
     assert (root / name).is_file(), f"Missing: {name}"

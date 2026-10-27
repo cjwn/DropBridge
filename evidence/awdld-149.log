@@ -1,0 +1,68 @@
+﻿awdld.exe : 19:00:29 WARN : no host interface, AWDL data will be dropped: cannot create the adapter; Administrator righ
+ts are needed (error 5)
+所在位置 行:5 字符: 1
++ & .\awdld.exe -c 149 -s 2 -j 400 -v 2>&1 | Tee-Object -FilePath "$roo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (19:00:29 WARN :...eeded (error 5):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+19:00:29 INFO : AWDL address c2:24:1d:4b:3a:f0 on channel 149
+19:00:29 DEBUG: switch channel to 149 (slot 0)
+19:00:29 DEBUG: peer 62:65:31:c5:29:59 () changed channel sequence to 149,0,149,0,0,0,0,0,6,149,149,0,0,0,0,0
+19:00:30 DEBUG: peer 62:65:31:c5:29:59 () changed channel sequence to 149,149,149,149,149,149,0,0,6,149,149,149,149,149
+,0,0
+19:00:30 INFO : add peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6)
+19:00:30 DEBUG: peer 8e:b4:97:21:00:a9 () changed channel sequence to 36,36,149,0,0,0,0,36,6,36,149,36,0,0,0,36
+19:00:30 INFO : add peer 8e:b4:97:21:00:a9 ()
+19:00:30 DEBUG: new election tree: c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29:59 (met 526, ctr 145)
+19:00:30 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0
+,0,0,0,6,149,149,0,0,0,0,0
+19:00:31 INFO : sync master is now 62:65:31:c5:29:59, chosen among:
+19:00:31 INFO :   8e:b4:97:21:00:a9 follows 8e:b4:97:21:00:a9 under 8e:b4:97:21:00:a9 (met 115, ctr 83, height 0), itse
+lf (met 115, ctr 83), heard 535 ms ago
+19:00:31 INFO :   62:65:31:c5:29:59 follows 62:65:31:c5:29:59 under 62:65:31:c5:29:59 (met 526, ctr 145, height 0), its
+elf (met 526, ctr 145), heard 33 ms ago
+19:00:31 INFO : peers 2 | rx action 33, data 0 | tx action 47, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29:5
+9 (met 526, ctr 145)
+19:00:33 INFO : peers 2 | rx action 63, data 0 | tx action 96, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29:5
+9 (met 526, ctr 146)
+19:00:35 INFO : peers 2 | rx action 92, data 0 | tx action 144, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29:
+59 (met 526, ctr 146)
+19:00:37 INFO : peers 2 | rx action 123, data 0 | tx action 193, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 147)
+19:00:39 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,1
+49,149,149,0,0,6,149,149,149,149,149,0,0
+19:00:39 INFO : peers 2 | rx action 158, data 0 | tx action 241, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 148)
+19:00:40 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0
+,0,0,0,6,149,149,0,0,0,0,0
+19:00:41 INFO : peers 2 | rx action 179, data 0 | tx action 289, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 148)
+19:00:43 INFO : peers 2 | rx action 199, data 0 | tx action 338, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 149)
+19:00:45 INFO : peers 2 | rx action 218, data 0 | tx action 387, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 149)
+19:00:47 INFO : peers 2 | rx action 239, data 0 | tx action 435, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 150)
+19:00:48 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,1
+49,149,149,0,0,6,149,149,149,149,149,0,0
+19:00:49 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0
+,0,0,0,6,149,149,0,0,0,0,0
+19:00:49 INFO : peers 2 | rx action 270, data 0 | tx action 483, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 151)
+19:00:51 INFO : peers 2 | rx action 291, data 0 | tx action 532, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 151)
+19:00:53 INFO : peers 2 | rx action 310, data 0 | tx action 581, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 152)
+19:00:55 INFO : peers 2 | rx action 329, data 0 | tx action 628, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 153)
+19:00:57 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,149,149,1
+49,149,149,0,0,6,149,149,149,149,149,0,0
+19:00:57 INFO : peers 2 | rx action 358, data 0 | tx action 677, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 153)
+19:00:57 DEBUG: peer 62:65:31:c5:29:59 (de70291f-0db1-4228-ace7-a37e79c700c6) changed channel sequence to 149,0,149,0,0
+,0,0,0,6,149,149,0,0,0,0,0
+19:00:59 INFO : peers 2 | rx action 379, data 0 | tx action 725, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 154)
+19:01:01 INFO : peers 2 | rx action 401, data 0 | tx action 773, data 0 | sync tree c2:24:1d:4b:3a:f0 -> 62:65:31:c5:29
+:59 (met 526, ctr 155)

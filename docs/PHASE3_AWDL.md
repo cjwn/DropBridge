@@ -1,6 +1,13 @@
 # Phase 3：AWDL 接入（准备完成，等待授权运行）
 
-状态：**构建与桥接已就绪；尚未运行 `awdld`。** 运行会创建一个 Wintun 虚拟网卡并在频道 44 上发射 AWDL 帧，属于网络变更与无线发射，必须先获得用户授权。
+状态：**构建、桥接、AWDL 控制面已实测成功；AirDrop 数据面被当前 Codex 沙箱的离线防火墙阻塞，iPhone 尚看不到设备。** 运行会创建 Wintun 虚拟网卡并发射 AWDL 帧，必须先获得用户授权。
+
+## 2026-10-27 实测结果
+
+- `awdld -c 149` 与 iPhone 15 Pro Max（iOS 17.5）的 AWDL 同步成功：`peers 2`、`rx action` 持续增长，同步树对端 `62:65:31:c5:29:59`，Wintun `awdl0`（ifIndex 68）创建成功，peer 可达 `fe80::...%68`。
+- 但 `rx data 3 / tx data 0`，Windows 侧 mDNS/HTTP 发不出去，iPhone 隔空投送里没有 AirBridge32。
+- 根因：当前 DSH 会话的 **Codex 沙箱离线防火墙**规则（`codex_sandbox_offline_block_outbound` 等）禁止所有非回环 IPv6；`ping ::1`、链路本地 ping 全部 `General failure`，而 IPv4 回环正常。详见 `evidence/awdl-sandbox-firewall.txt`。
+- 未修改任何防火墙规则。要在本机继续，需要在沙箱外的普通管理员终端运行，或明确授权临时停用这三条规则并在测试后恢复。
 
 ## 组成
 
@@ -35,9 +42,11 @@ airbridge_radio.exe（C++/devourer，独占 RTL8821CU）
 3. 启动桥：
    `build\radio_usb\Release\radio_pipe_bridge.exe`
 4. 启动 AWDL：
-   `build\awdl\awdld.exe -c 44 -s 2 -j 400 -v`
-5. iPhone：解锁，打开隔空投送，接收设为“所有人”（或联系人），停留在隔空投送界面。
-6. 观察 `awdld` 日志是否出现邻居/同步；记录 iPhone 型号、iOS 版本、时间。
+   `build\awdl\awdld.exe -c 149 -s 2 -j 400 -v`（需要管理员权限创建 Wintun；也可用 `tools\Run-AwdlAdmin.ps1 -Channel 149`）
+5. 启动 AirDrop 接收服务（普通终端即可，绑定 `awdl0`）：
+   `python upstream\winawdl\airdrop\receiver.py --name AirBridge32 --iface awdl0 --outdir build\received --trace`
+6. iPhone：解锁，打开隔空投送，接收设为“所有人”（或联系人），停留在隔空投送界面。
+7. 观察 `awdld` 日志是否出现 `peers`/`data`，以及 `receiver.py` 是否出现请求；记录 iPhone 型号、iOS 版本、时间。
 
 ## 授权边界
 

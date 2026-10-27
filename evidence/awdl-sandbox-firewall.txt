@@ -1,0 +1,41 @@
+Phase 3 AWDL test — blocker recorded 2026-10-27 19:07 (+08:00)
+
+Result: AWDL control/sync works with the iPhone, but AirDrop data cannot flow.
+The Windows firewall in this Codex sandbox blocks all non-loopback IPv6.
+
+Firewall rules (Get-NetFirewallRule -DisplayName 'codex_sandbox_offline*'):
+
+  codex_sandbox_offline_block_loopback_udp   Outbound Block  "Block Loopback UDP"
+  codex_sandbox_offline_block_loopback_tcp   Outbound Block  "Block Loopback TCP (Except Proxy)"
+  codex_sandbox_offline_block_outbound       Outbound Block  "Block Non-Loopback Outbound"
+  codex_sandbox_offline_block_inbound        Inbound  Block  "Block Non-Loopback Inbound"
+
+The outbound rule's remote addresses include :: and ::2-ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff.
+
+IPv6 checks while the rules were enabled:
+  ping -6 ::1                              -> General failure
+  ping -6 fe80::8089:b2ff:fec4:5e4c%68     -> General failure (own awdl0 address)
+  ping -6 fe80::b50e:fc93:ecf2:9046%17     -> General failure (Ethernet link-local)
+  ping -6 2606:4700:4700::1111             -> General failure
+  ping -4 127.0.0.1                        -> OK
+  python IPv6 loopback TCP connect         -> WinError 10013
+
+AWDL control result before the data path failed:
+  radio on channel 149, awdld elevated (Wintun adapter awdl0, ifIndex 68)
+  peers 2, rx action increasing, sync tree to 62:65:31:c5:29:59 (iPhone AWDL peer)
+  rx data 3, tx data 0
+  host interface awdl0 reachable at fe80::8089:b2ff:fec4:5e4c%68
+
+Interpretation:
+  - RTL8821CU RX/TX, TCP radio, pipe bridge, awdld and Wintun creation all work.
+  - The iPhone's AWDL action frames are received and synced.
+  - Host IPv6 (mDNS/HTTP to the peer) is blocked by the sandbox firewall, so
+    the receiver's announcements never reach the radio (tx data 0), and the
+    iPhone never sees AirBridge32.
+  - No firewall rule was changed in this session.
+
+Resolution requires one of:
+  1. Run radio + bridge + awdld + airdrop/receiver.py outside the Codex
+     sandbox (normal elevated terminal), where these rules are absent.
+  2. Explicitly authorize disabling only the three codex_sandbox_offline_*
+     block rules for the test, then re-enable them afterwards.

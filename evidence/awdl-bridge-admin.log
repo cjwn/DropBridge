@@ -1,0 +1,3 @@
+bridge: waiting for awdld on \\.\pipe\winawdl-radio
+bridge: awdld connected; connecting to radio TCP
+bridge: connected; pumping bytes

@@ -1,0 +1,43 @@
+﻿awdld.exe : 18:58:05 WARN : no host interface, AWDL data will be dropped: cannot create the adapter; Administrator righ
+ts are needed (error 5)
+所在位置 行:3 字符: 1
++ & .\awdld.exe -c 44 -s 2 -j 400 -v 2>&1 | Tee-Object -FilePath "$root ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (18:58:05 WARN :...eeded (error 5):String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+18:58:05 INFO : AWDL address ce:99:e6:09:ba:8f on channel 44
+18:58:05 DEBUG: switch channel to 44 (slot 0)
+18:58:07 INFO : sync master is now ce:99:e6:09:ba:8f, chosen among:
+18:58:07 INFO : peers 0 | rx action 0, data 0 | tx action 48, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:09 INFO : peers 0 | rx action 0, data 0 | tx action 96, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:11 INFO : peers 0 | rx action 0, data 0 | tx action 145, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:13 INFO : peers 0 | rx action 0, data 0 | tx action 193, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:15 INFO : peers 0 | rx action 0, data 0 | tx action 241, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:17 INFO : peers 0 | rx action 0, data 0 | tx action 289, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:19 INFO : peers 0 | rx action 0, data 0 | tx action 338, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:21 INFO : peers 0 | rx action 0, data 0 | tx action 386, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:23 INFO : peers 0 | rx action 0, data 0 | tx action 434, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:25 INFO : peers 0 | rx action 0, data 0 | tx action 482, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:27 INFO : peers 0 | rx action 0, data 0 | tx action 531, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:29 INFO : peers 0 | rx action 0, data 0 | tx action 579, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:31 INFO : peers 0 | rx action 0, data 0 | tx action 627, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:33 INFO : peers 0 | rx action 0, data 0 | tx action 675, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:35 INFO : peers 0 | rx action 0, data 0 | tx action 724, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:37 INFO : peers 0 | rx action 0, data 0 | tx action 772, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:39 INFO : peers 0 | rx action 0, data 0 | tx action 820, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:41 INFO : peers 0 | rx action 0, data 0 | tx action 868, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:43 INFO : peers 0 | rx action 0, data 0 | tx action 917, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:45 INFO : peers 0 | rx action 0, data 0 | tx action 965, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:47 INFO : peers 0 | rx action 0, data 0 | tx action 1013, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:49 INFO : peers 0 | rx action 0, data 0 | tx action 1061, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:51 INFO : peers 0 | rx action 0, data 0 | tx action 1110, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:53 INFO : peers 0 | rx action 0, data 0 | tx action 1158, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:55 INFO : peers 0 | rx action 0, data 0 | tx action 1206, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:57 INFO : peers 0 | rx action 0, data 0 | tx action 1254, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:58:59 INFO : peers 0 | rx action 0, data 0 | tx action 1303, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:59:01 INFO : peers 0 | rx action 0, data 0 | tx action 1351, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:59:03 INFO : peers 0 | rx action 0, data 0 | tx action 1399, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:59:05 INFO : peers 0 | rx action 0, data 0 | tx action 1448, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:59:07 INFO : peers 0 | rx action 0, data 0 | tx action 1496, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)
+18:59:09 INFO : peers 0 | rx action 0, data 0 | tx action 1545, data 0 | sync tree ce:99:e6:09:ba:8f (met 60, ctr 0)

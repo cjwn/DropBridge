@@ -251,3 +251,14 @@
 - **未运行 awdld**：它会创建 Wintun 虚拟网卡并在频道 44 发射 AWDL 帧，需要用户明确授权。
 
 下一步：获得授权后按 PHASE3_AWDL.md 启动 radio + bridge + awdld，用 iPhone 做第一次 AWDL 发现测试。
+
+## 2026-10-27：AWDL 控制面同步成功，数据面被沙箱 IPv6 防火墙阻塞
+
+- 用便携 MinGW 构建 `awdld.exe`，Wintun 0.14.1 已校验；`radio_pipe_bridge` 验证命名管道 → TCP。
+- 实测（iPhone 15 Pro Max / iOS 17.5，隔空投送已打开）：
+  - 频道 44 只有普通 AP；频道 149 有大量 AWDL action 帧。
+  - `awdld -c 149` 提权运行后创建 Wintun `awdl0`（ifIndex 68），`peers 2`，同步到 iPhone AWDL 地址 `62:65:31:c5:29:59`，`rx action` 持续增长。
+  - `rx data 3 / tx data 0`；AirDrop 接收服务已广播 AirBridge32，但 iPhone 没看到设备。
+- 根因：当前 DSH 会话的 Codex 沙箱离线防火墙规则（`codex_sandbox_offline_block_outbound` 等）禁止所有非回环 IPv6；`ping ::1`、链路本地、全局 IPv6 全部 `General failure`，IPv4 回环正常。详见 `evidence/awdl-sandbox-firewall.txt`。
+- 未修改任何防火墙规则；测试进程已停止。
+- 下一步：在沙箱外的普通管理员终端运行，或明确授权临时停用三条 block 规则并在测试后恢复。
