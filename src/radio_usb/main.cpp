@@ -310,9 +310,33 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         return 6;
     }
     logger->info("radio: listening on 127.0.0.1:{}", port);
+
+    /* Start RX before accepting a client: TX from the pipe thread must not
+     * race the RX worker's first URBs. Frames heard before a client is ready
+     * are dropped by on_rx's client_ready gate. */
+    OutQueue queue;
+    FilterState state;
+    std::atomic<bool> client_ready{false};
+    std::atomic<bool> send_failed{false};
+    std::atomic<bool> rx_ended{false};
+    std::thread rx_thread([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+        try {
+            radio->StartRxLoop([&](const Packet &packet) {
+                on_rx(packet, queue, state, client_ready);
+            });
+        } catch (const std::exception &error) {
+            logger->error("radio: RX loop died: {}", error.what());
+        }
+        rx_ended = true;
+    });
+
     const SOCKET client = accept(listener, nullptr, nullptr);
     if (client == INVALID_SOCKET) {
         logger->error("radio: accept failed");
+        radio->StopRxLoop();
+        if (rx_thread.joinable()) rx_thread.join();
+        queue.stop();
         closesocket(listener);
         radio->Stop();
         libusb_release_interface(handle, iface);
@@ -332,6 +356,9 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     if (!send_all(client, &hello_header, sizeof(hello_header)) ||
         !send_all(client, &hello, sizeof(hello))) {
         logger->error("radio: HELLO write failed");
+        radio->StopRxLoop();
+        if (rx_thread.joinable()) rx_thread.join();
+        queue.stop();
         closesocket(client);
         closesocket(listener);
         radio->Stop();
@@ -341,11 +368,9 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         WSACleanup();
         return 7;
     }
+    client_ready = true;
     logger->info("radio: client connected, HELLO sent at {} ms", elapsed_ms());
 
-    OutQueue queue;
-    std::atomic<bool> client_ready{true};
-    std::atomic<bool> send_failed{false};
     std::thread writer([&] {
         std::vector<uint8_t> message;
         while (queue.pop(message)) {
@@ -354,20 +379,6 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
                 return;
             }
         }
-    });
-
-    FilterState state;
-    std::atomic<bool> rx_ended{false};
-    std::thread rx_thread([&] {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-        try {
-            radio->StartRxLoop([&](const Packet &packet) {
-                on_rx(packet, queue, state, client_ready);
-            });
-        } catch (const std::exception &error) {
-            logger->error("radio: RX loop died: {}", error.what());
-        }
-        rx_ended = true;
     });
 
     uint64_t tx_sent = 0, tx_failed = 0;

@@ -181,3 +181,13 @@
 - 证据：`evidence/radio-usb-run-rx.log`、`evidence/radio-usb-run-tx.log`、`evidence/esp32-witness-radio-tx.log`；状态见 `docs/RADIO_USB.md`。
 
 下一步：让 RX 环先于客户端 accept 启动（或 HELLO 后等 RX 就绪）再测 TX；通过后再测换信道与 Dart 客户端。
+
+## 2026-10-27：RX 先于 accept；TX 对照显示网卡需重新上电
+
+- 把 RX 环提前到 `accept` 之前启动，TX 帧加 20 ms 间隔，排除“TX 早于 RX 环”的时序问题。
+- 复测：TCP TX 提交 20 帧、0 失败，但 ESP32 空口仍 0 帧。
+- **对照实验**：用已知能上空的 `txdemo`（`DEVOURER_SKIP_RESET=1`）再发 20 帧，ESP32 同样 0 帧；RX 仍正常（radio 侧 `rx cb=100`、客户端 47 帧/1.5 s）。
+- 结论：当前不能判定后端 TX 有 bug；网卡在多次 reset 后疑似进入 TX 不工作状态，需要拔插/重新上电后再测。
+- 证据：`evidence/esp32-witness-radio-tx2.log`、`evidence/esp32-witness-control-tx.log`、`evidence/radio-usb-run-tx2.log`、`evidence/tx-control.log`。
+
+下一步：拔插 RTL8821CU，先复跑 `txdemo` 对照；确认空口恢复后，再复测 TCP TX。

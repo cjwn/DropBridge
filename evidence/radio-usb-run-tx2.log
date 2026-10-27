@@ -1,0 +1,127 @@
+﻿airbridge_radio.exe : devourer [I] USB adapter 1-8.3 locked for exclusive access
+所在位置 行:2 字符: 1
++ & "$root\build\radio_usb\Release\airbridge_radio.exe" 6 20 2>&1 | Tee ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (devourer [I] US...xclusive access:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+devourer [I] Creating RtlJaguar2Device C8821C (PID 0xc820, chip-id 0x09)
+devourer [I] USB device 0bda:c820
+devourer [I] Running USB bus at 480MBit/s
+devourer [I] selected USB interface 2
+devourer [I] endpoint[0]: addr=0x84 attrs=0x2 bulk=1 in=1
+devourer [I] selected bulk IN endpoint: 0x84
+devourer [I] endpoint[1]: addr=0x5 attrs=0x2 bulk=1 in=0
+devourer [I] endpoint[2]: addr=0x6 attrs=0x2 bulk=1 in=0
+devourer [I] endpoint[3]: addr=0x87 attrs=0x3 bulk=0 in=1
+devourer [I] endpoint[4]: addr=0x8 attrs=0x2 bulk=1 in=0
+devourer [I] bulk OUT endpoints: 0x05 0x06 0x08 
+devourer [I] libusb_clear_halt(bulk IN 0x84) rc=0
+devourer [I] OutEpQueueSel(7), OutEpNumber(3)
+devourer [I] Boot from EFUSE, Autoload OK !
+devourer [I] Jaguar2: pre_init_system_cfg done
+devourer [I] Jaguar2: power-off (card-disable) sequence applied
+devourer [I] Jaguar2: power-on sequence complete (card active)
+devourer [I] Jaguar2 chip: 8821C cut=4 (UMC) 1T1R (SYS_CFG1=0x00494537)
+devourer [I] Jaguar2: init_system_cfg done (bw=0 cut=4)
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 3360 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 1488 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 3144 bytes
+devourer [I] Jaguar2 DLFW: download OK, CPU enabled �?polling FW boot
+devourer [I] Jaguar2 DLFW: FW ready (0x80 = 0xC078)
+devourer [I] RtlJaguar2Device: firmware booted (bw=0)
+devourer [I] Jaguar2: priority_queue_cfg done (rsvd_boundary=452)
+devourer [I] Jaguar2: init_mac_cfg done
+devourer [I] Jaguar2: init_usb_cfg (RXDMA_MODE=0x1e, RX-agg EN)
+devourer [I] RtlJaguar2Device: MAC cfg + BB/RF enabled
+devourer [I] Jaguar2: EFUSE rfe_type=0x22
+devourer [I] bulk_send EP 5 OK 80 bytes
+devourer [I] bulk_send EP 5 OK 80 bytes
+devourer [I] Jaguar2: FW general/phydm info H2C sent (rfe=34 rf=1T1R cut=4 pkg=0 fw_txbuf_off=56 h2cq head=0xfa00 read=
+0xfa40 PENDING)
+devourer [I] Jaguar2: applying BB phy_reg (3356 words) + agc_tab (3200 words)
+devourer [I] Jaguar2: applying RF radioa (5424 words) + radiob (0 words)
+devourer [I] Jaguar2: BB/AGC/RF tables applied (rfe_type=0x22)
+devourer [I] RtlJaguar2Device: PHY tables applied
+devourer [I] Jaguar2/8821C: channel set ch=6 bw=0 cch=6 BTG (rf18=03c06)
+devourer [I] Jaguar2/8821C: LCK applied (RF-fw poke)
+devourer [I] Jaguar2/8821C IQK done (is_btg=1): LOK fail=0 | TXK retry=0 | RXK gs_retry(g1=0 g2=0) 1shot_retry(k1=0 k2=
+0) | TX/RX fail=0/0 RXK failcode=0 (0=gs1,1=rxk1,2=rxk2; only meaningful if that step ran)
+devourer [I] Jaguar2: TX/RX path re-asserted post-IQK
+devourer [I] Jaguar2/8821C: bf_init (MU/TXBF MAC setup + 0x1c94)
+devourer [I] Jaguar2: apply_tx_power path 0 ch6 EFUSE base unprogrammed �?leaving TXAGC default
+devourer [I] Jaguar2/8821C: coex WL-only antenna (rfe_mod=2 wlg@btg=1 main=1 inv=0 is_5g=0)
+devourer [I] Jaguar2: RX enabled (CR=0x06ff, RCR=0xf000032f, IGI=0x40)
+devourer [I] Jaguar2 8821C thermal-track: baseline=26 ch=6 default_ofdm=24
+devourer [I] RtlJaguar2Device: thermal-track thread started
+devourer [I] Jaguar2: ready for TX (monitor inject, ch=6)
+devourer [I] radio: ready on channel 6 width 20 MHz
+devourer [I] radio: listening on 127.0.0.1:49876
+devourer [I] Jaguar2 8821C thermal-track: avg=29 d=3 swing=1
+devourer [I] RtlJaguar2Device: DIG thread started
+devourer [I] RtlJaguar2Device: entering RX loop (ch=6)
+devourer [I] RX: async ring of 8 URBs submitted (+0 spare, 0 zerocopy DMA, 8 heap)
+devourer [I] Jaguar2 RX: completion #1 -> 332 bytes
+devourer [I] Jaguar2 RX: completion #2 -> 135 bytes
+devourer [I] Jaguar2 RX: completion #3 -> 364 bytes
+devourer [I] Jaguar2 RX: completion #4 -> 76 bytes
+devourer [I] Jaguar2 RX: completion #5 -> 364 bytes
+devourer [I] Jaguar2 RX: completion #6 -> 160 bytes
+devourer [I] Jaguar2 RX: completion #7 -> 80 bytes
+devourer [I] Jaguar2 RX: completion #8 -> 80 bytes
+devourer [I] radio: client connected, HELLO sent at 46237 ms
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] bulk_send EP 5 OK 152 bytes
+devourer [I] radio: client gone; tx sent 20 failed 0; stopping
+devourer [I] radio: rx cb=100 crc=5 small=0 filtered=0 queued=47 drop=0
+devourer [I] RtlJaguar2Device: RX loop exited (100 frames, 76 reads)

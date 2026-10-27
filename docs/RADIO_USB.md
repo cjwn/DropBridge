@@ -11,10 +11,11 @@
 
 ## 未通过 / 已知问题
 
-1. **TX over TCP 尚未被空口见证。** 客户端通过 TCP 发 20 帧，radio 记录 `tx sent 20 failed 0`，但 ESP32-S3 在同一时间窗口收到 0 帧。可能是 RX 环启动时序、TX 队列/CCA 或帧内容问题；尚未定位。
-2. **启动慢。** 反复 reset 后 bring-up 可到约 2 分钟；期间出现一次 `FW ready 0x80 != 0xC078`，devourer 自动重试后恢复。正常一次约 40–120 秒。
+1. **TX 空口未验证，且当前网卡疑似进入 TX 不工作的状态。** TCP TX 提交 20 帧、0 失败，但 ESP32 收到 0 帧；随后用已知能上空的 `txdemo` 做对照，同样 0 帧（`DEVOURER_SKIP_RESET=1`）。RX 仍正常。结论：**不能据此判定后端 TX 有 bug；网卡在多次 reset 后需要拔插/重新上电再测。**
+2. **启动慢。** 反复 reset 后 bring-up 可到约 2 分钟；期间出现 `FW ready 0x80 != 0xC078`，devourer 自动重试后恢复。
 3. **未测**：SET_CHANNEL、SET_BSSID_FILTER/SET_ADDRESS 的硬件效果、断连重连、TX report/ACK、Dart 客户端。
 4. **Dart 兼容性**：保留 TCP 而不是命名管道，Dart `Socket` 可直接使用；`radio_link` 帧不变。
+5. 已把 RX 环提前到 `accept` 之前启动，并给 TX 帧加 20 ms 间隔；这一版尚未在“重新上电后的网卡”上复测。
 
 ## 构建
 

@@ -119,6 +119,7 @@ def main():
             body[22] = (seq << 4) & 0xFF
             body[23] = (seq >> 4) & 0xFF
             send(sock, 3, bytes(rt) + bytes(body))
+            time.sleep(0.02)  # match txdemo's pacing; gives CCA a gap
         print(f"sent {tx_count} TX frames over TCP", flush=True)
 
     deadline = time.time() + seconds
