@@ -171,6 +171,13 @@ std::atomic<uint64_t> g_rx_small{0};
 std::atomic<uint64_t> g_rx_filtered{0};
 std::atomic<uint64_t> g_rx_queued{0};
 std::atomic<uint64_t> g_rx_dropped{0};
+// Accepted data frames only: what the peer's rate control is doing is the
+// difference between a 900 KB/s and a 250 KB/s transfer with identical loss.
+std::atomic<uint64_t> g_rx_frames{0};
+std::atomic<int64_t> g_rx_rssi_sum{0};
+std::atomic<uint32_t> g_rx_last_rate{0};
+std::atomic<uint32_t> g_rx_last_bw{0};
+std::atomic<uint32_t> g_rx_last_sgi{0};
 std::chrono::steady_clock::time_point g_start;
 
 long long elapsed_ms() {
@@ -221,6 +228,11 @@ void on_rx(const Packet &packet, OutQueue &queue, FilterState &state,
     }
     queue.push(std::move(message));
     g_rx_queued.fetch_add(1);
+    g_rx_frames.fetch_add(1);
+    g_rx_rssi_sum.fetch_add(packet.RxAtrib.rssi[0]);
+    g_rx_last_rate.store(packet.RxAtrib.data_rate);
+    g_rx_last_bw.store(packet.RxAtrib.bw);
+    g_rx_last_sgi.store(packet.RxAtrib.sgi);
 }
 
 int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
@@ -450,6 +462,16 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
                 g_rx_cb.load(), g_rx_crc.load(), g_rx_small.load(),
                 g_rx_filtered.load(), g_rx_queued.load(), g_rx_dropped.load(),
                 tx_sent, tx_failed);
+            const uint64_t frames = g_rx_frames.load();
+            const int64_t rssi_sum = g_rx_rssi_sum.load();
+            logger->info(
+                "radio: peer frames={} rssi={} rate={} bw={} sgi={}",
+                frames, frames ? static_cast<int>(rssi_sum / frames) : 0,
+                static_cast<unsigned>(g_rx_last_rate.load()),
+                static_cast<unsigned>(g_rx_last_bw.load()),
+                static_cast<unsigned>(g_rx_last_sgi.load()));
+            g_rx_frames.store(0);
+            g_rx_rssi_sum.store(0);
         }
     });
     for (;;) {
