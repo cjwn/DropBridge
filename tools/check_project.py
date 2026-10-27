@@ -5,10 +5,19 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
-            "docs/PHASE0_AUDIT.md", "docs/用户任务书.md", "evidence/build-configure.log",
-            "evidence/upstream-issues.json"]
+            "docs/PHASE0_AUDIT.md", "docs/BUILD_WINDOWS.md",
+            "docs/RADIO_CONTRACT.md", "docs/LICENSE_MATRIX.md",
+            "docs/HARDWARE_INTAKE.md", "docs/用户任务书.md",
+            "evidence/build-configure.log", "evidence/build-8821c-configure.log",
+            "evidence/build-8821c-build.log", "evidence/build-8821c-ctest.log",
+            "evidence/hardware-identity.json", "evidence/upstream-issues.json",
+            "tools/Build-Devourer.ps1", "tools/Setup-BuildDeps.ps1",
+            "tools/Inspect-Hardware.ps1"]
 for name in required:
     assert (root / name).is_file(), f"Missing: {name}"
+hw = json.loads((root / "evidence/hardware-identity.json").read_text(encoding="utf-8-sig"))
+assert re.fullmatch(r"[0-9a-f]{4}:[0-9a-f]{4}", hw["usb"]["vidPid"]), hw
+assert hw["chipIdentity"]["status"] == "not verified", "Do not claim a verified chip id"
 entries = json.loads((root / "docs/sources.lock.json").read_text(encoding="utf-8-sig"))
 assert len(entries) == 5
 assert len({e["name"] for e in entries}) == 5

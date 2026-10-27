@@ -16,7 +16,7 @@ OpenIPC/devourer 不只是列出芯片名称：
 - `devourer/src/jaguar2/ChipVariant.h` 将 RTL8811CU / RTL8821CU 归入 C8821C。
 - `devourer/examples/dwelltx/main.cpp:118` 默认 PID 包括 c811、c820；`examples/common/usb_select.cpp:32` 允许指定 VID/PID。不同 demo 的默认列表并不完全一致，不能将列表当成完整兼容矩阵。
 
-本机只读 PnP 枚举已成功，未找到可确认的目标网卡。最初沙箱内枚举被拒绝，扩展权限后的枚举成功，不能将最初错误当成硬件缺失证据。完整本地结果在 evidence/usb-devices.local.json（不提交设备实例信息）。必须接入实物后核对 VID/PID、接口、驱动，再以芯片寄存器/初始化结果交叉确认；商品型号和 VID/PID 单独均不足以确认具体硅片版本。
+本机只读 PnP 枚举已成功，未找到可确认的目标网卡（2026-10-27 04:19Z 的状态；同日 12:41 已接入 `0bda:c820`，见 I 节，芯片 ID 仍未读）。最初沙箱内枚举被拒绝，扩展权限后的枚举成功，不能将最初错误当成硬件缺失证据。完整本地结果在 evidence/usb-devices.local.json（不提交设备实例信息）。必须接入实物后核对 VID/PID、接口、驱动，再以芯片寄存器/初始化结果交叉确认；商品型号和 VID/PID 单独均不足以确认具体硅片版本。
 
 上游 README 的 RTL8821CU 行没有独立吞吐量实测数值，8811CU 行有。源码部分注释使用“8821CU 实测”，不能保证与用户购买的板卡、Windows、AWDL 场景一致。`tests/8821cu_hwtest.sh` 实际是 Linux 内核驱动扫描测试，不能拿它证明 Windows 用户态无线链路。
 
@@ -95,3 +95,55 @@ Windows 设备绑定方案：目标是让 libusb 通过 WinUSB 访问专用 Wi-F
 ## H. 下一步
 
 具体任务及验收见 PLAN.md。先接入目标网卡获取硬件身份，同时补齐项目隔离的构建依赖。两项完成后才安排带驱动恢复步骤的初始化/RX；发送需明确测试帧、频道和次数。Phase 0 只有在精确设备、Windows 构建、依赖许可范围和测试方案均确认后才可以关闭。
+
+## I. 2026-10-27 续审：构建、设备与契约
+
+### I.1 目标设备（只读）
+
+设备于 12:41（本地）接入，只读 PnP 结果：
+
+- `0bda:c820`，BusReportedDeviceDesc `802.11ac NIC`，复合设备由 `usbccgp` 管理，挂载在 `Port_#0003.Hub_#0006`（父 hub `05e3:0608`，外接 hub）。
+- MI_00：Bluetooth Radio，驱动 `oem154.inf` 1.5.1012.3（Realtek），服务 `BTHUSB`。
+- MI_02：Wi-Fi 厂商接口（class `ff/ff/ff`），驱动 `netrtwlanu.inf` 1030.38.712.2019（供应商标记为 Microsoft），服务 `RtlWlanu`，网络适配器 `WLAN 2`，状态 Disconnected。
+
+结论：VID/PID 和 Windows 名称符合 RTL8821CU 的预期，但**不能证明硅片版本**。芯片 ID（`SYS_CFG2 0x00FC`，RTL8821C 预期 `0x09`）只能在一次经授权的 `Init` 中读取，本轮没有做。完整实例路径与序列号只留在 `evidence/usb-devices.local.json`（git 忽略），提交的摘要在 `evidence/hardware-identity.json`。
+
+### I.2 Windows 构建（通过）
+
+- 源码 OpenIPC/devourer `f7e0731`；C8821C-only；MSVC 19.44.35228.0；Windows SDK 10.0.26100.0；CMake 3.31.6；vcpkg 2026-09-26；libusb 1.0.30；pkgconf 3.0.3。
+- 依赖隔离在 `build/deps`，未执行 `vcpkg integrate install`，未改 PATH。
+- 关键坑：CMake 的 PkgConfig 不会自动加 `--msvc-syntax`，必须设置 `PKG_CONFIG_ARGN=--msvc-syntax`，否则 MSVC 无法使用 `-L/-l` 形式的 libusb 参数。
+- 产物：`devourer.lib`、`rxdemo.exe`、`txdemo.exe` 及全部自检程序；`ctest` 71/71 通过，3 项跳过（`la_csi_math`、两项 MT7612U，均与 8821C 无关）。
+- 未构建：`supplicant`、`station_sm`、`ccmp_framing`、`sta_client_headless` 四项 OpenSSL 加密自检（本机无 OpenSSL）。
+- 细节与哈希见 `docs/BUILD_WINDOWS.md`，日志 `evidence/build-8821c-*.log`。这证明的是**Windows 编译与无硬件自检**，不是硬件可用。
+
+### I.3 无线层契约与 8821C 缺口
+
+见 `docs/RADIO_CONTRACT.md`，要点：
+
+1. 管道 `radio_link` v3（MIT）是可复用接缝；USB 后端不需要改线格式。
+2. WinAWDL 的 radio 不是接口无关的：`serve_client()` 直接持有 `PcieTransport` 并调用 `tx_kick()`，`main()` 用 `CreateRadioPcie()`；USB 必须新增一个 radio 主程序，不能只替换一个类。
+3. `IRadio::AcceptBlockAck()` / `EndBlockAck()` 在锁定 fork 中只有 Kestrel 实现，Jaguar2（8821C）从未实现；OpenIPC 头部又把这两个虚函数删除了。结果：8821C 无法让硬件应答接收方向的 BlockAck，radio 的 `answer_block_ack()` 会提前返回，iPhone 不会获得聚合许可，接收退化为单 MPDU。这是功能降级，不是「聚合已支持」。
+4. `SetStationIdentity`、`SetAmpduMode`、`GetTxStats` 在 Jaguar2 有源码实现，但均未在 Windows/USB/8821C 上实测。
+5. 换信道：PCIe 版被显式忽略；USB 的 `SetMonitorChannel()` 可做真实切换，但 AWDL 截止时间未测。
+
+### I.4 许可证
+
+`docs/LICENSE_MATRIX.md`：目标路线是 GPL-2.0 无线进程 + GPL-3.0 AWDL 进程 + MIT 应用层，靠进程边界隔离。**Realtek 固件再分发授权未解决**；安装包聚合边界需要法律确认；本仓库自身还没有 LICENSE。因此这项只能算「已识别风险」，不能算通过。
+
+### I.5 Phase 0 状态
+
+| 任务 | 状态 |
+| --- | --- |
+| 1. 真实设备身份 | 部分完成：VID/PID、接口、现有驱动已记录；芯片 ID 未读 |
+| 2. Windows 构建 | 完成：C8821C-only 编译 + 71 项自检通过 |
+| 3. API 契约对照 | 完成（静态）：见 `docs/RADIO_CONTRACT.md` |
+| 4. 许可证与固件 | 识别完成，未解决：见 `docs/LICENSE_MATRIX.md` |
+
+退出条件仍缺两项：芯片身份，以及可执行的驱动绑定/恢复路径。**Phase 0 仍未关闭。**
+
+### I.6 下一步（需要用户授权才能越过）
+
+1. 记录原驱动并准备 MI_02 的 WinUSB 绑定与恢复步骤；绑定本身需要管理员权限和明确授权。
+2. 授权后做一次最小 `Init`/固件下载，读回芯片 ID，记录失败恢复。
+3. 按 PLAN Phase 1 做固定频道有限 RX、显式有限 TX、独立见证与 TX report 关联；任何 TX 都要先说明帧、频道和次数。

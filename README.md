@@ -2,7 +2,7 @@
 
 Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirBridge32 为任务书暂定产品名；没有 ESP32 固件要求。
 
-**当前：研究工程和阶段计划已搭建；Phase 0 部分完成，硬件确认和 Windows USB 构建仍未通过。尚无可用 AirDrop 接收程序。**
+**当前：Phase 0 进行中。RTL8821CU-only 的 devourer 已在 Windows 上构建成功并通过 71 项无硬件自检；目标网卡已只读确认为 `0bda:c820`（Realtek 8821CU 复合设备），但芯片 ID、原始收发和任何 AirDrop 链路都尚未验证。尚无可用 AirDrop 接收程序。**
 
 目标是让 iPhone 系统原生隔空投送通过专用 RTL8821CU USB 网卡把文件交给 Windows，不依赖 WSL2、虚拟机或 iPhone 第三方应用。
 
@@ -11,6 +11,10 @@ Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirB
 - [原始任务书](docs/用户任务书.md)
 - [源码审计及 Go / No-Go](docs/PHASE0_AUDIT.md)
 - [阶段计划与验收](docs/PLAN.md)
+- [Windows 构建记录](docs/BUILD_WINDOWS.md)
+- [无线层契约对照](docs/RADIO_CONTRACT.md)
+- [硬件接入与驱动绑定检查单](docs/HARDWARE_INTAKE.md)
+- [许可证与再分发核查](docs/LICENSE_MATRIX.md)
 - [版本锁定](docs/sources.lock.json)
 - [工作记录及交接](WORK_LOG.md)
 - [开发约定](AGENTS.md)
@@ -20,19 +24,34 @@ Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirB
 在项目根目录的 PowerShell 执行：
 
 ```powershell
-.\tools\Inspect-Hardware.ps1
-python .\tools\check_project.py
+.\tools\Inspect-Hardware.ps1      # 只读 USB 枚举，识别 0bda:c811 / c820 / 1a2b
+.\tools\Setup-BuildDeps.ps1       # 一次性：在 build/deps 内装 vcpkg + libusb + pkgconf
+.\tools\Build-Devourer.ps1        # 配置、编译 C8821C-only 并跑无硬件自检
+python .\tools\check_project.py   # 文档、证据与版本锁一致性
 ```
 
-硬件检查仅枚举当前 USB 设备，生成 evidence/usb-devices.local.json；包含设备实例信息，默认不提交。它不会初始化无线芯片、替换驱动或发射无线帧。若权限不足会明确报错，不能把错误当成没有设备。
+- 硬件检查只枚举当前 USB 设备，生成 `evidence/usb-devices.local.json`；完整设备实例路径与序列号不提交。它不会初始化无线芯片、替换驱动或发射无线帧。
+- 构建依赖全部在 `build/deps`（git 忽略），不执行 `vcpkg integrate install`、不改 PATH、不改驱动。
+- 本轮构建结果：`devourer.lib`、`rxdemo`、`txdemo` 均生成，`ctest` 71/71 通过（3 项跳过），日志在 `evidence/build-8821c-*.log`。
 
-上游源码位于 upstream/，不作为主仓库代码发布；恢复时按 sources.lock.json 中 URL 克隆并 checkout 对应完整 commit。WinAWDL 的无线依赖还需 `git -C upstream/winawdl submodule update --init upstream/devourer`，版本固定在 8d936de2a3805ce126e5236349afe40e645aaf9b。
+上游源码位于 `upstream/`，不作为主仓库代码发布；恢复时按 `sources.lock.json` 中 URL 克隆并 checkout 对应完整 commit。WinAWDL 的无线依赖还需 `git -C upstream/winawdl submodule update --init upstream/devourer`，版本固定在 `8d936de2a3805ce126e5236349afe40e645aaf9b`。
 
 ## 已建立的证据
 
 - 五个上游源码已下载并锁定 SHA；WinAWDL 专用 devourer 子模块也已取回。
-- evidence/upstream-issues.json：近期 Issue/PR 摘要快照，每库最多八条，不代表全面审计全部历史。
-- evidence/build-configure.log：实际 MSVC/CMake 配置失败记录，缺少 PkgConfig。
-- 本机 USB 枚举已执行，未找到可确认的目标无线网卡；仍需接入目标设备后复查。
+- `evidence/hardware-identity.json`：目标网卡只读身份 —— `0bda:c820`，复合设备，MI_00 蓝牙、MI_02 Wi-Fi（vendor class `ff/ff/ff`），现有驱动 `netrtwlanu.inf` 1030.38.712.2019；芯片 ID 明确标记为未验证。
+- `evidence/build-8821c-*.log`：本机 MSVC 19.44 + libusb 1.0.30 的配置、编译和 71 项自检记录。
+- `evidence/build-configure.log`：首次配置因缺 PkgConfig 失败的原始记录，保留作历史。
+- `evidence/upstream-issues.json`：近期 Issue/PR 摘要快照，每库最多八条，不代表全面审计全部历史。
+- `docs/RADIO_CONTRACT.md`：管道 v3 契约与 8821C 的 BlockAck 接收缺口。
+- `docs/LICENSE_MATRIX.md`：许可证矩阵；Realtek 固件再分发仍未解决。
+
+## 仍未完成
+
+1. 芯片 ID 交叉确认（需要一次经授权的 `Init`，会写芯片状态）。
+2. WinUSB 绑定到 MI_02 及恢复步骤（需要管理员权限和明确授权）。
+3. Phase 1 的原始 RX/TX、TX report、换信道和拔插恢复实测。
+4. OpenSSL 加密自检未构建（本机无 OpenSSL，与 8821C 无关）。
+5. 8821C USB 版 radio 后端尚未编写。
 
 本轮不复制上游实现，不赋予第三方代码统一许可证。产品发布许可证将在复用范围确定后处理。

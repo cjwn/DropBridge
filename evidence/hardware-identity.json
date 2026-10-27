@@ -1,0 +1,45 @@
+{
+  "capturedAtUtc": "2026-10-27T04:41:08Z",
+  "scope": "read-only PnP enumeration; no driver change, no chip initialization, no radio frame",
+  "usb": {
+    "vid": "0bda",
+    "pid": "c820",
+    "vidPid": "0bda:c820",
+    "busReportedDeviceDesc": "802.11ac NIC",
+    "compositeDriver": "usbccgp",
+    "location": "Port_#0003.Hub_#0006",
+    "parentHub": "USB\\VID_05E3&PID_0608"
+  },
+  "interfaces": [
+    {
+      "mi": "00",
+      "role": "Bluetooth",
+      "busReportedDeviceDesc": "Bluetooth Radio",
+      "driverInf": "oem154.inf",
+      "driverVersion": "1.5.1012.3",
+      "driverProvider": "Realtek Semiconductor Corp.",
+      "service": "BTHUSB"
+    },
+    {
+      "mi": "02",
+      "role": "Wi-Fi (vendor interface, class ff/ff/ff)",
+      "busReportedDeviceDesc": "802.11ac NIC",
+      "driverInf": "netrtwlanu.inf",
+      "driverVersion": "1030.38.712.2019",
+      "driverProvider": "Microsoft",
+      "service": "RtlWlanu",
+      "netAdapter": "WLAN 2",
+      "adapterState": "Disconnected"
+    }
+  ],
+  "chipIdentity": {
+    "status": "not verified",
+    "method": "devourer reads SYS_CFG2 0x00FC during Init (RTL8821C expected 0x09); that writes chip state and needs explicit authorization"
+  },
+  "notes": [
+    "VID/PID and the Windows device name say RTL8821CU, but they do not prove the silicon revision.",
+    "Current binding is the Realtek/Microsoft netrtwlanu driver; libusb access will require a WinUSB binding of interface MI_02.",
+    "The adapter is attached through a Genesys Logic hub (05e3:0608); a direct motherboard port is preferred for the binding experiment.",
+    "Full instance paths and serial numbers stay in evidence/usb-devices.local.json, which is git-ignored."
+  ]
+}

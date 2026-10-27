@@ -1,0 +1,153 @@
+﻿Internal ctest changing into directory: J:/New soft project/DropBridge/build/devourer-8821c
+Test project J:/New soft project/DropBridge/build/devourer-8821c
+      Start  1: env_config
+ 1/71 Test  #1: env_config .......................   Passed    0.01 sec
+      Start  2: stream_stdin_binary
+ 2/71 Test  #2: stream_stdin_binary ..............   Passed    0.03 sec
+      Start  3: tone_mask_math
+ 3/71 Test  #3: tone_mask_math ...................   Passed    0.01 sec
+      Start  4: kestrel_addr_cam
+ 4/71 Test  #4: kestrel_addr_cam .................   Passed    0.01 sec
+      Start  5: radio_iface
+ 5/71 Test  #5: radio_iface ......................   Passed    0.01 sec
+      Start  6: mt7612u_usb_ids
+ 6/71 Test  #6: mt7612u_usb_ids ..................   Passed    0.01 sec
+      Start  7: mt7612u_mapping
+ 7/71 Test  #7: mt7612u_mapping ..................   Passed    0.01 sec
+      Start  8: mt7612u_rx_queue
+ 8/71 Test  #8: mt7612u_rx_queue .................   Passed    0.28 sec
+      Start  9: mt7612u_tsf_read
+ 9/71 Test  #9: mt7612u_tsf_read .................   Passed    0.01 sec
+      Start 10: ccmp_vectors_generated
+10/71 Test #10: ccmp_vectors_generated ...........   Passed    0.28 sec
+      Start 11: dot11_frames
+11/71 Test #11: dot11_frames .....................   Passed    0.01 sec
+      Start 12: bss_table
+12/71 Test #12: bss_table ........................   Passed    0.01 sec
+      Start 13: tx_quiesce_seam
+13/71 Test #13: tx_quiesce_seam ..................   Passed    0.01 sec
+      Start 14: ack_responder_recipe
+14/71 Test #14: ack_responder_recipe .............   Passed    0.01 sec
+      Start 15: station_arm
+15/71 Test #15: station_arm ......................   Passed    0.01 sec
+      Start 16: receipt_roundtrip
+16/71 Test #16: receipt_roundtrip ................   Passed    0.01 sec
+      Start 17: noise_floor_math
+17/71 Test #17: noise_floor_math .................   Passed    0.01 sec
+      Start 18: bulk_out_timeout
+18/71 Test #18: bulk_out_timeout .................   Passed    0.01 sec
+      Start 19: nhm_env_math
+19/71 Test #19: nhm_env_math .....................   Passed    0.03 sec
+      Start 20: channel_busy_math
+20/71 Test #20: channel_busy_math ................   Passed    0.01 sec
+      Start 21: busy_window_state
+21/71 Test #21: busy_window_state ................   Passed    0.01 sec
+      Start 22: he_radiotap
+22/71 Test #22: he_radiotap ......................   Passed    0.01 sec
+      Start 23: radiotap_noack
+23/71 Test #23: radiotap_noack ...................   Passed    0.01 sec
+      Start 24: radiotap_noagg
+24/71 Test #24: radiotap_noagg ...................   Passed    0.01 sec
+      Start 25: trigger_parse
+25/71 Test #25: trigger_parse ....................   Passed    0.01 sec
+      Start 26: radiotap_txflags
+26/71 Test #26: radiotap_txflags .................   Passed    0.01 sec
+      Start 27: tdma_tsf_math
+27/71 Test #27: tdma_tsf_math ....................   Passed    0.01 sec
+      Start 28: timesync_math
+28/71 Test #28: timesync_math ....................   Passed    0.01 sec
+      Start 29: log_event_json
+29/71 Test #29: log_event_json ...................   Passed    0.01 sec
+      Start 30: sweep_spec_math
+30/71 Test #30: sweep_spec_math ..................   Passed    0.01 sec
+      Start 31: hop_schedule_math
+31/71 Test #31: hop_schedule_math ................   Passed    0.01 sec
+      Start 32: hopset_schedule_math
+32/71 Test #32: hopset_schedule_math .............   Passed    0.01 sec
+      Start 33: hopset_wire_kat
+33/71 Test #33: hopset_wire_kat ..................   Passed    0.01 sec
+      Start 34: stream_telemetry_kat
+34/71 Test #34: stream_telemetry_kat .............   Passed    0.01 sec
+      Start 35: hopset_proto_matrix
+35/71 Test #35: hopset_proto_matrix ..............   Passed    0.01 sec
+      Start 36: hopset_activation_sync
+36/71 Test #36: hopset_activation_sync ...........   Passed    0.01 sec
+      Start 37: hopset_probe_placement
+37/71 Test #37: hopset_probe_placement ...........   Passed    0.02 sec
+      Start 38: hopset_policy_matrix
+38/71 Test #38: hopset_policy_matrix .............   Passed    0.01 sec
+      Start 39: hopset_adaptive_e2e
+39/71 Test #39: hopset_adaptive_e2e ..............   Passed    0.02 sec
+      Start 40: hopset_sense_matrix
+40/71 Test #40: hopset_sense_matrix ..............   Passed    0.01 sec
+      Start 41: hopset_fusion_policy
+41/71 Test #41: hopset_fusion_policy .............   Passed    0.01 sec
+      Start 42: txpower_quant_math
+42/71 Test #42: txpower_quant_math ...............   Passed    0.01 sec
+      Start 43: rate_diffs
+43/71 Test #43: rate_diffs .......................   Passed    0.01 sec
+      Start 44: link_health_classify
+44/71 Test #44: link_health_classify .............   Passed    0.01 sec
+      Start 45: adapter_health_classify
+45/71 Test #45: adapter_health_classify ..........   Passed    0.01 sec
+      Start 46: rx_quality_derive
+46/71 Test #46: rx_quality_derive ................   Passed    0.01 sec
+      Start 47: tx_caps_derive
+47/71 Test #47: tx_caps_derive ...................   Passed    0.01 sec
+      Start 48: adapter_caps_derive
+48/71 Test #48: adapter_caps_derive ..............   Passed    0.01 sec
+      Start 49: ue_rx_attribution_derive
+49/71 Test #49: ue_rx_attribution_derive .........   Passed    0.01 sec
+      Start 50: tsf_sync_math
+50/71 Test #50: tsf_sync_math ....................   Passed    0.01 sec
+      Start 51: txpkt_pwr_quant
+51/71 Test #51: txpkt_pwr_quant ..................   Passed    0.01 sec
+      Start 52: txpkt_bank_policy
+52/71 Test #52: txpkt_bank_policy ................   Passed    0.01 sec
+      Start 53: rx_physt_bit
+53/71 Test #53: rx_physt_bit .....................   Passed    0.01 sec
+      Start 54: txagg_pack
+54/71 Test #54: txagg_pack .......................   Passed    0.01 sec
+      Start 55: txqueue_map
+55/71 Test #55: txqueue_map ......................   Passed    0.01 sec
+      Start 56: bf_report_decode
+56/71 Test #56: bf_report_decode .................   Passed    0.01 sec
+      Start 57: chan_def_grid
+57/71 Test #57: chan_def_grid ....................   Passed    0.01 sec
+      Start 58: scan_plan_policy
+58/71 Test #58: scan_plan_policy .................   Passed    0.01 sec
+      Start 59: survey_aggregate
+59/71 Test #59: survey_aggregate .................   Passed    0.01 sec
+      Start 60: dwell_executor
+60/71 Test #60: dwell_executor ...................   Passed    0.01 sec
+      Start 61: chan_score_policy
+61/71 Test #61: chan_score_policy ................   Passed    0.05 sec
+      Start 62: chanmig_wire_kat
+62/71 Test #62: chanmig_wire_kat .................   Passed    0.01 sec
+      Start 63: chanmig_proto_matrix
+63/71 Test #63: chanmig_proto_matrix .............   Passed    0.01 sec
+      Start 64: chanmig_clock_math
+64/71 Test #64: chanmig_clock_math ...............   Passed    0.01 sec
+      Start 65: chanmig_gate_policy
+65/71 Test #65: chanmig_gate_policy ..............   Passed    0.01 sec
+      Start 66: rx_tone_localize_math
+66/71 Test #66: rx_tone_localize_math ............   Passed    0.11 sec
+      Start 67: bf_report_fcs
+67/71 Test #67: bf_report_fcs ....................   Passed    0.05 sec
+      Start 68: la_csi_math
+68/71 Test #68: la_csi_math ......................***Skipped   0.05 sec
+      Start 69: nitroqam_decode_math
+69/71 Test #69: nitroqam_decode_math .............   Passed    0.05 sec
+      Start 70: mt7612u_usb_ids_vs_mt76
+70/71 Test #70: mt7612u_usb_ids_vs_mt76 ..........***Skipped   0.12 sec
+      Start 71: mt7612u_initvals_generated
+71/71 Test #71: mt7612u_initvals_generated .......***Skipped   0.07 sec
+
+100% tests passed, 0 tests failed out of 71
+
+Total Test time (real) =   3.69 sec
+
+The following tests did not run:
+	 68 - la_csi_math (Skipped)
+	 70 - mt7612u_usb_ids_vs_mt76 (Skipped)
+	 71 - mt7612u_initvals_generated (Skipped)

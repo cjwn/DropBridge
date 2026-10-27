@@ -1,0 +1,15 @@
+﻿-- Selecting Windows SDK version 10.0.26100.0 to target Windows 10.0.22631.
+cmake.exe : CMake Warning at CMakeLists.txt:1133 (message):
+At J:\New soft project\DropBridge\tools\Build-Devourer.ps1:91 char:5
++     & $Exe @Arguments *> $Log
++     ~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (CMake Warning a...1133 (message)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  OpenSSL not found: the station crypto selftests (supplicant, station_sm,
+  ccmp_framing, sta_client_headless) are NOT built on this host
+
+
+-- Configuring done (1.6s)
+-- Generating done (6.5s)
+-- Build files have been written to: J:/New soft project/DropBridge/build/devourer-8821c
