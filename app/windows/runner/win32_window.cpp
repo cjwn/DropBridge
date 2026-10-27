@@ -179,6 +179,11 @@ Win32Window::MessageHandler(HWND hwnd,
                             WPARAM const wparam,
                             LPARAM const lparam) noexcept {
   switch (message) {
+    case WM_CLOSE:
+      // Keep the radio/backend resident: X minimizes instead of quitting.
+      // The Flutter UI has an explicit Quit button that calls exit(0).
+      ShowWindow(hwnd, SW_MINIMIZE);
+      return 0;
     case WM_DESTROY:
       window_handle_ = nullptr;
       Destroy();

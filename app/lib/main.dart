@@ -89,27 +89,20 @@ class _HomePageState extends State<HomePage> {
   }
 
   String get _receiverExe =>
-      _packaged ? '$_exeDir/backend/airdrop_receiver.exe' : 'python';
+      _packaged ? '$_exeDir/backend/python/python.exe' : 'python';
 
-  List<String> get _receiverArgs => _packaged
-      ? [
-          '--name', 'AirBridge32',
-          '--listen', '127.0.0.1',
-          '--mdns-address-file', _addressFile,
-          '--outdir', _outputDir,
-          '--keys', '${_dataDir.path}/keys',
-          '--trace',
-        ]
-      : [
-          '-u',
-          '$_repoRoot/upstream/winawdl/airdrop/receiver.py',
-          '--name', 'AirBridge32',
-          '--listen', '127.0.0.1',
-          '--mdns-address-file', _addressFile,
-          '--outdir', _outputDir,
-          '--keys', '${_dataDir.path}/keys',
-          '--trace',
-        ];
+  List<String> get _receiverArgs => [
+        '-u',
+        _packaged
+            ? '$_exeDir/backend/airdrop/receiver.py'
+            : '$_repoRoot/upstream/winawdl/airdrop/receiver.py',
+        '--name', 'AirBridge32',
+        '--listen', '127.0.0.1',
+        '--mdns-address-file', _addressFile,
+        '--outdir', _outputDir,
+        '--keys', '${_dataDir.path}/keys',
+        '--trace',
+      ];
 
   void _append(String line) {
     _pendingLog.add(line);
@@ -343,7 +336,8 @@ class _HomePageState extends State<HomePage> {
                               style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 4),
                           const Text(
-                            'iPhone 隔空投送 → AirBridge32 · 无需关闭 v2ray TUN',
+                            'iPhone 隔空投送 → AirBridge32 · 无需关闭 v2ray TUN\n'
+                            '关闭窗口会最小化并保持后台接收；退出请点“退出”',
                             style: TextStyle(fontSize: 12),
                           ),
                         ],
@@ -372,6 +366,15 @@ class _HomePageState extends State<HomePage> {
                   onPressed: _state == BackendState.stopped ? null : _stop,
                   icon: const Icon(Icons.stop),
                   label: const Text('停止'),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: () async {
+                    await _stop();
+                    exit(0);
+                  },
+                  icon: const Icon(Icons.exit_to_app),
+                  label: const Text('退出'),
                 ),
                 const Spacer(),
                 const Text('5 GHz · ch149 · 40 MHz',

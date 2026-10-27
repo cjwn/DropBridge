@@ -1,11 +1,11 @@
 # 便携版 / Portable ZIP
 
-目标：一个 ZIP，解压后双击 `AirBridge32.exe`，不需要安装器、不需要 Python/VC++ 运行库、不写注册表、不装服务、不创建 Wintun。
+目标：一个 ZIP，解压后双击 `AirBridge32.exe`，不需要安装器、不需要目标机 Python/VC++ 运行库、不写注册表、不装服务、不创建 Wintun。
 
 ## 产物
 
 ```text
-dist/AirBridge32-portable.zip
+dist/AirBridge32-portable.zip   (~27 MB)
 ```
 
 解压后：
@@ -13,36 +13,41 @@ dist/AirBridge32-portable.zip
 ```text
 AirBridge32/
   AirBridge32.exe          Flutter UI + 后端监管
-  config / flutter_windows.dll / VC runtime
+  flutter_windows.dll / VC runtime
   backend/
     airbridge_radio.exe
     radio_pipe_bridge.exe
     awdl_netd.exe
     awdld.exe
-    airdrop_receiver.exe   PyInstaller，无 Python 依赖
     libusb-1.0.dll
+    python/                embeddable Python 3.12 + cryptography
+    airdrop/               receiver.py + mdns.py/identity.py/...
   data/                    日志、密钥、接收文件
   licenses/
   README.txt
 ```
 
-`AirBridge32.exe` 自动按顺序启动并监管后端：radio 149/40 → bridge → awdl_netd → awdld → receiver。退出时逆序结束。
+## 运行行为
+
+- 双击 `AirBridge32.exe` 自动启动 radio 149/40 → bridge → awdl_netd → awdld → receiver。
+- **点窗口 X 是“最小化”，不是退出**：app 和 radio 继续驻留，第二次接收不再重新初始化 radio。
+- 真正退出用界面里的 **“退出”** 按钮，会先停止所有后端。
+- 接收文件在 `data/received`，日志在 `data/airbridge32.log`。
+
+## 唯一需要管理员的步骤
+
+RTL8821CU 的 MI_02 需要绑定 WinUSB。目标机器已绑定则解压即用；全新机器需要一次 Zadig/libwdi 绑定（见 `docs/BINDING_RUNBOOK.md`）。
 
 ## 构建
+
+需要先准备 `build/python-embed`（Python 3.12 embeddable + cryptography），然后：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File tools/Package-Portable.ps1 -Build
 ```
 
-`-Build` 会重建 radio/bridge、awdl_netd、awdld、Flutter，然后由 PyInstaller 生成 `airdrop_receiver.exe` 并压缩。
-
-## 唯一需要管理员的步骤
-
-RTL8821CU 的 MI_02 需要绑定 WinUSB。如果目标机器已经绑定，ZIP 就是真正的解压即用；全新机器需要一次 Zadig/libwdi 绑定（见 `docs/BINDING_RUNBOOK.md`），之后不再需要。
-
 ## 当前状态
 
-- 便携版可以通过 `AirBridge32.exe` 启动全部后端，iPhone 能用隔空投送发现并传文件；
-- 接收文件在 `data/received`，日志在 `data/airbridge32.log`；
-- v2ray TUN 可以保持开启；
-- 已知：便携版实测约 216 KB/s，手动同链路 40 MHz 约 1.05 MB/s；下一轮定位 receiver onefile/Flutter 监管层的差异。
+- 便携版能启动、能被 iPhone 发现并接收文件；
+- 同一 Flutter 壳 + 系统 Python 的对照是 2.58 MB / 3.2 s；PyInstaller/embedded 的实测波动很大（12–55 s），尚未稳定；
+- 已确认 **Dart/Flutter 不是瓶颈**；下一步是原生 C++ receiver 直接并入 `awdl_netd`，去掉 Python 和本地 TCP 跳。

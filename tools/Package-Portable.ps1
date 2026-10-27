@@ -55,17 +55,16 @@ Copy-Item $netd (Join-Path $stage 'backend') -Force
 Copy-Item $awdld (Join-Path $stage 'backend') -Force
 Copy-Item $libusb (Join-Path $stage 'backend') -Force
 
-$receiver = Join-Path $root 'build\pyinstaller\dist\airdrop_receiver.exe'
-if (-not (Test-Path $receiver)) {
-    python -m PyInstaller --noconfirm --onefile --name airdrop_receiver `
-        --paths (Join-Path $root 'upstream\winawdl\airdrop') `
-        --distpath (Join-Path $root 'build\pyinstaller\dist') `
-        --workpath (Join-Path $root 'build\pyinstaller\work') `
-        --specpath (Join-Path $root 'build\pyinstaller') `
-        (Join-Path $root 'upstream\winawdl\airdrop\receiver.py')
-}
-Need $receiver 'PyInstaller receiver build failed'
-Copy-Item $receiver (Join-Path $stage 'backend') -Force
+$python = Join-Path $root 'build\python-embed'
+Need $python 'prepare build/python-embed (embeddable Python + cryptography) first'
+$pth = Join-Path $python 'python312._pth'
+$pthText = Get-Content $pth -Raw
+if ($pthText -notmatch 'Lib\\site-packages') { Add-Content $pth 'Lib\site-packages' }
+if ($pthText -notmatch '\.\.\\airdrop') { Add-Content $pth '..\airdrop' }
+Copy-Item $python (Join-Path $stage 'backend\python') -Recurse -Force
+New-Item -ItemType Directory -Force (Join-Path $stage 'backend\airdrop') | Out-Null
+Copy-Item (Join-Path $root 'upstream\winawdl\airdrop\*.py') `
+    (Join-Path $stage 'backend\airdrop') -Force
 
 # VC++ runtime DLLs (redistributable); Windows 11 has UCRT but not the VC++ runtime.
 foreach ($dll in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {

@@ -341,3 +341,10 @@
 - 实测：从解压目录双击 `AirBridge32.exe` 能启动全部后端，iPhone 通过隔空投送传回 `IMG_3588.PNG`（2,578,074 字节）。
 - 已知：便携版本次约 216 KB/s，手动同链路 40 MHz 约 1.05 MB/s；下一轮定位 receiver onefile/Flutter 监管层差异。
 - 文档：`docs/PORTABLE.md`。
+
+## 2026-10-27：便携版常驻（关闭=最小化）与 embeddable Python
+
+- `AirBridge32.exe` 的窗口 X 改为最小化，app/radio/后端继续驻留；第二次接收不再重新初始化 radio。真正退出用界面“退出”按钮。
+- 便携包 receiver 改为 **embeddable Python 3.12 + 原始 receiver.py**，不再 PyInstaller；ZIP 约 27 MB。
+- 对照结论：同一个 Flutter 壳 + 系统 Python 是 2.58 MB / 3.2 s；PyInstaller/embedded 出现 12–55 s 波动，Dart 不是瓶颈。
+- 下一步：原生 C++ receiver 直接并入 `awdl_netd`，去掉 Python 与本地 TCP 跳；并补单实例/托盘。
