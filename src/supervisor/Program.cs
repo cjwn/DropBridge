@@ -177,6 +177,9 @@ internal sealed class Supervisor
     private readonly int _width;
     public string RadioArguments { get { return _channel + " " + _width; } }
     public string AwdldArguments { get { return "-c " + _channel + " -s 2 -j 400 -v"; } }
+    // 20 MHz is the default: measured 202 KB/s against 40 MHz's 190 KB/s after a
+    // cold start, and 40 MHz has a degraded mode that needs a USB replug to clear.
+    public string BandText { get { return "ch" + _channel + " / " + _width + " MHz"; } }
     private readonly string _root;
     private readonly string _backend;
     private readonly string _data;
@@ -186,7 +189,7 @@ internal sealed class Supervisor
     public string LastError = "";
 
     public Supervisor(string root, string sessionStamp, bool prepareDirectories,
-                      int channel = 149, int width = 40)
+                      int channel = 149, int width = 20)
     {
         _root = root;
         _channel = channel;
@@ -585,7 +588,7 @@ internal sealed class TrayApp : ApplicationContext
                             _gaveUp = false;
                             _failures = 0;
                             _windowStart = DateTime.UtcNow;
-                            _status.Text = "状态：运行中（ch149 / 40 MHz）";
+                            _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
                             if (automatic)
                             {
                                 _icon.ShowBalloonTip(4000, "AirBridge32",
@@ -622,7 +625,7 @@ internal sealed class TrayApp : ApplicationContext
         if (!_supervisor.Running || _gaveUp) return;
         if (_supervisor.AllAlive)
         {
-            _status.Text = "状态：运行中（ch149 / 40 MHz）";
+            _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
             return;
         }
         // A dead backend leaves a half-working system: restore it, loudly.
@@ -660,7 +663,7 @@ internal sealed class TrayApp : ApplicationContext
                     if (restarted)
                     {
                         _reportedExit = false;
-                        _status.Text = "状态：运行中（ch149 / 40 MHz）";
+                        _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
                         _icon.ShowBalloonTip(3000, "AirBridge32",
                             "接收端已恢复，无需重新初始化网卡。", ToolTipIcon.Info);
                     }
@@ -805,7 +808,7 @@ internal static class Program
         int autoExitSeconds = -1;
         int autostart = 0;
         int channel = 149;
-        int width = 40;
+        int width = 20;
         for (int index = 0; index < args.Length; index++)
         {
             switch (args[index])
