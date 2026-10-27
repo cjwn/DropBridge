@@ -14,6 +14,7 @@
 - **SET_CHANNEL**：客户端从频道 6 切到 36，radio 日志 `channel -> 36`；切换后 2 秒收到 64 帧，切回/过滤测试正常。
 - **BSSID 过滤**：设置 `00:11:22:33:44:55` 后 2 秒 0 帧；发送全零清除后 2 秒恢复 62 帧。全零现在表示“清除过滤”。
 - **Dart 客户端**：`tools/radio_link_client.dart` 连接 `127.0.0.1:49876`，收到 `HELLO version=3`，5 秒收 **84 帧 / 14664 字节**。Dart 的 `Socket` 可用，IPC 选择成立。
+- **SET_ADDRESS / SetStationIdentity**：BSSID 必须是单播（首字节偶数）且非零、与 own 不同；用 `56:42:75:05:d6:00` 成功 armed。devourer 警告 `tx.retry_limit=0`，MAC 不会重传未确认帧；空口 ACK 行为仍未验证。
 
 ## TX 曾经发不出去的原因
 

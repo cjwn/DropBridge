@@ -213,3 +213,11 @@
 - 证据：`evidence/radio-usb-run-channel.log`、`evidence/radio-usb-run-dart.log`。
 
 仍缺：SET_ADDRESS 的硬件 ACK 效果、断连重连（当前 radio 单客户端、断开即退出）、5 GHz/AWDL。
+
+## 2026-10-27：SET_ADDRESS/SetStationIdentity 实机 armed
+
+- 第一次用 BSSID `57:42:75:05:d6:00` 被拒：首字节 0x57 是组播地址；devourer 要求 own 与 BSSID 都是非零单播且不同。
+- 换单播 BSSID `56:42:75:05:d6:00` 后成功：`station identity armed ... (net_type=Infra)`，客户端断开时正常 cleared。
+- devourer 警告 `tx.retry_limit=0`：MAC 不会重传未确认帧；AWDL 需要时应在 `DeviceConfig::tx.retry_limit` 设置。
+- 仍未验证：空口 ACK（需要 iPhone/第三台观察设备）、断连重连、5 GHz。
+- 证据：`evidence/radio-usb-run-address.log`、`evidence/radio-usb-run-address2.log`。
