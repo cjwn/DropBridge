@@ -22,6 +22,8 @@
 
 前置：只读身份已记录（`0bda:c820`，MI_02 为厂商接口，现有驱动 `netrtwlanu.inf`）；绑定只针对 MI_02，保留 MI_00 蓝牙和有线/I226 上网。绑定前先跑 `build/usb_probe/Release/usb_probe.exe`，确认当前驱动下 open 失败的基线，再按 `docs/BINDING_RUNBOOK.md` 以管理员绑定。
 
+进度（2026-10-27）：只读 open/claim、芯片 ID `0x09`、首次 bring-up（频道 6，固件下载、BB/RF 表、IQK、RX 使能，零发帧）已完成。下一步是有界 RX；TX 仍需单独授权。
+
 顺序：只读 open/claim → 芯片 ID/初始化 → 固定频道有限 RX → 显式有限 TX → 空口见证与 TX report/ACK 关联 → 双向 unicast → 换频道 → 取消/退出/重开/拔插恢复。先用 `rxdemo` 验证初始化与 RX，再用 `txdemo` 发指定帧；每次发送前说明帧、频道和次数。
 
 验收：每项至少三次重复记录；RX 有真实预期帧，TX 有独立见证，ACK 不以 USB 发送返回值代替；记录切换延迟分布和失败次数；退出无残留占用，目标设备可恢复普通驱动。失败先定位，不能以开启 monitor mode 代替通过。

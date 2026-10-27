@@ -147,3 +147,17 @@ Windows 设备绑定方案：目标是让 libusb 通过 WinUSB 访问专用 Wi-F
 1. 已执行 MI_02 → WinUSB 绑定（`oem155.inf`，服务 `WinUSB`）；剩余一次回滚到 `netrtwlanu` 的演练。
 2. 授权后做最小 `Init`/固件下载（会写芯片状态），再进入固定频道有限 RX。
 3. 按 PLAN Phase 1 做显式有限 TX、独立见证与 TX report 关联；任何 TX 都要先说明帧、频道和次数。
+
+### I.7 首次 bring-up（2026-10-27 14:30 +08:00）
+
+经用户授权后运行 `chipstate --init --channel 6 --peek 0x00FC`，退出码 0：
+
+- USB：设备锁定 `1-8.3`，接口 2，端点 `0x84` bulk IN、`0x05/0x06/0x08` bulk OUT、`0x87` interrupt IN。
+- 芯片：Boot from EFUSE / Autoload OK；`8821C cut=4 (UMC) 1T1R`，`SYS_CFG1=0x00494537`。
+- 固件：下载 OK，FW boot ready（`0x80 = 0xC078`）。
+- 射频：EFUSE `rfe_type=0x22`，BB/AGC/RF 表加载，信道 6（20 MHz），IQK 全通过，coex 设为 WL-only，RX 使能，`ready for TX`。
+- 回读 `0x00FC = 0x09`；**零发帧**。
+- 工具用 `teardown_power_down=false`，退出后芯片仍处于初始化状态；下一次 RX 前建议拔插/重新上电，避免把旧状态带进新会话。
+- 证据：`evidence/init-first.log`。
+
+结论：Phase 1 的「初始化/固件」项已通过一次；尚未做接收、发送、换信道和拔插恢复。Phase 0 仍只差 WinUSB 回滚演练。

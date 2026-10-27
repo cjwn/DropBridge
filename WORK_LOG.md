@@ -84,3 +84,18 @@
 - 证据：`evidence/chip-id-read.log`；`evidence/hardware-identity.json` 的 `chipIdentity` 已标为 `verified`、值 `0x09`、含义 RTL8821C（Jaguar2）。
 - 结论：Phase 0 的「真实设备身份」完成（VID/PID、接口、驱动、libusb 访问、芯片 ID）。仍未做：WinUSB 回滚演练、`Init`/固件下载、任何 RX/TX。
 - 下一步：回滚演练（恢复到 `netrtwlanu.inf`）以关闭 Phase 0；之后申请最小 `Init` 授权进入 Phase 1。
+
+## 2026-10-27：首次 bring-up 成功（频道 6，零发帧）
+
+用户单独授权后执行 `chipstate --init --channel 6 --peek 0x00FC`，退出码 0。
+
+- USB：锁定 `1-8.3`，接口 2，`0x84` bulk IN、`0x05/0x06/0x08` bulk OUT、`0x87` interrupt IN。
+- 芯片：`8821C cut=4 (UMC) 1T1R`，`SYS_CFG1=0x00494537`；Boot from EFUSE / Autoload OK。
+- 固件：下载 OK，FW boot ready `0xC078`。
+- 射频：EFUSE `rfe_type=0x22`，BB/AGC/RF 表加载，信道 6（20 MHz），IQK 通过，coex WL-only，RX 使能，`ready for TX`。
+- 回读 `0x00FC=0x09`；**零发帧**。工具 `teardown_power_down=false`，退出后芯片仍初始化。
+- 证据：`evidence/init-first.log`；`hardware-identity.json` 增加 `initialization` 段。
+
+未做：RX 循环、TX、换信道、拔插恢复、WinUSB 回滚演练。
+
+下一步：写一个有界、可干净停止的 RX 探针（或用 rxdemo 的可控停止方式），在频道 6 做有限时长被动接收；需要单独确认后再跑。
