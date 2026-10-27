@@ -109,6 +109,18 @@
     "note": "Single-run CRC is environment-dependent; do not treat it as link quality without a controlled comparison",
     "evidence": "evidence/rx-repeat-summary.log"
   },
+  "txWitness": {
+    "status": "verified on 2.4 GHz",
+    "capturedAtUtc": "2026-10-27T07:05:00Z",
+    "channel": 6,
+    "framesPerRound": 20,
+    "fullResetRoundsPassed": 3,
+    "skipResetRounds": { "passed": 1, "failed": 1 },
+    "uniqueSequenceNumbers": "0..19 in every passing round",
+    "rssiDbm": "-11..-9 (same desk)",
+    "limits": "ESP32-S3 witness is 2.4 GHz only; no ACK/BlockAck and no 5 GHz proof",
+    "evidence": "evidence/tx-witness-summary.json"
+  },
   "chipIdentity": {
     "status": "verified",
     "capturedAtUtc": "2026-10-27T06:26:30Z",

@@ -1,0 +1,85 @@
+{
+  "test": "2.4 GHz on-air TX witness",
+  "capturedAtUtc": "2026-10-27T07:05:00Z",
+  "sender": {
+    "adapter": "RTL8821CU (0bda:c820), WinUSB/libusb, devourer txdemo",
+    "channel": 6,
+    "rate": "1M",
+    "frame": "802.11 probe request (type 0 subtype 4)",
+    "transmitterAddress": "57:42:75:05:d6:00",
+    "framesPerRound": 20,
+    "gapUs": 50000
+  },
+  "witness": {
+    "board": "ESP32-S3-DevKitC-1",
+    "port": "COM17",
+    "firmware": "dbw1 (promiscuous, fixed channel 6, no scan/connect/TX)",
+    "match": "addr2 == 57:42:75:05:d6:00",
+    "rssiDbm": "-11..-9 (same desk, close range)"
+  },
+  "rounds": [
+    {
+      "id": "A",
+      "reset": "skipped",
+      "driverLog": "evidence/tx-second.log",
+      "witnessLog": "evidence/esp32-witness-tx2.log",
+      "frames": 20,
+      "uniqueSeq": 20,
+      "matchedDelta": 40,
+      "result": "pass"
+    },
+    {
+      "id": "B",
+      "reset": "skipped",
+      "driverLog": "evidence/tx-third.log",
+      "witnessLog": "evidence/esp32-witness-tx3.log",
+      "frames": 0,
+      "uniqueSeq": 0,
+      "matchedDelta": 0,
+      "result": "fail",
+      "note": "txdemo reported 20 submitted, 0 failed; no frame reached the air"
+    },
+    {
+      "id": "C",
+      "reset": "full",
+      "driverLog": "evidence/tx-fourth.log",
+      "witnessLog": "evidence/esp32-witness-tx4.log",
+      "frames": 20,
+      "uniqueSeq": 20,
+      "matchedDelta": 40,
+      "result": "pass"
+    },
+    {
+      "id": "D",
+      "reset": "full",
+      "driverLog": "evidence/tx-fifth.log",
+      "witnessLog": "evidence/esp32-witness-tx5.log",
+      "frames": 20,
+      "uniqueSeq": 20,
+      "matchedDelta": 20,
+      "result": "pass"
+    },
+    {
+      "id": "E",
+      "reset": "full",
+      "driverLog": "evidence/tx-sixth.log",
+      "witnessLog": "evidence/esp32-witness-tx6.log",
+      "frames": 20,
+      "uniqueSeq": 20,
+      "matchedDelta": 20,
+      "result": "pass"
+    }
+  ],
+  "conclusion": {
+    "onAirTx": "verified on 2.4 GHz: 3/3 full-reset rounds delivered 20/20 unique sequence numbers 0..19",
+    "content": "seq 0 hash 9126b0f8 identical across all passing rounds; content deterministic",
+    "reset": "a full USB reset is required for repeatable TX; skipping it produced USB submissions with zero air frames",
+    "matchedCounter": "the witness counter sometimes increments 20 and sometimes 40 per round; duplicates are likely RX capture/retry duplicates, unique sequence numbers are the reliable metric",
+    "limits": [
+      "2.4 GHz only; the ESP32-S3 cannot witness 5 GHz or AWDL",
+      "no proof of hardware ACK/BlockAck",
+      "same-desk RSSI; no range or throughput result",
+      "not an AirDrop/iOS result"
+    ]
+  }
+}

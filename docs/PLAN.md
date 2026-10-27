@@ -22,7 +22,7 @@
 
 前置：只读身份已记录（`0bda:c820`，MI_02 为厂商接口，现有驱动 `netrtwlanu.inf`）；绑定只针对 MI_02，保留 MI_00 蓝牙和有线/I226 上网。绑定前先跑 `build/usb_probe/Release/usb_probe.exe`，确认当前驱动下 open 失败的基线，再按 `docs/BINDING_RUNBOOK.md` 以管理员绑定。
 
-进度（2026-10-27）：只读 open/claim、芯片 ID `0x09`、首次 bring-up（频道 6，固件下载、BB/RF 表、IQK、RX 使能，零发帧）已完成；被动 RX 在频道 6（15 s，500 FCS 正常）和频道 36（12 s，4956 FCS 正常）各通过一次。下一步是 RX 重复性、TX 与独立见证；TX 仍需单独授权。
+进度（2026-10-27）：只读 open/claim、芯片 ID `0x09`、首次 bring-up（频道 6，固件下载、BB/RF 表、IQK、RX 使能，零发帧）已完成；被动 RX 在频道 6（15 s，500 FCS 正常）和频道 36（12 s，4956 FCS 正常）各通过一次；2.4 GHz 空口 TX 由 ESP32-S3 见证，3/3 完整 reset 轮次各收到 20/20 唯一序号。完整 reset 是重复 TX 的必要条件（跳过 reset 曾出现 USB 提交成功但空中零帧）。下一步：反向验证、ACK/5 GHz 见证；TX 仍需单独授权。
 
 顺序：只读 open/claim → 芯片 ID/初始化 → 固定频道有限 RX → 显式有限 TX → 空口见证与 TX report/ACK 关联 → 双向 unicast → 换频道 → 取消/退出/重开/拔插恢复。先用 `rxdemo` 验证初始化与 RX，再用 `txdemo` 发指定帧；每次发送前说明帧、频道和次数。
 

@@ -129,3 +129,18 @@
 证据：`evidence/rx-repeat-1..3.log`、`evidence/rx-repeat-summary.log`。
 
 下一步：TX 需要独立见证；在找到第二台可抓包设备前，不把“USB 提交成功”当作空口验证。
+
+## 2026-10-27：ESP32-S3 见证 2.4 GHz 空口 TX 成功
+
+用户插入 ESP32-S3-DevKitC-1（CH343，COM17），授权覆盖原固件。使用本机已有 PlatformIO 6.2.0（`~/.platformio/penv`）与 `espressif32@7.0.1`，未新装大工具链。
+
+- 写入 `tools/esp32_witness/`：纯监听固件（频道 6、不扫描/不连接/不发包、匹配 SA `57:42:75:05:d6:00`）+ 串口抓取脚本。编译、刷写均成功。
+- Windows 侧 `txdemo` 每轮发 20 个 probe request（1M，50 ms 间隔）。
+- 结果：完整 USB reset 的 3 轮全部收到 **20/20 唯一序号 0..19**（长度 104，RSSI -11..-9 dBm，seq 0 哈希 `9126b0f8` 跨轮一致）。
+- 负面对照：跳过 reset 的一轮，`txdemo` 报告 20 帧提交、0 失败，但空中 **0 帧**；因此完整 reset 是重复 TX 的必要条件，也证明“USB 提交成功 ≠ 空口发出”。
+- 见证计数有时每轮 +20、有时 +40，疑似抓包/重发重复；唯一序号是可靠指标。
+- 证据：`evidence/tx-witness-summary.json`、`evidence/esp32-witness-tx{2,3,4,5,6}.log`、`evidence/tx-{second,third,fourth,fifth,sixth}.log`、`tools/esp32_witness/README.md`。
+
+未做：5 GHz、硬件 ACK/BlockAck、反向（ESP32 发、网卡收）、换信道、拔插恢复、WinUSB 回滚。
+
+下一步：反向验证与 ACK 方案；ESP32 只能覆盖 2.4 GHz，5 GHz/AWDL 仍需别的见证。
