@@ -30,7 +30,7 @@ required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
             "tools/esp32_witness/src/main.cpp",
             "tools/esp32_witness/capture_serial.py",
             "tools/esp32_witness/README.md",
-            "tools/radio_link_client.py",
+            "tools/radio_link_client.py", "tools/radio_link_client.dart",
             "src/radio_usb/CMakeLists.txt", "src/radio_usb/main.cpp",
             "src/radio_usb/radio_link.h",
             "tools/Inspect-Hardware.ps1", "tools/Check-Binding.ps1"]

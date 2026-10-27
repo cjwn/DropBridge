@@ -85,6 +85,32 @@ def canonical_frame():
     return values[:10], values[10:]
 
 
+def parse_mac(text):
+    parts = text.split(":")
+    if len(parts) != 6:
+        raise SystemExit(f"bad MAC: {text}")
+    return bytes(int(p, 16) for p in parts)
+
+
+def option(args, name):
+    if name in args:
+        return args[args.index(name) + 1]
+    return None
+
+
+def drain(q, seconds):
+    deadline = time.time() + seconds
+    frames = []
+    while time.time() < deadline:
+        try:
+            msg_type, payload = q.get(timeout=0.1)
+        except queue.Empty:
+            continue
+        if msg_type == 2:
+            frames.append(payload)
+    return frames
+
+
 def main():
     args = sys.argv[1:]
     mode = args[0] if args else "rx"
@@ -93,12 +119,15 @@ def main():
         if len(args) > 1 and args[1].replace(".", "", 1).isdigit()
         else 5.0
     )
-    tx_count = 0
-    if "--tx" in args:
-        tx_count = int(args[args.index("--tx") + 1])
+    tx_count = int(option(args, "--tx") or 0)
+    channel = option(args, "--channel")
+    bssid = option(args, "--bssid")
+    addr = option(args, "--addr")
     if mode == "tx":
         tx_count = int(args[1])
         seconds = 1.0
+    if mode == "filter":
+        seconds = float(args[1]) if len(args) > 1 else 6.0
 
     sock = connect()
     header = read_exact(sock, 8)
@@ -106,16 +135,40 @@ def main():
     hello = read_exact(sock, length)
     if msg_type != 1 or len(hello) != 8:
         raise SystemExit(f"unexpected first message type={msg_type} len={length}")
-    version, channel, width, _ = struct.unpack("<IBBH", hello)
+    version, current_channel, width, _ = struct.unpack("<IBBH", hello)
     hello_at = time.time()
     print(
-        f"HELLO version={version} channel={channel} width={width}MHz "
+        f"HELLO version={version} channel={current_channel} width={width}MHz "
         f"at {hello_at:.3f}",
         flush=True,
     )
 
     q = queue.Queue()
     threading.Thread(target=reader, args=(sock, q), daemon=True).start()
+
+    if channel is not None:
+        send(sock, 4, bytes([int(channel)]))
+        print(f"SET_CHANNEL {channel}", flush=True)
+    if bssid is not None:
+        send(sock, 5, parse_mac(bssid))
+        print(f"SET_BSSID_FILTER {bssid}", flush=True)
+    if addr is not None:
+        send(sock, 6, parse_mac(addr))
+        print(f"SET_ADDRESS {addr}", flush=True)
+
+    if mode == "filter":
+        baseline = drain(q, 2.0)
+        bogus = "00:11:22:33:44:55"
+        send(sock, 5, parse_mac(bogus))
+        filtered = drain(q, 2.0)
+        send(sock, 5, bytes(6))
+        cleared = drain(q, 2.0)
+        print(
+            f"baseline={len(baseline)} filtered({bogus})={len(filtered)} "
+            f"cleared={len(cleared)}",
+            flush=True,
+        )
+        os._exit(0)
 
     rt, frame = canonical_frame()
     if tx_count:
@@ -124,7 +177,7 @@ def main():
             body[22] = (seq << 4) & 0xFF
             body[23] = (seq >> 4) & 0xFF
             send(sock, 3, bytes(rt) + bytes(body))
-            time.sleep(0.02)  # match txdemo's pacing; gives CCA a gap
+            time.sleep(0.02)
         print(f"sent {tx_count} TX frames over TCP", flush=True)
 
     deadline = time.time() + seconds

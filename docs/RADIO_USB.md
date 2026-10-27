@@ -11,6 +11,9 @@
 - TX（RX 环同时运行）：客户端经 TCP 发 20 帧，ESP32-S3 空口收到 **20/20 唯一序号 0..19**，RSSI -10..-9，长度 104，哈希与 `txdemo` 一致。
 - `AIRBRIDGE_NO_RX=1` 可跳过 RX 环，用于隔离 TX 测试；该模式同样 20/20。
 - `AIRBRIDGE_TX_RATE` 默认 `1M`，通过 `SetTxMode` 在 bring-up 后设置。
+- **SET_CHANNEL**：客户端从频道 6 切到 36，radio 日志 `channel -> 36`；切换后 2 秒收到 64 帧，切回/过滤测试正常。
+- **BSSID 过滤**：设置 `00:11:22:33:44:55` 后 2 秒 0 帧；发送全零清除后 2 秒恢复 62 帧。全零现在表示“清除过滤”。
+- **Dart 客户端**：`tools/radio_link_client.dart` 连接 `127.0.0.1:49876`，收到 `HELLO version=3`，5 秒收 **84 帧 / 14664 字节**。Dart 的 `Socket` 可用，IPC 选择成立。
 
 ## TX 曾经发不出去的原因
 
@@ -19,8 +22,9 @@
 ## 已知问题
 
 1. **启动慢**：反复 reset 后 bring-up 约 40–120 秒，期间可能出现 `FW ready 0x80 != 0xC078`，devourer 自动重试后恢复。
-2. **未测**：SET_CHANNEL 的实际切换与耗时、SET_BSSID_FILTER/SET_ADDRESS 的硬件 ACK 效果、断连重连、TX report/BlockAck、Dart 客户端。
-3. **固件状态**：多次 reset 后曾出现 TX 假死（`txdemo` 也发不出），拔插网卡后恢复；测试之间建议重新上电。
+2. **未测**：SET_ADDRESS 的硬件 ACK 效果、断连重连、TX report/BlockAck、5 GHz。
+3. **单客户端**：当前 radio 只服务一个客户端，客户端断开后进程退出；Dart 应用需要重连时要重启 radio。下一版改成 accept 循环。
+4. **固件状态**：多次 reset 后曾出现 TX 假死（`txdemo` 也发不出），拔插网卡后恢复；测试之间建议重新上电。
 
 ## 构建与运行
 

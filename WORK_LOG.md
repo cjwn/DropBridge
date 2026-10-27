@@ -204,3 +204,12 @@
 - 证据：`evidence/esp32-witness-radio-tx6.log`、`evidence/esp32-witness-radio-tx7-full.log`、`evidence/radio-usb-run-tx7-full.log`。
 
 下一步：TCP `SET_CHANNEL` 实测、`SET_ADDRESS`/BSSID 过滤与硬件 ACK，然后 Dart 客户端。
+
+## 2026-10-27：SET_CHANNEL、BSSID 过滤、Dart 客户端通过
+
+- **SET_CHANNEL**：客户端从频道 6 发 `SET_CHANNEL 36`，radio 日志 `channel -> 36`；切换后 2 秒收到 64 帧，说明运行时换信道可用。
+- **BSSID 过滤**：同一会话里 baseline=64 帧；设置假 BSSID `00:11:22:33:44:55` 后 2 秒 **0 帧**；发送全零清除后 2 秒恢复 **62 帧**。全零现在表示清除过滤。
+- **Dart 客户端**：新增 `tools/radio_link_client.dart`，`dart analyze` 通过；运行后收到 `HELLO version=3 channel=6 width=20`，5 秒收 **84 帧 / 14664 字节**。Dart `Socket` 可用，TCP IPC 选择成立。
+- 证据：`evidence/radio-usb-run-channel.log`、`evidence/radio-usb-run-dart.log`。
+
+仍缺：SET_ADDRESS 的硬件 ACK 效果、断连重连（当前 radio 单客户端、断开即退出）、5 GHz/AWDL。

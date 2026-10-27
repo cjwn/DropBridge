@@ -22,6 +22,7 @@
 
 #include <array>
 #include <atomic>
+#include <algorithm>
 #include <chrono>
 #include <condition_variable>
 #include <cstdint>
@@ -430,9 +431,26 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
             }
         } else if (header.type == RADIO_LINK_SET_BSSID_FILTER &&
                    payload.size() == 6) {
-            std::lock_guard<std::mutex> lock(state.mu);
-            std::memcpy(state.bssid.data(), payload.data(), 6);
-            state.has_bssid = true;
+            const bool all_zero =
+                std::all_of(payload.begin(), payload.end(),
+                            [](uint8_t b) { return b == 0; });
+            {
+                std::lock_guard<std::mutex> lock(state.mu);
+                if (all_zero) {
+                    state.has_bssid = false;
+                } else {
+                    std::memcpy(state.bssid.data(), payload.data(), 6);
+                    state.has_bssid = true;
+                }
+            }
+            if (all_zero) {
+                logger->info("radio: BSSID filter cleared");
+            } else {
+                logger->info("radio: BSSID filter {:02x}:{:02x}:{:02x}:"
+                             "{:02x}:{:02x}:{:02x}",
+                             payload[0], payload[1], payload[2], payload[3],
+                             payload[4], payload[5]);
+            }
         } else if (header.type == RADIO_LINK_SET_ADDRESS &&
                    payload.size() == 6) {
             std::array<uint8_t, 6> own{};
@@ -446,6 +464,9 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
                 have_bssid = state.has_bssid;
                 bssid = state.bssid;
             }
+            logger->info("radio: own address {:02x}:{:02x}:{:02x}:{:02x}:"
+                         "{:02x}:{:02x}",
+                         own[0], own[1], own[2], own[3], own[4], own[5]);
             if (have_bssid) {
                 devourer::MacAddr own_mac;
                 devourer::MacAddr bssid_mac;
