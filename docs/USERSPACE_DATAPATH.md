@@ -55,22 +55,24 @@ cmake --build build/awdl --parallel 8
 2. radio_pipe_bridge.exe
 3. awdl_netd.exe                         # 监听 49877，等待 awdld
 4. awdld.exe -c 149 -s 2 -j 400 -v       # 不再需要管理员/Wintun
-5. python receiver.py --name AirBridge32 --listen 127.0.0.1 --outdir build\received --trace
+5. python receiver.py --name AirBridge32 --listen 127.0.0.1 --mdns-address-file build\awdl_netd.addr --outdir build\received --trace
 ```
 
-`awdl_netd` 默认只启动 IPC + netif；`AWDL_NETD_TCP=1` 启用 TCP 8771 代理，`AWDL_NETD_MDNS=1` 启用 mDNS 广播（PoC 调试开关）。
+`awdl_netd` 默认启动 IPC/netif/TCP 8771；`AWDL_NETD_MDNS_PROXY=1` 启用 Python mDNS 的 UDP 代理。
 
-## 当前状态
+## 当前状态（v2ray TUN 开启时已端到端成功）
 
-- lwIP IPv6-only 静态库和 `awdl_netd.exe` 构建通过；
-- 假握手（`AWDL` + 16 字节 IPv6）可让 netif 起来并返回 mDNS/MLD 包；
-- `awdld` 的 IPC host 后端构建通过；
-- `receiver.py --listen 127.0.0.1` 代理模式可启动；
-- **真实 awdld 已通过 IPC 连上 awdl_netd**（日志 `host interface awdl0, index 1`），awdld 侧出现 `tx data 9..12`，说明 mDNS/MLD 出向包已经进入 AWDL；
-- 当前 `peers 0`，iPhone 尚未处于活跃 AWDL 状态/未被发现；**端到端收发待测**。
-- mDNS 已改为复用 `receiver.py` 的 `mdns.py` 记录：Python 生成原样报文，`awdl_netd` 只做 UDP 5353 ↔ `awdl_netd` 本地端口 15353 的搬运；不再使用 lwIP 自己的 mDNS 记录。
-- 实测：iPhone 能看到 AirBridge32；`POST /Discover`、`POST /Ask` 已到达 `receiver.py` 并返回 200。
-- 剩余问题：`POST /Upload` 的 body 卡住（临时文件 0 字节）；TCP 用户态代理/窗口仍需修。
+- 2026-10-27 实测：`singbox_tun` Up、`ping ::1` 100% loss 的情况下，iPhone 15 Pro Max（iOS 17.5）仍通过 AirBridge32 传回 **2,911,531 字节 PNG**，PNG 签名/尺寸/SHA-256 均正确。
+- 路径：radio 149 → 桥 → awdld IPC → `awdl_netd`（lwIP IPv6 + 阻塞 sockets）→ `receiver.py`。
+- mDNS 复用 `mdns.py` 原记录，经 UDP 5353 ↔ 本地 15353 代理；TCP 8771 经 lwIP sockets + 阻塞代理转发到 `receiver.py`。
+- `/Discover`、`/Ask`、`/Upload` 全部通过；本次上传约 36 秒（~80 KB/s），比之前 Wintun/Windows 栈的 ~10 秒慢，后续再优化窗口/批量。
+- 证据：`evidence/airdrop-userspace-tun-on.txt`（去敏）。
+
+## 已知限制
+
+- 吞吐较低；TCP 窗口/ACK/重传还可调优。
+- TCP MSS 固定 1024，未处理 IPv6 分片（`LWIP_IPV6_FRAG=0`）。
+- 原始接收日志含姓名/IP/令牌，未提交。
 
 ## 已知风险
 

@@ -1,15 +1,19 @@
 #ifndef LWIPOPTS_H
 #define LWIPOPTS_H
 
-/* User-space IPv6 stack for the AWDL data plane. No OS sockets, no threads:
- * awdl_netd owns one event loop, feeds raw IPv6 packets from awdld, and
- * proxies AirDrop's TCP 8771 to the local receiver. */
-#define NO_SYS 1
-#define SYS_LIGHTWEIGHT_PROT 0
+/* User-space IPv6 stack for the AWDL data plane. The socket API mirrors the
+ * blocking Windows sockets used by receiver.py, but all packets come from
+ * awdld over IPC, never from the Windows IPv6 stack. */
+#define NO_SYS 0
 #define LWIP_TIMERS 1
-#define LWIP_SOCKET 0
-#define LWIP_NETCONN 0
-#define LWIP_NETIF_API 0
+#define LWIP_SOCKET 1
+#define LWIP_NETCONN 1
+#define LWIP_NETIF_API 1
+#define LWIP_SO_RCVTIMEO 1
+#define MEMP_NUM_NETCONN 8
+#define TCPIP_THREAD_STACKSIZE 65536
+#define DEFAULT_THREAD_STACKSIZE 65536
+#define TCPIP_THREAD_PRIO 3
 
 #define LWIP_IPV4 0
 #define LWIP_IPV6 1
@@ -32,7 +36,7 @@
 #define LWIP_NETIF_STATUS_CALLBACK 1
 #define LWIP_NETIF_LINK_CALLBACK 1
 #define LWIP_NETIF_REMOVE_CALLBACK 1
-#define LWIP_NUM_NETIF_CLIENT_DATA 1
+#define LWIP_NUM_NETIF_CLIENT_DATA 0
 #define LWIP_SINGLE_NETIF 1
 
 #define MEM_SIZE (128 * 1024)
@@ -52,11 +56,5 @@
 #define LWIP_ND6_QUEUEING 1
 #define LWIP_IPV6_NUM_ADDRESSES 3
 #define LWIP_IPV6_SCOPES 1
-
-/* lwIP's mDNS responder supports IPv6 when MLD is on. */
-#define LWIP_MDNS_RESPONDER 1
-#define LWIP_MDNS_MAX_SERVICES 4
-#define LWIP_MDNS_TXT_MAX_ITEMS 8
-#define LWIP_MDNS_MAX_SERVICE_TXT 128
 
 #endif /* LWIPOPTS_H */

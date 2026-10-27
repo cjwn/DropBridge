@@ -304,3 +304,12 @@
 - 实测：iPhone 能看到 AirBridge32；`POST /Discover`、`POST /Ask` 都到达 receiver 并返回 200。
 - 剩余：`POST /Upload` body 卡住，临时文件 0 字节；下一步修 TCP 代理/窗口，而不是继续改 mDNS。
 - 提交：`a3ce8d1` 之后的这一轮改动。
+
+## 2026-10-27：v2ray TUN 开启时，用户态数据面完成真实 AirDrop 传输
+
+- 把 TCP 层从 lwIP raw callbacks 改为 lwIP sockets API + 阻塞代理（`local_io.cpp` 隔离 Winsock，`lwip_proxy.cpp` 只碰 lwIP sockets）。
+- mDNS 继续复用 `receiver.py` 的 `mdns.py` 记录，经 UDP 5353 ↔ 15353 代理。
+- 实测环境：`singbox_tun` Up、`ping ::1` 100% loss；没有 Wintun、没有 Windows IPv6 参与。
+- 结果：iPhone 15 Pro Max（iOS 17.5）通过 AirBridge32 传回 `IMG_3583-1.PNG`，2,911,531 字节，PNG 1290×2796，SHA-256 `C899358A...C48B1`，与之前成功文件一致；上传约 36 秒。
+- 证据：`evidence/airdrop-userspace-tun-on.txt`（去敏）；原始接收日志未提交。
+- 状态：**用户态 AWDL 数据面端到端可用**；下一步优化吞吐、清理 PoC 开关、接 Dart UI。

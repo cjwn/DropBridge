@@ -20,6 +20,7 @@ required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
             "evidence/rx-second-5g.log", "evidence/rx-repeat-summary.log",
             "evidence/tx-witness-summary.json",
             "evidence/airdrop-first-transfer.txt",
+            "evidence/airdrop-userspace-tun-on.txt",
             "evidence/esp32-witness-tx2.log", "evidence/esp32-witness-tx3.log",
             "evidence/esp32-witness-tx4.log", "evidence/esp32-witness-tx5.log",
             "evidence/esp32-witness-tx6.log",
@@ -39,7 +40,8 @@ required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
             "tools/Apply-AwdlPatches.ps1",
             "patches/awdl-ipc-host.patch",
             "src/awdl_netd/CMakeLists.txt", "src/awdl_netd/main.cpp",
-            "src/awdl_netd/lwipopts.h", "src/awdl_netd/arch/cc.h",
+            "src/awdl_netd/lwipopts.h", "src/awdl_netd/local_io.h",
+            "src/awdl_netd/local_io.cpp", "src/awdl_netd/lwip_proxy.cpp",
             "tools/Inspect-Hardware.ps1", "tools/Check-Binding.ps1"]
 for name in required:
     assert (root / name).is_file(), f"Missing: {name}"

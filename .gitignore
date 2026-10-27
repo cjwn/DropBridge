@@ -5,3 +5,5 @@ __pycache__/
 .pio/
 
 evidence/awdl2-receiver.log
+
+evidence/sockets-receiver.log

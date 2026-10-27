@@ -1,0 +1,36 @@
+Phase 3 user-space AWDL data plane — end-to-end success, 2026-10-27 20:51–20:52 (+08:00)
+
+Environment while the transfer ran:
+  v2rayN TUN: singbox_tun Up (ifIndex 20), sing-box and v2rayN running
+  ping -6 ::1: 100% loss (Windows IPv6 remains unusable under the TUN)
+  No Wintun awdl0 adapter; no Windows IPv6 route was used for AWDL
+
+Path:
+  RTL8821CU radio on channel 149
+  -> radio_link TCP / named-pipe bridge
+  -> awdld with the IPC host backend (no Wintun)
+  -> awdl_netd: lwIP 2.2.2 IPv6 + blocking sockets
+       - mDNS 5353 proxied to receiver.py's mdns.py announcer
+       - TCP 8771 proxied to receiver.py on 127.0.0.1:8771
+  -> receiver.py: TLS/HTTP /Discover /Ask /Upload
+
+Sender: iPhone 15 Pro Max, iOS 17.5 (user-provided)
+File: IMG_3583-1.PNG
+Size: 2,911,531 bytes
+PNG: 89 50 4e 47 0d 0a 1a 0a, 1290 x 2796
+SHA-256: C899358AE8D761C900946DD24F49DBC41F1CE04B05C859B9C071CF8F822C48B1
+
+Timeline:
+  20:51:18 /Discover connection
+  20:51:22 /Discover 200
+  20:51:23 /Ask connection
+  20:51:26 /Ask 200
+  20:51:31 /Upload headers
+  20:52:07 upload stored, 200
+
+Observed throughput: ~2.9 MB in ~36 s (~80 KB/s), slower than the earlier
+Wintun/Windows-stack run (~10 s), but the transfer completed and the PNG hash
+matches the earlier successful file.
+
+Raw receiver log contains sender name, link-local address and transfer tokens;
+it is kept locally and not committed. This summary is redacted.
