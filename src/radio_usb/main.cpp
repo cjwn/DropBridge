@@ -256,6 +256,10 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     devourer::DeviceConfig config;
     config.rx.enable_with_tx = true;
     config.rx.keep_corrupted = true;
+    int retry_limit = env_int("AIRBRIDGE_RETRY_LIMIT", 7);
+    if (retry_limit < 0) retry_limit = 0;
+    if (retry_limit > 63) retry_limit = 63;
+    config.tx.retry_limit = retry_limit;
     auto radio = driver.CreateRadio(handle, ctx, usb_lock, config);
     if (!radio) {
         logger->error("radio: CreateRadio failed (chip support not built?)");
@@ -279,6 +283,7 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         return 5;
     }
     logger->info("radio: ready on channel {} width {} MHz", channel, width_mhz);
+    logger->info("radio: tx retry limit {}", retry_limit);
 
     /* The demos always set a TX mode before injecting; a rate-less frame with
      * no mode can fall back to an unusable default and never reach the air.

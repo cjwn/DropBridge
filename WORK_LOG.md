@@ -230,3 +230,13 @@
 - 证据：`evidence/radio-usb-run-reconnect.log`；状态更新 `docs/RADIO_USB.md`。
 
 下一步：`tx.retry_limit`（当前 0，不重传）、空口 ACK 验证、5 GHz/AWDL。
+
+## 2026-10-27：retry_limit、5 GHz RX 与跨信道多客户端
+
+- `AIRBRIDGE_RETRY_LIMIT` 默认 7（0..63）；设 7 后 `SetStationIdentity` 不再警告 `retry_limit=0`，station identity armed 正常。
+- 同一 radio 进程连续两个客户端：
+  - 客户端 A：`SET_CHANNEL 44`，频道 44 baseline 47 帧、假 BSSID 过滤 0 帧、清除后 63 帧（5 GHz RX 通过）。
+  - 客户端 B：HELLO 显示当前频道 44；`SET_CHANNEL 6`、设置 own/BSSID、发 20 帧 TX；ESP32-S3 收到 20/20 唯一序号，RSSI -11..-9。
+- 证据：`evidence/radio-usb-run-multi.log`、`evidence/esp32-witness-multi.log`；状态更新 `docs/RADIO_USB.md`。
+
+仍缺：空口 ACK 验证、5 GHz TX 见证（ESP32 只能 2.4 GHz）、AWDL 信道调度。
