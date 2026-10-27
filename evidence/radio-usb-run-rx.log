@@ -1,0 +1,100 @@
+﻿airbridge_radio.exe : devourer [I] USB adapter 1-8.3 locked for exclusive access
+所在位置 行:2 字符: 1
++ & "$root\build\radio_usb\Release\airbridge_radio.exe" 6 20 2>&1 | Tee ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (devourer [I] US...xclusive access:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+devourer [I] Creating RtlJaguar2Device C8821C (PID 0xc820, chip-id 0x09)
+devourer [I] USB device 0bda:c820
+devourer [I] Running USB bus at 480MBit/s
+devourer [I] selected USB interface 2
+devourer [I] endpoint[0]: addr=0x84 attrs=0x2 bulk=1 in=1
+devourer [I] selected bulk IN endpoint: 0x84
+devourer [I] endpoint[1]: addr=0x5 attrs=0x2 bulk=1 in=0
+devourer [I] endpoint[2]: addr=0x6 attrs=0x2 bulk=1 in=0
+devourer [I] endpoint[3]: addr=0x87 attrs=0x3 bulk=0 in=1
+devourer [I] endpoint[4]: addr=0x8 attrs=0x2 bulk=1 in=0
+devourer [I] bulk OUT endpoints: 0x05 0x06 0x08 
+devourer [I] libusb_clear_halt(bulk IN 0x84) rc=0
+devourer [I] OutEpQueueSel(7), OutEpNumber(3)
+devourer [I] Boot from EFUSE, Autoload OK !
+devourer [I] Jaguar2: pre_init_system_cfg done
+devourer [I] Jaguar2: power-off (card-disable) sequence applied
+devourer [I] Jaguar2: power-on sequence complete (card active)
+devourer [I] Jaguar2 chip: 8821C cut=4 (UMC) 1T1R (SYS_CFG1=0x00494537)
+devourer [I] Jaguar2: init_system_cfg done (bw=0 cut=4)
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 3360 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 1488 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 3144 bytes
+devourer [I] Jaguar2 DLFW: download OK, CPU enabled �?polling FW boot
+devourer [E] Jaguar2 DLFW: FW ready check failed (0x80 != 0xC078)
+devourer [E] Jaguar2 DLFW: cpu-reset retry 1/2
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 3360 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 1488 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 4144 bytes
+devourer [I] bulk_send EP 5 OK 3144 bytes
+devourer [I] Jaguar2 DLFW: download OK, CPU enabled �?polling FW boot

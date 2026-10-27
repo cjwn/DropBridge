@@ -1,0 +1,5 @@
+﻿适用于 .NET Framework MSBuild 版本 17.14.51+25f168cee
+
+  devourer.vcxproj -> J:\New soft project\DropBridge\build\radio_usb\devourer\Release\devourer.lib
+  main.cpp
+  airbridge_radio.vcxproj -> J:\New soft project\DropBridge\build\radio_usb\Release\airbridge_radio.exe

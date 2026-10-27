@@ -156,3 +156,16 @@
 - 更新 PLAN/README/check_project。
 
 下一步：Phase 2，写 `radio.exe` 的 USB 后端（打开/初始化/RX/TX/换信道 + 管道），保持 `radio_link` v3。
+
+## 2026-10-27：USB radio 后端 WIP（HELLO 通过，硬件 RX 转发待修）
+
+- 新增 `src/radio_usb/`：C++ `airbridge_radio.exe`，链接 devourer + libusb；打开 `0bda:c820`、claim interface 2、`InitWrite`、`StartRxLoop`；实现 `radio_link` v3 的 HELLO/RX/TX/SET_CHANNEL/SET_BSSID_FILTER/SET_ADDRESS。
+- 编译通过；运行后 Python 客户端能收到 HELLO（version 3、channel 6、width 20）。
+- 用临时“合成 RX”消息验证了管道方向：主线程写入的 10 字节 RX，客户端能完整收到。
+- **未通过：硬件 RX 转发。** RX 回调有计数，但从 RX 线程写管道时客户端在窗口内收不到；客户端关闭后写入返回 `ERROR_NO_DATA (232)`。问题集中在跨线程写或 RX 启动时序，尚未定位。
+- 反复 reset 后出现一次固件启动失败（`FW ready 0x80 != 0xC078`），devourer CPU-reset 重试后恢复，`doctor` 判定 `HEALTHY`。
+- 发现：Dart 的 `dart:io` 没有 Windows 命名管道接口，IPC 应改为 localhost TCP 或 stdio 长度前缀帧；`radio_link` 帧格式可保留。
+- 状态与复现步骤：`docs/RADIO_USB.md`；客户端：`tools/radio_link_client.py`。
+- 未做：TX over pipe、SET_CHANNEL、地址/过滤、Dart 客户端。
+
+下一步：先定 IPC（TCP/stdio），再修 RX 转发并重测；不要在未通的情况下接 AWDL。
