@@ -23,8 +23,8 @@
 | --- | --- | --- | --- | --- | --- |
 | Q1 | receiver 离线吞吐台 | 无 | 20 MB 三次，给出 Python/TLS/zlib 侧 MB/s 上限与结论 | ✅ 2026-10-27：compressed 228 MB/s、stored 278 MB/s，非瓶颈 | `evidence/bench-receiver.md` |
 | Q2 | 身份证书去掉外部 openssl | 无 | 无 Git/OpenSSL 的 PATH 下能生成证书并 `/Discover` 200 | ✅ 2026-10-27：cryptography 进程内生成，openssl 仅回退 | `evidence/identity-no-openssl.log` |
-| Q3 | 无壳手动链路脚本 | 写脚本无依赖；**跑需授权** | 一键起停、日志分离、退出无残留 | ⬜ | — |
-| Q4 | 单文件自解压原型 | 无 | 干净 VM 双击可跑，≤30 MB，退出可清理 | ⬜ | — |
+| Q3 | 无壳手动链路脚本 | 写脚本无依赖；**跑需授权** | 一键起停、日志分离、退出无残留 | 🔜 脚本与无壳包完成（dry-run、端口冲突、打包后路径均验证）；`-Run` 待授权 | `tools/Start-Chain.ps1`、`tools/Package-Headless.ps1` |
+| Q4 | 单文件自解压原型 | 无 | 干净 VM 双击可跑，≤30 MB，退出可清理 | ⬜ 载荷已就绪：`dist\AirBridge32-headless.zip` 16.0 MB；SFX 外壳未做 | — |
 | Q5 | 原生托盘监管（替代 Flutter） | Q4 | 无窗口常驻、单实例、开机自启、退出清理、完成通知 | ⬜ | — |
 | Q6 | 日志轮转与诊断包 | Q5 | 5 MB×3 轮转；导出前脱敏 | ⬜ | — |
 | Q7 | 看门狗与恢复阶梯 | 硬件授权 | 假死注入后 ≤10 s 自动恢复；24 h 无泄漏 | ⬜ | — |
@@ -60,6 +60,9 @@
 - 动作：新增 `tools/Start-Chain.ps1`（参数 `-Channel 149 -Width 40 -Python <exe> -Trace`）：按序起 radio → bridge → netd → awdld → receiver，日志分别落 `build/chain-logs/`，Ctrl+C 逆序清理，启动前检查端口与单实例。
 - 用途：与便携包做同文件 A/B，量化 Flutter + embeddable Python 的代价。
 - 判据：起停三次无残留进程/端口；A/B 用同一张 20 MB 文件。
+
+**进展（2026-10-27）**：`tools/Start-Chain.ps1` 完成。默认 dry-run，必须显式 `-Run` 才会初始化网卡（把授权边界写进工具里）；自动识别仓库布局（`build\`）与打包布局（`backend\`）；启动前检查 49876/49877/8771/15353 端口；按序等待每个后端的 ready 行；Ctrl+C 逆序清理并复查端口。已验证：dry-run 输出命令、端口被占用时拒绝启动、打包目录内路径解析正确。
+`tools/Package-Headless.ps1` 产出无 Flutter/无 Dart 的包：`dist\AirBridge32-headless.zip`（**16.0 MB**，便携版为 27.0 MB），内含 backend、python-embed、receiver、Start.cmd 与 README。**尚未真机起停**（需授权）。
 
 ### Q4 单文件自解压原型
 

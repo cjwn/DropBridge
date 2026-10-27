@@ -1,0 +1,53 @@
+# 无 Flutter 链路启动器与无 Dart 包（Q3）
+
+2026-10-27。不改射频、不发帧；`-Run` 未执行。
+
+## 构件
+
+| 文件 | 作用 |
+| --- | --- |
+| `tools/Start-Chain.ps1` | 按序启动 radio → bridge → netd → awdld → receiver；默认 dry-run，`-Run` 才真正启动 |
+| `tools/Package-Headless.ps1` | 打无 Flutter/无 Dart 的包 `dist\AirBridge32-headless.zip` |
+
+`Start-Chain.ps1` 的行为：
+
+- 布局自适应：仓库（`build\...` + `upstream\...`）或打包目录（`backend\...`）；
+- 启动前检查 TCP 49876 / 49877 / 8771 / 15353，占用即拒绝；
+- 逐个等待 ready 行（`listening on 127.0.0.1:49876`、`waiting for awdld`、`host interface`、`receiving as`）；
+- Ctrl+C 逆序停止，并复查端口是否释放；
+- 把 `git rev-parse HEAD`、时间、频道/宽度写进 `chain.log`，每个后端单独 stdout/stderr 文件。
+
+## 验证
+
+```text
+=== 仓库布局 dry-run ===
+radio     ...\build\radio_usb\Release\airbridge_radio.exe 149 40
+bridge    ...\build\radio_usb\Release\radio_pipe_bridge.exe
+netd      ...\build\awdl_netd\Release\awdl_netd.exe   [AWDL_NETD_MDNS_PROXY=1]
+awdld     ...\build\awdl\awdld.exe -c 149 -s 2 -j 400 -v
+receiver  ...\build\python-embed\python.exe -u ...\upstream\winawdl\airdrop\receiver.py ...
+
+Dry run only: no process started, no wireless frame sent.
+
+=== 端口被占用（python -m http.server 49876）===
+ports already in use: 49876; stop the other AirBridge32/radio instance first
+
+=== 打包目录 dry-run ===
+receiver  ...\dist\AirBridge32-headless\backend\python\python.exe -u ...\backend\airdrop\receiver.py ...
+```
+
+## 体积
+
+| 产物 | 大小 |
+| --- | --- |
+| `dist\AirBridge32-headless.zip`（无 Flutter/Dart） | 16.0 MB |
+| `dist\AirBridge32-headless\`（解压后） | 36.4 MB |
+| `dist\AirBridge32-portable.zip`（Flutter 壳，旧） | 27.0 MB |
+
+去掉 Flutter/Dart 直接省 11.0 MB，包内不再有 `flutter_windows.dll` 与 Dart 数据段。
+
+## 未做
+
+- `-Run` 真机起停三次（需硬件授权）；
+- 与便携包的同文件 A/B 测速（需硬件授权）；
+- 单文件自解压外壳（Q4）：目前载荷是 ZIP，还没有 exe 外壳。

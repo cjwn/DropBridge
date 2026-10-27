@@ -421,3 +421,13 @@
 - 脚本改为逐补丁判定"应用 / 已应用 / 冲突抛错"，新增 `-Repo`；在锁定提交的干净 worktree 上应用后，identity.py、mdns.py、receiver.py、awdl/CMakeLists.txt、host_if_ipc.c 五个文件哈希与活树**完全一致**，重复执行幂等。证据：`evidence/patches-reproduce.log`。
 
 队列：Q2 → ✅；下一项 Q3（手动链路脚本）。
+
+## 2026-10-27：Q3 脚本与无 Dart 包（16.0 MB）
+
+- 新增 `tools/Start-Chain.ps1`：默认 **dry-run**，只有显式 `-Run` 才会初始化网卡并让 awdld 发帧——授权边界写进工具本身。布局自适应（仓库 `build\` / 打包 `backend\`），启动前查 49876/49877/8771/15353，逐个等 ready 行，Ctrl+C 逆序清理并复查端口，`chain.log` 记录 commit/时间/频道。
+- 新增 `tools/Package-Headless.ps1`：产出无 Flutter、无 Dart 的 `dist\AirBridge32-headless.zip`，内含 backend、python-embed、receiver、`Start.cmd`、README 与许可证。
+- 实测（不含射频）：dry-run 两种布局路径正确；`python -m http.server 49876` 占端口时按预期拒绝启动；打包后 `Start-Chain.ps1` 解析到 `backend\python\python.exe` 与 `backend\airdrop\receiver.py`。
+- 体积：headless ZIP **16.0 MB**（解压 36.4 MB），旧便携版 27.0 MB；去掉 Flutter/Dart 省 11 MB。
+- 未做：`-Run` 真机起停三次、与便携包的同文件 A/B、单文件 exe 外壳（Q4）。这三项都要硬件授权或额外外壳工作。
+- 证据：`evidence/headless-package.log`。
+- 队列：Q3 → 🔜（脚本与包完成，实测待授权）；Q4 载荷已就绪，外壳未做。

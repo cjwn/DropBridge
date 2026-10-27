@@ -36,6 +36,9 @@ Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirB
 .\tools\Setup-BuildDeps.ps1 -WithOpenSsl   # 一次性：vcpkg + libusb + pkgconf + OpenSSL
 .\tools\Build-Devourer.ps1        # 配置、编译 C8821C-only 并跑无硬件自检
 .\tools\Build-UsbProbe.ps1        # 编译只读 USB 探针（open/claim，不初始化芯片）
+.\tools\Start-Chain.ps1           # 无 Flutter 起停整条链路；默认 dry-run，加 -Run 才发帧
+.\tools\Package-Headless.ps1      # 打无 Dart 的包：dist\AirBridge32-headless.zip（16 MB）
+python .\tools\bench_receiver.py --mb 20 --runs 3   # receiver 离线吞吐（不涉及射频）
 python .\tools\check_project.py   # 文档、证据与版本锁一致性
 ```
 
