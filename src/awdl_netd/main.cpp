@@ -18,6 +18,7 @@ extern "C" {
 #include "lwip/pbuf.h"
 #include "lwip/sys.h"
 #include "lwip/tcp.h"
+#include "lwip/udp.h"
 #include "lwip/timeouts.h"
 #include "lwip/apps/mdns.h"
 }
@@ -57,6 +58,17 @@ struct ProxyConn {
 std::vector<ProxyConn *> g_conns;
 bool g_mdns_enabled = false;
 u32_t g_next_announce = 0;
+
+SOCKET g_mdns_local = INVALID_SOCKET;
+sockaddr_in g_mdns_peer{};
+bool g_has_mdns_peer = false;
+udp_pcb *g_mdns_pcb = nullptr;
+
+uint64_t g_proxy_rx = 0;
+uint64_t g_proxy_local = 0;
+uint64_t g_proxy_tx = 0;
+
+void write_address_file(const uint8_t address[16]);
 
 extern "C" u32_t sys_now(void) {
     return static_cast<u32_t>(GetTickCount64());
@@ -191,6 +203,13 @@ err_t proxy_recv(void *arg, struct tcp_pcb *pcb, struct pbuf *p, err_t err) {
         conn->to_local.resize(old + p->tot_len);
         pbuf_copy_partial(p, conn->to_local.data() + old, p->tot_len, 0);
         tcp_recved(pcb, p->tot_len);
+        g_proxy_rx += p->tot_len;
+        if (std::getenv("AWDL_NETD_TRACE") && (g_proxy_rx % 32768) < p->tot_len) {
+            std::fprintf(stderr, "proxy rx=%llu local=%llu tx=%llu\n",
+                         (unsigned long long)g_proxy_rx,
+                         (unsigned long long)g_proxy_local,
+                         (unsigned long long)g_proxy_tx);
+        }
     }
     pbuf_free(p);
     return ERR_OK;
@@ -275,6 +294,7 @@ void pump_proxy(ProxyConn *conn) {
                        0);
         if (n > 0) {
             conn->to_local_off += static_cast<size_t>(n);
+            g_proxy_local += n;
             continue;
         }
         if (n < 0 && WSAGetLastError() == WSAEWOULDBLOCK) break;
@@ -300,6 +320,7 @@ void pump_proxy(ProxyConn *conn) {
             conn->from_local.resize(old + static_cast<size_t>(n));
             memcpy(conn->from_local.data() + old, buffer,
                    static_cast<size_t>(n));
+            g_proxy_tx += n;
         } else if (n == 0) {
             conn->local_closed = true;
         } else if (WSAGetLastError() != WSAEWOULDBLOCK) {
@@ -394,8 +415,89 @@ bool accept_awdld() {
     }
     if (memcmp(hello, "AWDL", 4) != 0) return false;
     configure_address(hello + 4);
+    write_address_file(hello + 4);
     u_long nonblocking = 1;
     ioctlsocket(g_ipc, FIONBIO, &nonblocking);
+    return true;
+}
+
+void write_address_file(const uint8_t address[16]) {
+    const char *path = std::getenv("AWDL_NETD_ADDR_FILE");
+    if (!path || !*path) path = "awdl_netd.addr";
+    FILE *f = std::fopen(path, "w");
+    if (!f) return;
+    char text[64] = {0};
+    inet_ntop(AF_INET6, address, text, sizeof(text));
+    std::fprintf(f, "%s\n", text);
+    std::fclose(f);
+}
+
+void mdns_udp_recv(void *, udp_pcb *, struct pbuf *p, const ip_addr_t *,
+                   u16_t) {
+    if (!p) return;
+    if (g_has_mdns_peer) {
+        uint8_t buffer[4096];
+        if (p->tot_len <= sizeof(buffer)) {
+            pbuf_copy_partial(p, buffer, p->tot_len, 0);
+            sendto(g_mdns_local, reinterpret_cast<const char *>(buffer),
+                   p->tot_len, 0,
+                   reinterpret_cast<const sockaddr *>(&g_mdns_peer),
+                   sizeof(g_mdns_peer));
+        }
+    }
+    pbuf_free(p);
+}
+
+void mdns_local_readable() {
+    uint8_t buffer[4096];
+    sockaddr_in from{};
+    int from_len = sizeof(from);
+    int n = recvfrom(g_mdns_local, reinterpret_cast<char *>(buffer),
+                     sizeof(buffer), 0, reinterpret_cast<sockaddr *>(&from),
+                     &from_len);
+    if (n <= 0) return;
+    g_mdns_peer = from;
+    g_has_mdns_peer = true;
+
+    struct pbuf *p = pbuf_alloc(PBUF_TRANSPORT, static_cast<u16_t>(n),
+                                PBUF_RAM);
+    if (!p) return;
+    pbuf_take(p, buffer, static_cast<u16_t>(n));
+
+    ip6_addr_t dst6;
+    ip6addr_aton("ff02::fb", &dst6);
+    ip_addr_t dst;
+    memset(&dst, 0, sizeof(dst));
+    memcpy(&dst, &dst6, sizeof(dst6));
+    udp_sendto(g_mdns_pcb, p, &dst, 5353);
+    pbuf_free(p);
+}
+
+bool start_mdns_proxy() {
+    g_mdns_local = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (g_mdns_local == INVALID_SOCKET) return false;
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = htons(15353);
+    if (bind(g_mdns_local, reinterpret_cast<sockaddr *>(&addr),
+             sizeof(addr)) != 0) {
+        std::fprintf(stderr, "awdl_netd: mDNS proxy bind failed (%d)\n",
+                     WSAGetLastError());
+        return false;
+    }
+    u_long nonblocking = 1;
+    ioctlsocket(g_mdns_local, FIONBIO, &nonblocking);
+
+    g_mdns_pcb = udp_new_ip_type(IPADDR_TYPE_V6);
+    if (!g_mdns_pcb) return false;
+    ip_addr_t any;
+    memset(&any, 0, sizeof(any));
+    IP_SET_TYPE_VAL(any, IPADDR_TYPE_V6);
+    if (udp_bind(g_mdns_pcb, &any, 5353) != ERR_OK) return false;
+    udp_recv(g_mdns_pcb, mdns_udp_recv, nullptr);
+    std::fprintf(stderr,
+                 "awdl_netd: mDNS proxy 127.0.0.1:15353 <-> ff02::fb:5353\n");
     return true;
 }
 
@@ -474,7 +576,9 @@ int main() {
     netif_set_up(&g_netif);
     std::fprintf(stderr, "awdl_netd: netif up\n");
     netif_set_link_up(&g_netif);
-    if (std::getenv("AWDL_NETD_MDNS")) start_mdns();
+    if (std::getenv("AWDL_NETD_MDNS_PROXY")) {
+        if (!start_mdns_proxy()) return 1;
+    }
     if (std::getenv("AWDL_NETD_TCP") && !start_tcp_proxy()) {
         std::fprintf(stderr, "awdl_netd: cannot listen on TCP 8771\n");
         return 1;
@@ -486,6 +590,7 @@ int main() {
         fd_set readfds;
         FD_ZERO(&readfds);
         FD_SET(g_ipc, &readfds);
+        if (g_mdns_local != INVALID_SOCKET) FD_SET(g_mdns_local, &readfds);
         for (auto *conn : g_conns) {
             if (conn->local != INVALID_SOCKET) FD_SET(conn->local, &readfds);
         }
@@ -493,6 +598,10 @@ int main() {
         int rc = select(0, &readfds, nullptr, nullptr, &tv);
         if (rc > 0) {
             if (FD_ISSET(g_ipc, &readfds)) ipc_readable();
+            if (g_mdns_local != INVALID_SOCKET &&
+                FD_ISSET(g_mdns_local, &readfds)) {
+                mdns_local_readable();
+            }
             for (auto *conn : g_conns) {
                 if (conn->local != INVALID_SOCKET &&
                     FD_ISSET(conn->local, &readfds)) {

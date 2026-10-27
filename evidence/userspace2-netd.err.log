@@ -1,0 +1,3 @@
+awdl_netd: timeout slots=128
+awdl_netd: netif up
+awdl_netd: mDNS proxy 127.0.0.1:15353 <-> ff02::fb:5353

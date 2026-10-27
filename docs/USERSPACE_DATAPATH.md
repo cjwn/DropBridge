@@ -68,8 +68,9 @@ cmake --build build/awdl --parallel 8
 - `receiver.py --listen 127.0.0.1` 代理模式可启动；
 - **真实 awdld 已通过 IPC 连上 awdl_netd**（日志 `host interface awdl0, index 1`），awdld 侧出现 `tx data 9..12`，说明 mDNS/MLD 出向包已经进入 AWDL；
 - 当前 `peers 0`，iPhone 尚未处于活跃 AWDL 状态/未被发现；**端到端收发待测**。
-- mDNS 已改为每 2 秒周期公告，实例名/主机名使用 12 位十六进制 ID（与 WinAWDL 接收端一致）；报文含 `_airdrop._tcp`、SRV、TXT `flags=0x3fb`、AAAA。
-- 诊断显示：iPhone 活跃时能收到它的 mDNS 响应（`_airdrop._tcp`、12 位实例、`flags=2039`），但 Windows 的公告尚未让 iPhone 建立 `/Discover` 连接。
+- mDNS 已改为复用 `receiver.py` 的 `mdns.py` 记录：Python 生成原样报文，`awdl_netd` 只做 UDP 5353 ↔ `awdl_netd` 本地端口 15353 的搬运；不再使用 lwIP 自己的 mDNS 记录。
+- 实测：iPhone 能看到 AirBridge32；`POST /Discover`、`POST /Ask` 已到达 `receiver.py` 并返回 200。
+- 剩余问题：`POST /Upload` 的 body 卡住（临时文件 0 字节）；TCP 用户态代理/窗口仍需修。
 
 ## 已知风险
 

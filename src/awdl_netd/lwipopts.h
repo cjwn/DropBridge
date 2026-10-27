@@ -42,7 +42,7 @@
 #define MEMP_NUM_TCP_SEG 64
 #define PBUF_POOL_SIZE 64
 #define PBUF_POOL_BUFSIZE 1600
-#define TCP_MSS 1440
+#define TCP_MSS 1024
 #define TCP_WND (32 * 1024)
 #define TCP_SND_BUF (32 * 1024)
 #define TCP_SND_QUEUELEN 64

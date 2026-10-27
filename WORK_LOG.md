@@ -296,3 +296,11 @@
 - 服务实例/主机名改为 12 位十六进制 ID（与 iPhone 自己的 `_airdrop` 实例格式一致），TXT 仍为 `flags=0x3fb`。
 - 诊断抓到了 iPhone 的 mDNS 响应：`_airdrop._tcp.local`、12 位实例、`flags=2039`；说明 AWDL 双向数据可达。
 - 但 iPhone 仍未建立 `/Discover`，当前 `peers 0`；下一步需要确认 iPhone 的 Bluetooth/AirDrop 活跃状态，或对比 NSEC/记录差异。
+
+## 2026-10-27：复用 mdns.py 的 UDP 代理，Discover/Ask 通过
+
+- 按“复用成功实现”的要求，mDNS 不再由 lwIP 生成：Python `receiver.py` 用原 `mdns.py` 生成记录，`awdl_netd` 只把 UDP 5353 在本地 15353 与 AWDL `ff02::fb` 之间搬运。
+- `receiver.py` 新增 `ProxyAnnouncer`、`--mdns-address-file`、`--mdns-proxy-port`；仍复用原 TLS/HTTP/`/Discover`/`/Ask`/`/Upload` 逻辑。
+- 实测：iPhone 能看到 AirBridge32；`POST /Discover`、`POST /Ask` 都到达 receiver 并返回 200。
+- 剩余：`POST /Upload` body 卡住，临时文件 0 字节；下一步修 TCP 代理/窗口，而不是继续改 mDNS。
+- 提交：`a3ce8d1` 之后的这一轮改动。
