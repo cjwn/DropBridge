@@ -144,3 +144,15 @@
 未做：5 GHz、硬件 ACK/BlockAck、反向（ESP32 发、网卡收）、换信道、拔插恢复、WinUSB 回滚。
 
 下一步：反向验证与 ACK 方案；ESP32 只能覆盖 2.4 GHz，5 GHz/AWDL 仍需别的见证。
+
+## 2026-10-27：确定 Dart 应用层 + C++ radio 后端
+
+用户要求用 Dart，接受“Dart 负责应用层与 AWDL/AirDrop、C++ 保留无线后端”的建议。
+
+- 新增 `docs/ARCHITECTURE.md`：一个用户可见程序；Dart/Flutter 应用通过 MIT 的 `radio_link` v3 管道驱动 C++ `radio.exe`；`radio.exe` 链接 devourer、独占 USB，不解析 AWDL。
+- 明确不采用纯 Dart 无线层：devourer 无 C ABI、固件/PHY/USB 时序留在 C++；FFI shim 作为以后的可选方案，不是第一阶段。
+- 许可证边界：radio.exe GPL-2.0，复用的 AWDL 进程 GPL-3.0，Dart 应用只走 MIT 管道；固件再分发仍未解决。
+- AWDL 的目标实现是 Dart；Phase 3 可先用 C++ AWDL 作对照以尽快验证 iPhone 发现，迁移范围按实测决定。
+- 更新 PLAN/README/check_project。
+
+下一步：Phase 2，写 `radio.exe` 的 USB 后端（打开/初始化/RX/TX/换信道 + 管道），保持 `radio_link` v3。
