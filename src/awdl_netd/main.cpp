@@ -25,7 +25,8 @@ extern "C" {
 
 extern "C" void awdl_netd_start_tcp_proxy();
 extern "C" bool awdl_netd_start_mdns_proxy();
-extern "C" void awdl_netd_start_native_mdns(const uint8_t address[16]);
+extern "C" void awdl_netd_start_native_mdns(const uint8_t address[16],
+                                             uint8_t ifindex);
 
 namespace {
 
@@ -176,7 +177,7 @@ int main() {
     std::thread(ipc_reader).detach();
 
     if (std::getenv("AWDL_NETD_NATIVE_MDNS")) {
-        awdl_netd_start_native_mdns(g_address);
+        awdl_netd_start_native_mdns(g_address, g_netif.num);
     }
 
     if (std::getenv("AWDL_NETD_MDNS_PROXY")) {

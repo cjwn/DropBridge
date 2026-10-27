@@ -121,8 +121,9 @@ bool looks_like_query(const uint8_t *data, int len) {
 
 }  // namespace
 
-extern "C" void awdl_netd_start_native_mdns(const uint8_t address[16]) {
-    std::thread([address] {
+extern "C" void awdl_netd_start_native_mdns(const uint8_t address[16],
+                                             uint8_t ifindex) {
+    std::thread([address, ifindex] {
         std::vector<uint8_t> addr(address, address + 16);
         int fd = lwip_socket(AF_INET6, SOCK_DGRAM, 0);
         if (fd < 0) {
@@ -140,16 +141,18 @@ extern "C" void awdl_netd_start_native_mdns(const uint8_t address[16]) {
         }
         ipv6_mreq group{};
         inet_pton(AF_INET6, "ff02::fb", &group.ipv6mr_multiaddr);
-        group.ipv6mr_interface = 1;
-        lwip_setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP, &group,
-                        sizeof(group));
+        group.ipv6mr_interface = ifindex;
+        const int join = lwip_setsockopt(fd, IPPROTO_IPV6, IPV6_JOIN_GROUP,
+                                         &group, sizeof(group));
+        std::fprintf(stderr, "awdl_netd: native mDNS ifindex=%u join=%d\n",
+                     static_cast<unsigned>(ifindex), join);
         int nonblocking = 1;
         lwip_ioctl(fd, FIONBIO, &nonblocking);
 
         sockaddr_in6 dst{};
         dst.sin6_family = AF_INET6;
         dst.sin6_port = htons(kMdnsPort);
-        dst.sin6_scope_id = 1;
+        dst.sin6_scope_id = ifindex;
         inet_pton(AF_INET6, "ff02::fb", &dst.sin6_addr);
 
         const std::vector<uint8_t> response = build_response(addr.data());

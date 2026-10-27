@@ -15,11 +15,11 @@
 实测：
 
 - `awdld` 的 `tx data` 每 2 秒增长，说明包确实发出；
+- 手动链路（不带 Python mDNS）下，`awdl_netd` 日志：`native mDNS ifindex=0 join=-1`，即 lwIP multicast join 失败；
 - iPhone 隔空投送看不到设备；
 - 恢复 `AWDL_NETD_MDNS_PROXY=1` + Python `mdns.py` 后可见。
 
-下一步：抓取原生 responder 的 DNS 报文，与 `mdns.py` 的 `Service.response()` 逐字节对比，重点检查
-DNS 压缩指针、NSEC bitmap、以及 lwIP 的 multicast scope/source；通过后再切换默认。
+下一步：先修正 lwIP multicast join（`ipv6_mreq.ifindex`/`netif_get_by_index`），再对比 DNS 报文；另外确认 lwIP IPv6 的 hop limit 是否 255（mDNS 要求 255，Python 显式设置）。
 
 ## M2：原生 TLS + `/Discover`
 
