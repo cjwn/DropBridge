@@ -223,18 +223,61 @@ internal sealed class Supervisor
     public double Fps { get; private set; }
     public long FpsSamples { get; private set; }
 
+    /* AWDL mastership: as the sync master the phone uses our all-149 MHz
+     * sequence and transfers are ~3x faster. An iPhone's election counter
+     * outranks ours if it ever wins, so the supervisor watches for the address
+     * in "sync master is now X" drifting away from "AWDL address X". */
+    public string SelfAddress { get; private set; }
+    public string SyncMaster { get; private set; }
+
+    public bool LostMastership
+    {
+        get
+        {
+            return !string.IsNullOrEmpty(SelfAddress) && !string.IsNullOrEmpty(SyncMaster) &&
+                   !string.Equals(SelfAddress, SyncMaster, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
     private void OnChildLine(string line)
     {
-        const string marker = "peer frames=";
-        int at = line.IndexOf(marker, StringComparison.Ordinal);
-        if (at < 0) return;
-        int start = at + marker.Length;
+        const string peerMarker = "peer frames=";
+        int at = line.IndexOf(peerMarker, StringComparison.Ordinal);
+        if (at >= 0)
+        {
+            int start = at + peerMarker.Length;
+            int end = line.IndexOf(' ', start);
+            string value = end < 0 ? line.Substring(start) : line.Substring(start, end - start);
+            int frames;
+            if (int.TryParse(value, out frames))
+            {
+                Fps = frames / 5.0;
+                FpsSamples++;
+            }
+            return;
+        }
+        const string selfMarker = "AWDL address ";
+        at = line.IndexOf(selfMarker, StringComparison.Ordinal);
+        if (at >= 0)
+        {
+            SelfAddress = AddressAfter(line, at + selfMarker.Length);
+            return;
+        }
+        const string masterMarker = "sync master is now ";
+        at = line.IndexOf(masterMarker, StringComparison.Ordinal);
+        if (at >= 0)
+        {
+            SyncMaster = AddressAfter(line, at + masterMarker.Length);
+        }
+    }
+
+    private static string AddressAfter(string line, int start)
+    {
+        if (start >= line.Length) return null;
         int end = line.IndexOf(' ', start);
         string value = end < 0 ? line.Substring(start) : line.Substring(start, end - start);
-        int frames;
-        if (!int.TryParse(value, out frames)) return;
-        Fps = frames / 5.0;
-        FpsSamples++;
+        value = value.Trim().TrimEnd(',');
+        return value.Length == 17 ? value : null;
     }
 
     public void Log(string message)
@@ -417,7 +460,7 @@ internal sealed class Supervisor
                 { "AWDL_ELECTION_METRIC", "200" },
                 { "AWDL_ELECTION_COUNTER", "100000" },
             },
-            _root, "host interface", _log);
+            _root, "host interface", _log, OnChildLine);
         var receiver = NewReceiver();
 
         _children.Clear();
@@ -489,6 +532,7 @@ internal sealed class TrayApp : ApplicationContext
     private bool _reportedExit;
     private int _slowSamples;
     private bool _slowWarned;
+    private bool _masterWarned;
     private int _starting;
     private readonly object _startGate = new object();
     private int _failures;
@@ -692,6 +736,22 @@ internal sealed class TrayApp : ApplicationContext
      * only thing that recovered a degraded chip so far. */
     private void WatchLinkRate()
     {
+        // Losing the AWDL mastership explains most slow transfers better than a
+        // low frame rate does: with the phone as master only ~2/16 slots carry
+        // our data.
+        if (_supervisor.LostMastership && !_masterWarned)
+        {
+            _masterWarned = true;
+            _supervisor.Log("AWDL mastership lost: sync master " + _supervisor.SyncMaster +
+                            ", self " + _supervisor.SelfAddress);
+            _icon.ShowBalloonTip(8000, "AirBridge32",
+                "同步主控被对方的手机接管，速度会明显下降。可从托盘菜单选“重置链路”后重试。",
+                ToolTipIcon.Warning);
+        }
+        else if (!_supervisor.LostMastership)
+        {
+            _masterWarned = false;
+        }
         if (_supervisor.FpsSamples == 0 || _supervisor.Fps <= 0) return;
         if (_supervisor.Fps < 300)
         {
