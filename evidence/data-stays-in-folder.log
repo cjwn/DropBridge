@@ -1,0 +1,47 @@
+# 全部数据留在程序文件夹内（便携布局）
+
+2026-10-28 13:00。用户要求：程序产生的所有固化数据都必须留在它所在的文件夹里，不能写到本机其他目录。
+
+## 之前的问题
+
+- 单文件 exe 把载荷解到 `%LOCALAPPDATA%\AirBridge32\<时间戳>\`，`data\`（密钥、实例 ID、接收文件、日志）也在那里；
+- 每换一个构建就多一个版本目录，本机 `%LOCALAPPDATA%\AirBridge32` 下已经堆了 13 个；
+- 实例 ID 也跟着版本目录走，升级就换一次身份（iOS 列表里多一个 AirBridge32）。
+
+## 现在的布局
+
+```text
+<用户放置 AirBridge32.exe 的文件夹>\
+  AirBridge32.exe          自解压 stub（固定入口，开机自启用它）
+  app\<构建时间戳>\        解压出的后端（backend: radio/bridge/netd/awdld/supervisor/python）
+  data\                    所有固化数据，跨构建共享
+    keys\                  TLS 自签证书、airdrop-service-id
+    received\              收到的文件
+    logs\<会话>\            各进程日志
+    awdl_netd.addr         AWDL 地址文件
+```
+
+- stub 解压到 `exe 所在目录\app\<时间戳>`，只保留最近 2 个构建；
+- stub 用 `--root <app\构建> --data <exe 目录>\data` 启动监管，`data\` 因此跨构建共享，实例 ID 和证书不再随升级变化；
+- 监听的端口、开机自启（可选）之外，不再向 `%LOCALAPPDATA%` 或其他机器目录写任何东西；开机自启指向文件夹里的 stub，而不是某个构建目录里的 exe。
+
+## 验证
+
+从 `dist\` 启动单文件 exe 后：
+
+```text
+dist\app\20261028-125826\backend\...       载荷解压位置
+dist\data\keys\airdrop-service-id          14 字节，6830c1fffe51
+dist\data\keys\certificate.self-signed.pem 1046 字节
+dist\data\keys\key.self-signed.pem         1704 字节
+dist\data\logs\20261028-125835\            本次会话日志
+receiver: receiving as AirBridge32 ... into J:\...\dist\data\received
+```
+
+`%LOCALAPPDATA%\AirBridge32` 下没有再生成新目录；验证后把之前开发期留下的 13 个旧目录清掉了。
+
+## 注意
+
+- 迁移到新布局后实例 ID 重新生成了一次（`6830c1fffe51`），iPhone 上可能还会短暂保留旧的缓存条目；之后就固定了。
+- 文件夹必须可写（不要放在 Program Files 或只读介质）；不可写时 stub 会报错退出，不会偷偷回退到 `%LOCALAPPDATA%`。
+- 开机自启仍是 HKCU 的 Run 键（可选、用户手动开启），指向文件夹内 stub，不指向版本目录。

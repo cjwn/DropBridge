@@ -545,4 +545,4 @@
 - **AirDrop 列表重复**：实例 ID 从 AWDL IPv6 地址派生，而 awdld 每次启动随机 AWDL MAC，ID 每启动变一次（`b011eefffed7` → `18c2c6fffe5a`）。`stable_service_id` 改为先读 `<keys>/airdrop-service-id`；重启验证 ID 不变。
 - **全部数据留在程序文件夹内**（用户新要求）：stub 解压到 `exe 目录\app\<构建>`（只留最近 2 个），`data\` 放 `keys\`（证书、实例 ID）、`received\`、`logs\`、`awdl_netd.addr`，通过 `--data` 传给监管、跨构建共享；开机自启改指向文件夹里的 stub。验证后 `%LOCALAPPDATA%\AirBridge32` 下不再生成新目录，并清掉了开发期留下的 13 个旧目录。
 - 提交：`1cedcdf`（counter）、`cc3b026`（实例 ID + 1121 KB/s）、本条（便携布局）。
-- 证据：`evidence/transfer-970kbs.log`、`evidence/service-id-persist.log`、`evidence/portable-layout.log`。
+- 证据：`evidence/transfer-970kbs.log`、`evidence/service-id-persist.log`、`evidence/data-stays-in-folder.log`。
