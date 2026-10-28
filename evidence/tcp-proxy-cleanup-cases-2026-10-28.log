@@ -1,0 +1,64 @@
+5/5 Testing: netd_tcp_faults
+5/5 Test: netd_tcp_faults
+Command: "C:/Users/ndpyz/AppData/Local/Programs/Python/Python312/python.exe" "J:/New soft project/DropBridge/src/awdl_netd/../../tools/test_netd_tcp.py" "J:/New soft project/DropBridge/build/awdl_netd/Release/awdl_netd.exe" "--case" "faults"
+Directory: J:/New soft project/DropBridge/src/awdl_netd/../..
+"netd_tcp_faults" start time: Oct 28 21:26 �й���׼ʱ��
+Output:
+----------------------------------------------------------
+PASS: real local-send backpressure observed; non-reading receiver + peer reset cleaned up
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready
+awdl_netd: ipc stats rx_seen=174 rx_bytes=185552 rx_queued=174 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=89 tx_bytes=5364 tx_fail=0
+awdl_netd: tcp diag t_ms=32814583 malformed=0 fragments=0 unsupported=0 capacity_skips=0 evicted=0
+awdl_netd: tcp flow=1 t_ms=32814583 dir=rx remote_port=50000 local_port=8771 packets=174 payload=175104 accepted=174 failed=0 seq=172009 ack=6511 win_raw=65535 ws_offer=0 syn=1 fin=0 rst=1 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=4744 ack_idle_ms=5001
+awdl_netd: tcp flow=1 t_ms=32814583 dir=tx remote_port=50000 local_port=8771 packets=85 payload=0 accepted=85 failed=0 seq=6511 ack=172009 win_raw=35840 ws_offer=2 syn=1 fin=0 rst=0 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=-1 ack_idle_ms=4744
+awdl_netd: proxy flow=1 t_ms=32814583 active=1 up_read=68608 up_written=67584 down_read=0 down_written=0 up_phase=local_send down_phase=local_recv
+awdl_netd: proxy flow=1 local_send_failed error=10060
+awdl_netd: ipc stats rx_seen=174 rx_bytes=185552 rx_queued=174 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=90 tx_bytes=5420 tx_fail=0
+awdl_netd: tcp diag t_ms=32819595 malformed=0 fragments=0 unsupported=0 capacity_skips=0 evicted=0
+awdl_netd: tcp flow=1 t_ms=32819595 dir=rx remote_port=50000 local_port=8771 packets=174 payload=175104 accepted=174 failed=0 seq=172009 ack=6511 win_raw=65535 ws_offer=0 syn=1 fin=0 rst=1 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=9756 ack_idle_ms=10013
+awdl_netd: tcp flow=1 t_ms=32819595 dir=tx remote_port=50000 local_port=8771 packets=85 payload=0 accepted=85 failed=0 seq=6511 ack=172009 win_raw=35840 ws_offer=2 syn=1 fin=0 rst=0 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=-1 ack_idle_ms=9756
+awdl_netd: proxy flow=1 t_ms=32819595 active=0 up_read=68608 up_written=67584 down_read=0 down_written=0 up_phase=local_send_error down_phase=cancelled
+awdl_netd: IPC read ended pending_bytes=0
+awdl_netd: IPC failed op=recv error=0
+awdl_netd: ipc stats rx_seen=174 rx_bytes=185552 rx_queued=174 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=90 tx_bytes=5420 tx_fail=0
+awdl_netd: tcp diag t_ms=32819703 malformed=0 fragments=0 unsupported=0 capacity_skips=0 evicted=0
+awdl_netd: data plane failed; exiting 2
+PASS: idle-peer-reset: both proxy workers released, netd remains alive
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready
+awdl_netd: ipc stats rx_seen=3 rx_bytes=188 rx_queued=3 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=5 tx_bytes=324 tx_fail=0
+awdl_netd: tcp diag t_ms=32824806 malformed=0 fragments=0 unsupported=0 capacity_skips=0 evicted=0
+awdl_netd: tcp flow=1 t_ms=32824806 dir=rx remote_port=50000 local_port=8771 packets=3 payload=0 accepted=3 failed=0 seq=1001 ack=6511 win_raw=65535 ws_offer=0 syn=1 fin=0 rst=1 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=-1 ack_idle_ms=5007
+awdl_netd: tcp flow=1 t_ms=32824806 dir=tx remote_port=50000 local_port=8771 packets=1 payload=0 accepted=1 failed=0 seq=6510 ack=1001 win_raw=65535 ws_offer=2 syn=1 fin=0 rst=0 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=-1 ack_idle_ms=5007
+awdl_netd: proxy flow=1 t_ms=32824806 active=0 up_read=0 up_written=0 down_read=0 down_written=0 up_phase=lwip_recv_error down_phase=cancelled
+awdl_netd: IPC read ended pending_bytes=0
+awdl_netd: IPC failed op=recv error=0
+awdl_netd: ipc stats rx_seen=3 rx_bytes=188 rx_queued=3 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=5 tx_bytes=324 tx_fail=0
+awdl_netd: tcp diag t_ms=32824917 malformed=0 fragments=0 unsupported=0 capacity_skips=0 evicted=0
+awdl_netd: data plane failed; exiting 2
+PASS: receiver-reset: both proxy workers released, netd remains alive
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready
+awdl_netd: ipc stats rx_seen=3 rx_bytes=188 rx_queued=3 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=6 tx_bytes=384 tx_fail=0
+awdl_netd: tcp diag t_ms=32830007 malformed=0 fragments=0 unsupported=0 capacity_skips=0 evicted=0
+awdl_netd: tcp flow=1 t_ms=32830007 dir=rx remote_port=50000 local_port=8771 packets=3 payload=0 accepted=3 failed=0 seq=1001 ack=6512 win_raw=65535 ws_offer=0 syn=1 fin=0 rst=0 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=-1 ack_idle_ms=4002
+awdl_netd: tcp flow=1 t_ms=32830007 dir=tx remote_port=50000 local_port=8771 packets=2 payload=0 accepted=2 failed=0 seq=6511 ack=1001 win_raw=61440 ws_offer=2 syn=1 fin=1 rst=0 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=-1 ack_idle_ms=5012
+awdl_netd: proxy flow=1 t_ms=32830007 active=0 up_read=0 up_written=0 down_read=0 down_written=0 up_phase=cancelled down_phase=local_recv_error
+awdl_netd: IPC read ended pending_bytes=0
+awdl_netd: IPC failed op=recv error=0
+awdl_netd: ipc stats rx_seen=3 rx_bytes=188 rx_queued=3 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=6 tx_bytes=384 tx_fail=0
+awdl_netd: tcp diag t_ms=32830113 malformed=0 fragments=0 unsupported=0 capacity_skips=0 evicted=0
+awdl_netd: data plane failed; exiting 2
+<end of output>
+Test time =  20.66 sec
+----------------------------------------------------------
+Test Passed.
+"netd_tcp_faults" end time: Oct 28 21:26 �й���׼ʱ��
+"netd_tcp_faults" time elapsed: 00:00:20
+----------------------------------------------------------
+
+End testing: Oct 28 21:26 �й���׼ʱ��

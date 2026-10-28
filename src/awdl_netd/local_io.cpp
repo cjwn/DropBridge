@@ -24,6 +24,17 @@ intptr_t local_tcp_connect(int port) {
         closesocket(s);
         return -1;
     }
+    // Bound a receiver that stops reading. Partial writes are counted by the
+    // caller; any later failure aborts this connection instead of retrying bytes.
+    const DWORD timeout_ms = 5000;
+    const DWORD poll_ms = 1000;
+    if (setsockopt(s, SOL_SOCKET, SO_SNDTIMEO,
+            reinterpret_cast<const char *>(&timeout_ms), sizeof(timeout_ms)) != 0 ||
+        setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,
+            reinterpret_cast<const char *>(&poll_ms), sizeof(poll_ms)) != 0) {
+        closesocket(s);
+        return -1;
+    }
     int one = 1;
     setsockopt(s, IPPROTO_TCP, TCP_NODELAY,
                reinterpret_cast<const char *>(&one), sizeof(one));
@@ -35,11 +46,18 @@ int local_tcp_send_some(intptr_t handle, const void *data, int len) {
 }
 
 int local_tcp_recv(intptr_t handle, void *data, int len) {
-    return recv(to_socket(handle), static_cast<char *>(data), len, 0);
+    int n = recv(to_socket(handle), static_cast<char *>(data), len, 0);
+    return n < 0 && WSAGetLastError() == WSAETIMEDOUT ? -2 : n;
 }
+
+int local_socket_error() { return WSAGetLastError(); }
 
 void local_tcp_shutdown_send(intptr_t handle) {
     shutdown(to_socket(handle), SD_SEND);
+}
+
+void local_tcp_shutdown_both(intptr_t handle) {
+    shutdown(to_socket(handle), SD_BOTH);
 }
 
 void local_tcp_close(intptr_t handle) {

@@ -240,7 +240,7 @@ def roundtrip(exe):
 
     def receiver():
         try:
-            time.sleep(0.2)  # A genuinely slow local reader, not mocked counters.
+            time.sleep(2.2)  # Cross two receive polls without treating healthy idle as failure.
             while True:
                 chunk = run.local.recv(4096)
                 if not chunk:
@@ -320,17 +320,36 @@ def pressure(exe, expect_stuck=False):
         assert not sender.is_alive(), 'test sender leaked'
 
 
+def reset_case(exe, local_reset):
+    name = 'receiver-reset' if local_reset else 'idle-peer-reset'
+    run = Run(exe, name)
+    try:
+        if local_reset:
+            run.local.setsockopt(socket.SOL_SOCKET, socket.SO_LINGER, struct.pack('HH', 1, 0))
+            run.local.close()
+        else:
+            run.peer.reset()
+        run.wait_line(lambda s: 'proxy flow=' in s and 'active=0' in s)
+        assert run.process.poll() is None, 'a per-connection reset killed netd'
+        print(f'PASS: {name}: both proxy workers released, netd remains alive')
+    finally:
+        run.close()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('exe', type=Path)
     parser.add_argument('--expect-stuck', action='store_true', help='record the pre-fix cleanup defect')
-    parser.add_argument('--case', choices=('all', 'roundtrip', 'pressure'), default='roundtrip')
+    parser.add_argument('--case', choices=('all', 'roundtrip', 'pressure', 'faults'), default='roundtrip')
     args = parser.parse_args()
     exe = args.exe.resolve(strict=True)
     if not args.expect_stuck and args.case in ('all', 'roundtrip'):
         roundtrip(exe)
-    if args.case in ('all', 'pressure'):
+    if args.case in ('all', 'pressure', 'faults'):
         pressure(exe, args.expect_stuck)
+    if args.case in ('all', 'faults'):
+        reset_case(exe, local_reset=False)
+        reset_case(exe, local_reset=True)
 
 
 if __name__ == '__main__':

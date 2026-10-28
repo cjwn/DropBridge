@@ -68,6 +68,10 @@ if(Python3_Interpreter_FOUND)
         "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/test_netd_tcp.py" "$<TARGET_FILE:awdl_netd>" --case roundtrip)
     set_tests_properties(netd_tcp_roundtrip PROPERTIES TIMEOUT 30
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+    add_test(NAME netd_tcp_faults COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/test_netd_tcp.py" "$<TARGET_FILE:awdl_netd>" --case faults)
+    set_tests_properties(netd_tcp_faults PROPERTIES TIMEOUT 45
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
     # All these process tests own 49877; never connect to a pre-existing chain.
-    set_tests_properties(netd_process_faults netd_tcp_roundtrip PROPERTIES RESOURCE_LOCK netd_loopback)
+    set_tests_properties(netd_process_faults netd_tcp_roundtrip netd_tcp_faults PROPERTIES RESOURCE_LOCK netd_loopback)
 endif()

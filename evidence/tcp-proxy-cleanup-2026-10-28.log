@@ -1,0 +1,16 @@
+Internal ctest changing into directory: J:/New soft project/DropBridge/build/awdl_netd
+Test project J:/New soft project/DropBridge/build/awdl_netd
+    Start 1: netd_ipc_io
+1/5 Test #1: netd_ipc_io ......................   Passed    0.12 sec
+    Start 2: netd_tcp_diag
+2/5 Test #2: netd_tcp_diag ....................   Passed    0.01 sec
+    Start 3: netd_process_faults
+3/5 Test #3: netd_process_faults ..............   Passed    8.82 sec
+    Start 4: netd_tcp_roundtrip
+4/5 Test #4: netd_tcp_roundtrip ...............   Passed    5.24 sec
+    Start 5: netd_tcp_faults
+5/5 Test #5: netd_tcp_faults ..................   Passed   20.66 sec
+
+100% tests passed, 0 tests failed out of 5
+
+Total Test time (real) =  35.11 sec

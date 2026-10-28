@@ -1,0 +1,18 @@
+PASS: 334 backend files compared; only awdl_netd.exe changed
+PASS: supervisor --check: fixed 149/20, TCP merge on, all executable paths exist; no chain started
+new_netd_sha256=06264244435625bb24ce9e613e99fdc87264b54c1ab05234fc6da08d8acd4a3b
+root: J:\New soft project\DropBridge\build\diagnostics\proxy-cleanup\test-package
+logs: J:\New soft project\DropBridge\dist\data\logs\20261028-212714
+radio: J:\New soft project\DropBridge\build\diagnostics\proxy-cleanup\test-package\backend\airbridge_radio.exe 149 20
+bridge: J:\New soft project\DropBridge\build\diagnostics\proxy-cleanup\test-package\backend\radio_pipe_bridge.exe
+netd: J:\New soft project\DropBridge\build\diagnostics\proxy-cleanup\test-package\backend\awdl_netd.exe  [AWDL_NETD_MDNS_PROXY=1]
+awdld: J:\New soft project\DropBridge\build\diagnostics\proxy-cleanup\test-package\backend\awdld.exe -c 149 -s 2 -j 400 -v
+tcp_merge: on (join_us=400)
+chanseq: fixed [slot 8=149]
+  AWDL_ELECTION_METRIC=200
+  AWDL_ELECTION_COUNTER=100000
+  AWDL_CHANSEQ=<unset>
+  AWDL_FOLLOW_MASTER_SEQ=<unset>
+receiver: J:\New soft project\DropBridge\build\diagnostics\proxy-cleanup\test-package\backend\python\python.exe -u J:\New soft project\DropBridge\build\diagnostics\proxy-cleanup\test-package\backend\airdrop\receiver.py
+
+PASS: second --check keeps -j 0 to match Q27; manual launcher written but NOT executed; default merge-on plan also validated.

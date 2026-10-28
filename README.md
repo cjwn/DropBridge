@@ -1,6 +1,6 @@
 # DropBridge / AirBridge32
 
-> 后续 Q25：逐连接 TCP/代理边界观测与真实 lwIP 本机回归已完成；回压 + 远端复位复现代理卡住，Q29 待修。未替换旧包或验证手机改善。见 [TCP 诊断](docs/TCP_DIAGNOSTICS.md)。
+> 后续 Q25/Q29：逐连接 TCP/代理观测及异常清理已完成，真实 lwIP 本机回归 5/5；独立测试目录的 334 后端文件仅换 netd，未启动真机或替换旧包，手机改善仍未验证。见 [TCP 诊断](docs/TCP_DIAGNOSTICS.md)、[代理修复](docs/TCP_PROXY_CLEANUP.md)。
 
 > 最新排障（2026-10-28）：固定 149 仍复现断流（首个 29.46 MB 视频 0.323 MB/s 成功，第二个 408）；社交时隙组未发现接收端，尚无有效性能 A/B。下述 1 MB/s 是历史最好结果，稳定性验收未通过。详情见 [失败会话复盘与真机结果](docs/STALL_DIAGNOSIS.md)。
 

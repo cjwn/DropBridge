@@ -1,5 +1,13 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-28：Q29 修复 TCP 代理异常清理，准备单组件测试目录
+
+- 基于 58ffe00 的真实负对照，给本地 receiver socket 增加 5 s 发送无进展超时；两侧 recv 以 1 s 轮询共享退出标记，健康空闲继续等待、正常 FIN 仍允许响应，线程结束后才关闭 lwIP/Windows socket。未改依赖、合包、窗口/池、无线或驱动/网络。
+- 首轮仅 shutdown 未唤醒本地 recv；第二轮本地轮询解决回压/远端 RST，但本地 receiver RST 暴露 lwIP recv 未退出。最终增加 lwIP 接收轮询、join 后再 shutdown，CTest 5/5 通过；两个失败日志保留 build/diagnostics/proxy-cleanup。
+- 真实往返 65,536/3,400 B、2.2 s 延迟读/空闲轮询、正常半关闭响应、接收端不读+远端 RST、空闲远端 RST、本地 receiver RST 均通过。send 超时记录 10060；故障连接清理而 netd 存活，不宣称整链恢复时限。
+- 独立 build/diagnostics/proxy-cleanup/test-package 从旧包复制，334 后端文件集合/哈希对照仅 netd 不同；监管 fixed 149/20 的 -j 400 和 -j 0 两个 --check 均通过。首次真机手动入口沿用 Q27 -j 0，仅换 netd，本轮未执行；旧包与单文件 exe 保留。PowerShell 对 GUI exe 的退出码检查改为 Python 等待真实退出码，离线检查会生成会话目录但不启动链路。
+- 最终日志、故障输出、测试目录计划/哈希落 evidence；未要求手机配合，Q25 真机定位、Q20/Q7 验收仍待。5 s 本地发送停滞可能终止极端回压连接，手机体验未测。
+
 ## 2026-10-28：Q25 逐连接 TCP 观测与真实 lwIP 回放
 
 - 自行实现有界 IPv6/TCP 头解析与 32 连接计数，IPC 输入/输出关联 seq/ACK/原始窗口、载荷和重叠/跳跃迹象；代理记录 lwIP 与 Windows socket 双向真实读写累计量及阻塞阶段。5 s 汇总，不记录载荷/设备 IPv6，不复制上游实现、不加依赖。

@@ -7,6 +7,7 @@ extern "C" {
 
 #include <atomic>
 #include <cstdint>
+#include <cerrno>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
@@ -21,7 +22,11 @@ int proxy_send_all(int fd, intptr_t local, uint64_t id, bool up, const uint8_t *
     while (len > 0) {
         tcp_diag::proxy_phase(id, up, up ? "local_send" : "lwip_send");
         int n = up ? local_tcp_send_some(local, data, static_cast<int>(len)) : lwip_send(fd, data, len, 0);
-        if (n <= 0) return -1;
+        if (n <= 0) {
+            if (up) std::fprintf(stderr, "awdl_netd: proxy flow=%llu local_send_failed error=%d\n",
+                                 id, n < 0 ? local_socket_error() : 0);
+            return -1;
+        }
         tcp_diag::proxy_bytes(id, up, true, static_cast<size_t>(n));
         data += n;
         len -= static_cast<size_t>(n);
@@ -40,18 +45,33 @@ void proxy_connection(int lwip_fd, tcp_diag::Key key) {
         return;
     }
 
+    std::atomic<bool> stop{false};
+
     std::thread up([&] {
         uint8_t buffer[16384];
         for (;;) {
+            if (stop.load()) {
+                tcp_diag::proxy_phase(id, true, "cancelled");
+                break;
+            }
             tcp_diag::proxy_phase(id, true, "lwip_recv");
             int n = lwip_recv(lwip_fd, buffer, sizeof(buffer), 0);
+            if (n < 0 && (errno == EWOULDBLOCK || errno == EAGAIN)) continue;
             if (n <= 0) {
                 tcp_diag::proxy_phase(id, true, n == 0 ? "lwip_eof" : "lwip_recv_error");
+                // A normal FIN keeps the return path alive for the response.
+                // A reset/error must also wake the local recv worker.
+                if (n < 0) {
+                    stop = true;
+                    local_tcp_shutdown_both(local);
+                }
                 break;
             }
             tcp_diag::proxy_bytes(id, true, false, static_cast<size_t>(n));
             if (proxy_send_all(lwip_fd, local, id, true, buffer, static_cast<size_t>(n)) != 0) {
                 tcp_diag::proxy_phase(id, true, "local_send_error");
+                stop = true;
+                local_tcp_shutdown_both(local);
                 break;
             }
         }
@@ -60,8 +80,13 @@ void proxy_connection(int lwip_fd, tcp_diag::Key key) {
 
     uint8_t buffer[16384];
     for (;;) {
+        if (stop.load()) {
+            tcp_diag::proxy_phase(id, false, "cancelled");
+            break;
+        }
         tcp_diag::proxy_phase(id, false, "local_recv");
         int n = local_tcp_recv(local, buffer, sizeof(buffer));
+        if (n == -2) continue; // Check cancellation; healthy idle is not failure.
         if (n <= 0) {
             tcp_diag::proxy_phase(id, false, n == 0 ? "local_eof" : "local_recv_error");
             break;
@@ -73,8 +98,14 @@ void proxy_connection(int lwip_fd, tcp_diag::Key key) {
         }
     }
 
-    lwip_shutdown(lwip_fd, SHUT_RDWR);
+    // Wake a local send before joining it. Keep handles valid until both
+    // workers finish, including errors and the bounded local send timeout.
+    stop = true;
+    local_tcp_shutdown_both(local);
     up.join();
+    // lwIP's current port does not enable concurrent close/shutdown. The
+    // receive poll and local send timeout let the worker finish first.
+    lwip_shutdown(lwip_fd, SHUT_RDWR);
     local_tcp_close(local);
     lwip_close(lwip_fd);
     tcp_diag::proxy_close(id);
@@ -158,6 +189,11 @@ extern "C" void awdl_netd_start_tcp_proxy() {
             if (fd < 0) continue;
             int one = 1;
             lwip_setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &one, sizeof(one));
+            timeval poll{1, 0};
+            if (lwip_setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &poll, sizeof(poll)) != 0) {
+                lwip_close(fd);
+                continue;
+            }
             sockaddr_in6 local_addr{};
             socklen_t local_len = sizeof(local_addr);
             if (lwip_getsockname(fd, reinterpret_cast<sockaddr *>(&local_addr), &local_len) != 0) {

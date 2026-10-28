@@ -1,0 +1,47 @@
+{
+  "baseline_commit": "58ffe00",
+  "scope": "loopback TCP only; no radio/AWDL/iPhone, driver/network change or old package replacement",
+  "new_binary": "build/awdl_netd/Release/awdl_netd.exe",
+  "new_binary_sha256": "06264244435625bb24ce9e613e99fdc87264b54c1ab05234fc6da08d8acd4a3b",
+  "pre_cleanup_binary": "build/diagnostics/tcp-diag/netd-before-cleanup.exe",
+  "pre_cleanup_binary_sha256": "7ecaff77338952d8af5dc8b4d686f51e501622a16b6e9f84e99203dfce994ae1",
+  "ctest_passed": [
+    "netd_ipc_io",
+    "netd_tcp_diag",
+    "netd_process_faults",
+    "netd_tcp_roundtrip",
+    "netd_tcp_faults"
+  ],
+  "fault_cases": [
+    "receiver does not read plus peer RST",
+    "idle peer RST",
+    "local receiver RST"
+  ],
+  "healthy_case": "65536 upload / 3400 response bytes, 2.2 s local read delay, healthy idle receive polling and half-close response",
+  "negative_control": "pre-fix fresh snapshot still active 9.235 s after peer RST; recorded in evidence/tcp-proxy-pre-fix-2026-10-28.log",
+  "local_send_no_progress_timeout_ms": 5000,
+  "receive_cancellation_poll_ms": 1000,
+  "package_root": "J:\\New soft project\\DropBridge\\build\\diagnostics\\proxy-cleanup\\test-package",
+  "package_backend_files": 334,
+  "package_changed_files": [
+    "awdl_netd.exe"
+  ],
+  "package_manifest_sha256": "4a594c67f149d838e8175c3356c4af4772118380f979e405ab439877a04f0591",
+  "first_phone_test": "match Q27: fixed 149/20, TCP merge off (-j 0), same supervisor and backend except netd; not run",
+  "manual_launcher_sha256": "578deb204e7df5b97757ad0d373cef2c574d5490bf8bf4e22b14604b6e735941",
+  "source_and_evidence_sha256": {
+    "src/awdl_netd/main.cpp": "494abed294cf3db384d16d65057f5587a21dac02d5a28075e6ca074a5895e11a",
+    "src/awdl_netd/lwip_proxy.cpp": "5a46c52e3ab6768c4ea5d787cd13357b7430e801a54489ea39fe33b8e3a335ad",
+    "src/awdl_netd/local_io.cpp": "933f779190f4221856b7bcf958512858f5abea3783cfdbbe6d945d3f079c4f3f",
+    "src/awdl_netd/local_io.h": "756cae330cadcd7074cbde06ffb183e7b1a60158cf094b6dc0a4c95f2fafc34d",
+    "src/awdl_netd/tcp_diag.h": "84929651e6da361174e5cd3b289de4d676492d45c80772e8275a863ecf83ba2a",
+    "src/awdl_netd/tcp_diag.cpp": "52358eb9de5354ea12c66c48c4232bf61c717a8a9147fa6de3a3c1bcdfa0f4da",
+    "src/awdl_netd/tcp_diag_test.cpp": "e9d7402889f2ce45383305aa071841cd34f6fc1087e3dcdece0601afee795a1d",
+    "src/awdl_netd/CMakeLists.txt": "f261e88393d8b0b2ddb23eb4a26a054b8e1024a5ba5063e4156ca59113a826f1",
+    "tools/test_netd_tcp.py": "456376920afa461267a2bd88dcb67cb6bdd44821b8bf026431c788162704fea5",
+    "evidence/tcp-proxy-cleanup-2026-10-28.log": "9cf13c09f1413a3ce2bc1f0867bb4d127c377342afe3730c419f1ae892352117",
+    "evidence/tcp-proxy-cleanup-cases-2026-10-28.log": "1e4aa1598804a4d6b57b11def2c61a18768cf826d24bf0761302ad67b6aae4ce",
+    "evidence/tcp-proxy-package-2026-10-28.log": "f3fc124ad0d355f598569b3f8256cae227a3d5ea7d403cb102e2663913afd8fb"
+  },
+  "limits": "no AirDrop improvement measured; socket acceptance is not application/file delivery; 5-second snapshots are not exact recovery latency; other lwIP send/merge/radio issues not excluded"
+}
