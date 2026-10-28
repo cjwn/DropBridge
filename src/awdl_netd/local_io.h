@@ -8,7 +8,7 @@ extern "C" {
 /* Local (Windows) sockets used by the proxy. Kept in a separate translation
  * unit because lwIP's sockets.h and winsock2.h define conflicting types. */
 intptr_t local_tcp_connect(int port);
-int local_tcp_send(intptr_t handle, const void *data, int len);
+int local_tcp_send_some(intptr_t handle, const void *data, int len);
 int local_tcp_recv(intptr_t handle, void *data, int len);
 void local_tcp_shutdown_send(intptr_t handle);
 void local_tcp_close(intptr_t handle);

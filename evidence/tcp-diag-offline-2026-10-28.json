@@ -1,0 +1,30 @@
+{
+  "baseline_commit": "e4e34dc",
+  "scope": "real lwIP TCP through loopback IPC and local receiver sockets only; no radio/AWDL/iPhone, driver/network change or dist replacement",
+  "binary": "build/diagnostics/tcp-diag/netd-before-cleanup.exe",
+  "binary_sha256": "7ecaff77338952d8af5dc8b4d686f51e501622a16b6e9f84e99203dfce994ae1",
+  "ctest_passed": [
+    "netd_ipc_io",
+    "netd_tcp_diag",
+    "netd_process_faults",
+    "netd_tcp_roundtrip"
+  ],
+  "upload_bytes": 65536,
+  "response_bytes": 3400,
+  "upload_sha256": "7daca2095d0438260fa849183dfc67faa459fdf4936e1bc91eec6b281b27e4c2",
+  "negative_control": "new snapshot 9.235 s after peer RST still active in local_send/local_recv; final close only during test teardown",
+  "source_and_evidence_sha256": {
+    "src/awdl_netd/main.cpp": "494abed294cf3db384d16d65057f5587a21dac02d5a28075e6ca074a5895e11a",
+    "src/awdl_netd/lwip_proxy.cpp": "f12c27be60893c8f15e0744529f773ab746970c7913fed548bf19c6d6dd03636",
+    "src/awdl_netd/local_io.cpp": "62a9da79a40a1d60b21982e9f72d7f2e0268eb8e1a6e480d7fee11feec75f441",
+    "src/awdl_netd/local_io.h": "8dcbbc0045cddae180cc7fa1586b7faad42282dcd4d89c4132ed2536d6bafc4c",
+    "src/awdl_netd/tcp_diag.h": "84929651e6da361174e5cd3b289de4d676492d45c80772e8275a863ecf83ba2a",
+    "src/awdl_netd/tcp_diag.cpp": "52358eb9de5354ea12c66c48c4232bf61c717a8a9147fa6de3a3c1bcdfa0f4da",
+    "src/awdl_netd/tcp_diag_test.cpp": "e9d7402889f2ce45383305aa071841cd34f6fc1087e3dcdece0601afee795a1d",
+    "src/awdl_netd/CMakeLists.txt": "6672fba6be5666315e4bb9db21685d8dc63ba41365e14bf630c64c6939a5fd6e",
+    "tools/test_netd_tcp.py": "39ce2f6d300eddb92af8943bc790c3e1766ec9a18fb50f03ca311048769fe8e6",
+    "evidence/tcp-diag-offline-2026-10-28.log": "b997d03757118b59048b00fe90f1fcd812b2a55f7f105e3135e49a32d58e55a0",
+    "evidence/tcp-proxy-pre-fix-2026-10-28.log": "5a1e6a9dd9dcefc4d712d4a50e3ec0e0a2069f2bf742c6941e3b08edf940fec2"
+  },
+  "limits": "pre-validation TCP metadata and socket acceptance only; overlap is not proof of retransmission, IPC acceptance is not TCP/application delivery; no measured AirDrop improvement"
+}

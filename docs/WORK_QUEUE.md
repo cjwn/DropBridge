@@ -50,10 +50,11 @@
 | Q22 | 失败会话分层时间线复盘 | ✅ 2026-10-28：离线确认控制面仍活动、上传数据停顿；本次上传最大换台 2175 us，温度 29/+3；后续补齐接收空窗仍有少量数据帧的诊断，六项分析回归通过 | `docs/STALL_DIAGNOSIS.md`、`evidence/stall-context-2026-10-28.json` |
 | Q23 | 固定信道 / 社交时隙单变量入口 | ✅ 2026-10-28：监管 `--chanseq` / 脚本 `-ChannelSequence`；固定模式真实移除 presence 开关，两模式禁用继承的跟随。真实子进程离线测试、两组 `--check`、非法参数拒绝通过；真机结果见 Q24 | `evidence/chanseq-offline-2026-10-28.log`、`src/supervisor/channel_sequence_test.cs` |
 | Q24 | 固定 149 / social 真机排障 | ✅ 实验与负结果记录完成，非验收通过：fixed 1/2 完成，第二次 408 后停止第三次；social 用户两次报告不可见，零 Discover/Upload。仅关闭跳频不足以解决，不能排除历史射频状态；原始日志已冻结备份 | `evidence/fixed-channel-transfer-2026-10-28.json`、`evidence/social-discovery-2026-10-28.json` |
-| Q25 | TCP 数据面被动诊断 | 🔜 Q28 已补齐 IPC 输入/投递/发送失败计数与断链退出；逐连接载荷/seq/ACK/窗口和重复/乱序仍未实现。用户当前希望减少手机配合，先做本机验证，不据底层计数声称空口 ACK 正常 | `docs/NETD_OFFLINE_FIX.md` |
+| Q25 | TCP 数据面被动诊断 | 🔜 逐连接载荷/seq/ACK/原始窗口/重叠与跳跃迹象、四个代理边界计数已实现；真实 lwIP 往返及解析回归 CTest 4/4。本机回压/RST 复现代理卡住，先修 Q29；真实 iPhone 根因仍未定，不把 IPC/TCP 计数当空口 ACK | `docs/TCP_DIAGNOSTICS.md`、`docs/NETD_OFFLINE_FIX.md` |
 | Q26 | 汇总给下一位 AI 的完整交接 | ✅ 2026-10-28：集中记录架构、当前状态、三组结果、蓝牙/共存线索、正常与异常时间线、源码版本/证据/命令和授权边界；强调 13:43 断流早于约 13:47 蓝牙 Error，下一步先做状态对比再开展 Q25 | `HANDOFF.md`；仅文档整理、无新硬件实验 |
 | Q27 | 关闭 TCP 合并实测 | ✅ 实验记录完成，非验收通过：fixed 149/20、相同原后端、`-j 0`，29.46 MB 两次完整 258.107/284.562 s（0.114/0.104 MB/s），接收哈希一致；回程数据帧更多，非纯 ACK 计数。默认仍开启，原始日志已冻结，链路停止 | `docs/TCP_MERGE_TEST.md`、`evidence/tcp-merge-off-2026-10-28.json` |
 | Q28 | 无需手机的 netd IPC 修复与回归 | ✅ 发送失败返回 ERR_IF，建立后断链退出 2，分配/投递丢弃计数，5 s socket 发送无进展超时。真实池/回环及五种进程情形 CTest 2/2；同一 EOF 在旧版复现 >3 s 假活。仅本机构建未替换原包，未声称真机提速/断流修复 | `docs/NETD_OFFLINE_FIX.md`、`evidence/netd-offline-2026-10-28.log` |
+| Q29 | TCP 代理回压/复位异常清理 | 🔜 本机真实 TCP 已复现：接收端不读 + 远端 RST，超过 6 s 后代理仍堵在 local_send/local_recv；修复和回归待做。与 Q28 的 IPC 断链假活不同 | `docs/TCP_DIAGNOSTICS.md`、`evidence/tcp-proxy-pre-fix-2026-10-28.log` |
 
 ## 3. 每项的具体做法
 

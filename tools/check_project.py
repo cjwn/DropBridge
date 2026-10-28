@@ -6,6 +6,10 @@ from pathlib import Path
 root = Path(__file__).resolve().parents[1]
 required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
             "docs/STATUS.md",
+            "docs/TCP_DIAGNOSTICS.md",
+            "evidence/tcp-diag-offline-2026-10-28.log",
+            "evidence/tcp-diag-offline-2026-10-28.json",
+            "evidence/tcp-proxy-pre-fix-2026-10-28.log",
             "docs/PHASE0_AUDIT.md", "docs/BUILD_WINDOWS.md",
             "docs/RADIO_CONTRACT.md", "docs/LICENSE_MATRIX.md",
             "docs/HARDWARE_INTAKE.md", "docs/BINDING_RUNBOOK.md",
@@ -51,6 +55,8 @@ required = ["README.md", "AGENTS.md", "WORK_LOG.md", "docs/PLAN.md",
             "src/awdl_netd/CMakeLists.txt", "src/awdl_netd/main.cpp",
             "src/awdl_netd/lwipopts.h", "src/awdl_netd/local_io.h",
             "src/awdl_netd/local_io.cpp", "src/awdl_netd/lwip_proxy.cpp",
+            "src/awdl_netd/tcp_diag.h", "src/awdl_netd/tcp_diag.cpp",
+            "src/awdl_netd/tcp_diag_test.cpp", "tools/test_netd_tcp.py",
             "tools/Inspect-Hardware.ps1", "tools/Check-Binding.ps1"]
 for name in required:
     assert (root / name).is_file(), f"Missing: {name}"

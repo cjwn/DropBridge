@@ -23,6 +23,7 @@ extern "C" {
 #include <cstring>
 #include <thread>
 #include <vector>
+#include "tcp_diag.h"
 
 extern "C" void awdl_netd_start_tcp_proxy();
 extern "C" bool awdl_netd_start_mdns_proxy();
@@ -52,6 +53,7 @@ void print_stats() {
         g_stats.rx_seen.load(), g_stats.rx_bytes.load(), g_stats.rx_queued.load(),
         g_stats.alloc_fail.load(), g_stats.copy_fail.load(), g_stats.input_fail.load(),
         g_stats.tx_frames.load(), g_stats.tx_bytes.load(), g_stats.tx_fail.load());
+    tcp_diag::print();
 }
 
 void ipc_failed(const char *operation, int error) {
@@ -101,10 +103,12 @@ err_t netif_output_ip6(struct netif *, struct pbuf *p, const ip6_addr_t *) {
         return ERR_BUF;
     }
     if (!ipc_send_frame(buffer, p->tot_len)) {
+        tcp_diag::observe(buffer, p->tot_len, false, false);
         ++g_stats.tx_fail;
         return ERR_IF;
     }
     ++g_stats.tx_frames;
+    tcp_diag::observe(buffer, p->tot_len, false, true);
     g_stats.tx_bytes += p->tot_len;
     return ERR_OK;
 }
@@ -147,18 +151,25 @@ void deliver_ip_packet(const uint8_t *packet, u16_t len) {
     ++g_stats.rx_seen;
     g_stats.rx_bytes += len;
     pbuf *p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
-    if (!p) { ++g_stats.alloc_fail; return; }
+    if (!p) {
+        ++g_stats.alloc_fail;
+        tcp_diag::observe(packet, len, true, false);
+        return;
+    }
     if (pbuf_take(p, packet, len) != ERR_OK) {
         ++g_stats.copy_fail;
+        tcp_diag::observe(packet, len, true, false);
         pbuf_free(p);
         return;
     }
     if (g_netif.input(p, &g_netif) != ERR_OK) {
         ++g_stats.input_fail;
+        tcp_diag::observe(packet, len, true, false);
         pbuf_free(p);
         return;
     }
     ++g_stats.rx_queued; // Queued to lwIP, not proof of TCP/file delivery.
+    tcp_diag::observe(packet, len, true, true);
 }
 
 void ipc_reader() {

@@ -37,7 +37,7 @@ else()
     target_compile_options(lwip PRIVATE -std=c11 -w)
 endif()
 
-add_executable(awdl_netd main.cpp lwip_proxy.cpp local_io.cpp native_mdns.cpp)
+add_executable(awdl_netd main.cpp lwip_proxy.cpp local_io.cpp native_mdns.cpp tcp_diag.cpp)
 target_include_directories(awdl_netd PRIVATE
     "${LWIP_DIR}/src/include"
     "${LWIP_CONTRIB}/ports/win32/include"
@@ -49,17 +49,25 @@ if(MSVC)
 endif()
 
 enable_testing()
-add_executable(netd_ipc_test ipc_io_test.cpp)
+add_executable(netd_ipc_test ipc_io_test.cpp tcp_diag.cpp)
 target_include_directories(netd_ipc_test PRIVATE
     "${LWIP_DIR}/src/include" "${LWIP_CONTRIB}/ports/win32/include"
     "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(netd_ipc_test PRIVATE lwip ws2_32)
 add_test(NAME netd_ipc_io COMMAND netd_ipc_test)
 set_tests_properties(netd_ipc_io PROPERTIES TIMEOUT 15)
+add_executable(netd_tcp_diag_test tcp_diag_test.cpp tcp_diag.cpp)
+add_test(NAME netd_tcp_diag COMMAND netd_tcp_diag_test)
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_Interpreter_FOUND)
     add_test(NAME netd_process_faults COMMAND "${Python3_EXECUTABLE}"
         "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/test_netd_process.py" "$<TARGET_FILE:awdl_netd>")
     set_tests_properties(netd_process_faults PROPERTIES TIMEOUT 30
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+    add_test(NAME netd_tcp_roundtrip COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/test_netd_tcp.py" "$<TARGET_FILE:awdl_netd>" --case roundtrip)
+    set_tests_properties(netd_tcp_roundtrip PROPERTIES TIMEOUT 30
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+    # All these process tests own 49877; never connect to a pre-existing chain.
+    set_tests_properties(netd_process_faults netd_tcp_roundtrip PROPERTIES RESOURCE_LOCK netd_loopback)
 endif()

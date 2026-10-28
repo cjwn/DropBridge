@@ -30,16 +30,8 @@ intptr_t local_tcp_connect(int port) {
     return static_cast<intptr_t>(s);
 }
 
-int local_tcp_send(intptr_t handle, const void *data, int len) {
-    const char *p = static_cast<const char *>(data);
-    int remaining = len;
-    while (remaining > 0) {
-        int n = send(to_socket(handle), p, remaining, 0);
-        if (n <= 0) return -1;
-        p += n;
-        remaining -= n;
-    }
-    return 0;
+int local_tcp_send_some(intptr_t handle, const void *data, int len) {
+    return send(to_socket(handle), static_cast<const char *>(data), len, 0);
 }
 
 int local_tcp_recv(intptr_t handle, void *data, int len) {

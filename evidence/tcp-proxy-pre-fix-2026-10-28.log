@@ -1,0 +1,22 @@
+EXPECTED DEFECT: non-reading local receiver + peer reset left proxy active after 9.235 s
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready
+awdl_netd: ipc stats rx_seen=174 rx_bytes=185552 rx_queued=174 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=89 tx_bytes=5364 tx_fail=0
+awdl_netd: tcp diag t_ms=32423425 malformed=0 fragments=0 unsupported=0 capacity_skips=0 evicted=0
+awdl_netd: tcp flow=1 t_ms=32423425 dir=rx remote_port=50000 local_port=8771 packets=174 payload=175104 accepted=174 failed=0 seq=172009 ack=6511 win_raw=65535 ws_offer=0 syn=1 fin=0 rst=1 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=4743 ack_idle_ms=5008
+awdl_netd: tcp flow=1 t_ms=32423425 dir=tx remote_port=50000 local_port=8771 packets=85 payload=0 accepted=85 failed=0 seq=6511 ack=172009 win_raw=35840 ws_offer=2 syn=1 fin=0 rst=0 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=-1 ack_idle_ms=4743
+awdl_netd: proxy flow=1 t_ms=32423425 active=1 up_read=68608 up_written=67584 down_read=0 down_written=0 up_phase=local_send down_phase=local_recv
+awdl_netd: ipc stats rx_seen=174 rx_bytes=185552 rx_queued=174 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=90 tx_bytes=5420 tx_fail=0
+awdl_netd: tcp diag t_ms=32428435 malformed=0 fragments=0 unsupported=0 capacity_skips=0 evicted=0
+awdl_netd: tcp flow=1 t_ms=32428435 dir=rx remote_port=50000 local_port=8771 packets=174 payload=175104 accepted=174 failed=0 seq=172009 ack=6511 win_raw=65535 ws_offer=0 syn=1 fin=0 rst=1 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=9753 ack_idle_ms=10018
+awdl_netd: tcp flow=1 t_ms=32428435 dir=tx remote_port=50000 local_port=8771 packets=85 payload=0 accepted=85 failed=0 seq=6511 ack=172009 win_raw=35840 ws_offer=2 syn=1 fin=0 rst=0 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=-1 ack_idle_ms=9753
+awdl_netd: proxy flow=1 t_ms=32428435 active=1 up_read=68608 up_written=67584 down_read=0 down_written=0 up_phase=local_send down_phase=local_recv
+awdl_netd: IPC read ended pending_bytes=0
+awdl_netd: IPC failed op=recv error=0
+awdl_netd: ipc stats rx_seen=174 rx_bytes=185552 rx_queued=174 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=90 tx_bytes=5420 tx_fail=0
+awdl_netd: tcp diag t_ms=32428545 malformed=0 fragments=0 unsupported=0 capacity_skips=0 evicted=0
+awdl_netd: tcp flow=1 t_ms=32428545 dir=rx remote_port=50000 local_port=8771 packets=174 payload=175104 accepted=174 failed=0 seq=172009 ack=6511 win_raw=65535 ws_offer=0 syn=1 fin=0 rst=1 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=9863 ack_idle_ms=10128
+awdl_netd: tcp flow=1 t_ms=32428545 dir=tx remote_port=50000 local_port=8771 packets=85 payload=0 accepted=85 failed=0 seq=6511 ack=172009 win_raw=35840 ws_offer=2 syn=1 fin=0 rst=0 zero_window=0 gap=0 overlap=0 repeat_ack=0 data_idle_ms=-1 ack_idle_ms=9863
+awdl_netd: proxy flow=1 t_ms=32428545 active=0 up_read=68608 up_written=67584 down_read=0 down_written=0 up_phase=local_send_error down_phase=local_recv_error
+awdl_netd: data plane failed; exiting 2
