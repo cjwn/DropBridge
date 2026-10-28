@@ -462,27 +462,31 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
             const uint64_t frames = g_rx_frames.load();
             const int64_t rssi_sum = g_rx_rssi_sum.load();
             const int rssi = frames ? static_cast<int>(rssi_sum / frames) : 0;
+            // Chip temperature meter rides along: the slow-transfer events have
+            // shown an RSSI collapse, and heat is the first thing to rule out.
+            const devourer::ThermalStatus thermal = radio->GetThermalStatus();
             if (stats_at_warn) {
                 logger->warn(
                     "radio: stats cb={} crc={} small={} filtered={} queued={} drop={} tx={} failed={}",
                     g_rx_cb.load(), g_rx_crc.load(), g_rx_small.load(),
                     g_rx_filtered.load(), g_rx_queued.load(),
                     g_rx_dropped.load(), tx_sent, tx_failed);
-                logger->warn("radio: peer frames={} rssi={} rate={} bw={} sgi={}",
-                             frames, rssi,
-                             static_cast<unsigned>(g_rx_last_rate.load()),
-                             static_cast<unsigned>(g_rx_last_bw.load()),
-                             static_cast<unsigned>(g_rx_last_sgi.load()));
+                logger->warn(
+                    "radio: peer frames={} rssi={} rate={} bw={} sgi={} thermal={}/{}",
+                    frames, rssi, static_cast<unsigned>(g_rx_last_rate.load()),
+                    static_cast<unsigned>(g_rx_last_bw.load()),
+                    static_cast<unsigned>(g_rx_last_sgi.load()),
+                    static_cast<unsigned>(thermal.raw), thermal.delta);
             } else {
                 logger->info(
                     "radio: stats cb={} crc={} small={} filtered={} queued={} drop={} tx={} failed={}",
                     g_rx_cb.load(), g_rx_crc.load(), g_rx_small.load(),
                     g_rx_filtered.load(), g_rx_queued.load(),
                     g_rx_dropped.load(), tx_sent, tx_failed);
-                logger->info("radio: peer frames={} rssi={} rate={} bw={} sgi={}",
-                             frames, rssi,
-                             static_cast<unsigned>(g_rx_last_rate.load()),
-                             static_cast<unsigned>(g_rx_last_bw.load()),
+                logger->info(
+                    "radio: peer frames={} rssi={} rate={} bw={} sgi={} thermal={}/{}",
+                    frames, rssi, static_cast<unsigned>(g_rx_last_rate.load()),
+                    static_cast<unsigned>(g_rx_last_bw.load()),
                              static_cast<unsigned>(g_rx_last_sgi.load()));
             }
             g_rx_frames.store(0);
