@@ -62,6 +62,7 @@
 | Q34 | 会话冻结与汇总脚本 | ✅ 本机：`tools/Collect-Session.ps1` 把会话日志复制到 `build\diagnostics\<时间>-<tag>\`，跑分析并写 `manifest.json`（HEAD、未提交文件、日志与收到文件哈希、当前后端二进制哈希），**不复制密钥/收到的文件、不启动链路**；用 20261028-194820 实测，两份 29.46 MB 文件哈希一致 | `tools/Collect-Session.ps1`、`docs/HANDOFF_2026-10-28.md` §8 |
 | Q35 | 生产配置（mDNS 代理开启）下的 TCP 回归 | ✅ 本机：`--mdns` 让 netd 以 `AWDL_NETD_MDNS_PROXY=1` 起（与监管一致），2×16 MB / 64 KB 在途吞吐 3.65/4.13 MB/s、零丢弃、句柄 126 且跨连接不增长、字节一致；CTest 增加 `netd_proxy_soak_mdns`，**7/7** | `evidence/netd-mdns-soak-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §11 |
 | Q36 | 100 连接反复建立/清理 | ✅ 本机：100 个顺序连接（每个 1 MB、32 KB 在途、每次停读 0.3 s）全部字节一致、零丢弃，结束 `active=0`；句柄 121→122 后稳定、私有 2.3 MB 不变，单连接 1.60–1.68 MB/s（含 0.3 s 停读）。未覆盖并发与异常重连竞态 | `evidence/netd-churn-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §12 |
+| Q37 | Q31 包真机单变量（fixed 149/20、-j 0） | ✅ **真机完成**：29,456,959 B 完整落盘、76.79 s = **0.3836 MB/s**、无 408、哈希一致。同一配置 Q27 老 netd 为 0.114/0.104 MB/s → **3.4–3.7 倍**。netd `input_fail=76/22,075`（0.34%，集中起步突发），`overlap` 涨到 155 说明手机在重传。仍未达 1.12 MB/s（那次是 social + 合并开启） | `evidence/q31-phone-fixed-j0-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §13 |
 
 ## 3. 每项的具体做法
 

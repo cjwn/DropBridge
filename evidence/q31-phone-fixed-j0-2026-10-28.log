@@ -1,0 +1,49 @@
+﻿# Q37 real-device run: Q31 package (queue 64 + Q29 cleanup), fixed 149/20, -j 0
+# iPhone (Danking) sent the usual 29,456,959-byte video once. 2026-10-28 (UTC+8).
+
+## fixed conditions
+session          dist\data\logs\20261028-235404 (frozen copy: build\diagnostics\20261028-235816-q31-fixed-j0-phone)
+chain start      23:54:04 (radio listening 23:54:46, data plane 23:54:47)
+upload           /Ask 23:56:31.691, /Upload 23:56:32.142, stored 23:57:48.927
+netd             build\diagnostics\ipc-queue\test-package\backend\awdl_netd.exe  9cc25b27ca8e2ab2013748a747849b308878654c7d0ffca078d671fb5f424bf9
+supervisor       build\supervisor\Release\AirBridge32.exe  3ec4d28b2045b1bf619bd7829c8e8c22f1ff9838d81798a20b8fa70a62963c9d
+launch           same arguments as Start-Q31-Test.cmd plus --smoke 1500 (bounded lifetime only)
+data             dist\data (same certificate, same AirDrop service id, same received dir)
+
+## result
+file             7545-7.MP4  29,456,959 bytes
+wall clock       76.79 s  -> 0.3836 MB/s (MB = 10^6 B)
+completion       stored + POST /Upload 200, no 408, no retry by the phone
+sha256           5d057f9c5bad719872cf316a9b6935fc965b6ff80ecc65ec5fe82ef768c73c54
+
+## analyzer output
+session: J:\New soft project\DropBridge\dist\data\logs\20261028-235404
+  7545-7.MP4: 29,456,959 bytes in 76.79 s = 0.38 MB/s (stored file)
+netd: 39 sample(s); ipc rx 22075 frames 31.29 MB, queued 21999, tx 12855 frames
+  dropped frames: alloc=0 copy=0 input=76 tx=0; input waits=0
+  !! netd rejected inbound frames before TCP: the peer has to retransmit; this is the lwIP input-queue / pool boundary, not an air-interface measurement
+  tcp 1/rx: payload 0.00 MB, accepted 12, failed 0, idle at last sample 3785 ms
+  tcp 1/tx: payload 0.00 MB, accepted 9, failed 0, idle at last sample 3785 ms
+  tcp 2/rx: payload 29.96 MB, accepted 21974, failed 76, idle at last sample 15939 ms
+  tcp 2/tx: payload 0.00 MB, accepted 12644, failed 0, idle at last sample 15151 ms
+  proxy 1: up 4542->4542 B, down 2122->2122 B, active=0, phase cancelled/local_eof
+  proxy 2: up 29503419->29503419 B, down 2256->2256 B, active=1, phase lwip_recv/local_recv
+awdl: 196.0 s, rx data frames 22075, joined 0 (0 joined/s), tx data 12850
+   transfer needs 274 frames/s at 1400 B/frame; observed 0 joined/s overall
+
+## netd counters (last snapshot in the session)
+23:58:04.078 awdl_netd: ipc stats rx_seen=22075 rx_bytes=31289436 rx_queued=21999 alloc_fail=0 copy_fail=0 input_fail=76 tx_frames=12855 tx_bytes=833624 tx_fail=0
+
+## comparison, same configuration (fixed 149/20, -j 0, same video)
+Q27  old netd (8 slots, no Q29 cleanup)  258.107 / 284.562 s = 0.11413 / 0.10352 MB/s
+Q37  Q31 netd (64 slots + Q29 cleanup)    76.79 s          = 0.3836 MB/s
+historical best (social chanseq, merge ON, old netd) 26.26 s = 1.12 MB/s - different config
+
+## notes
+input_fail=76 of 22,075 inbound frames (0.34%); the drops are concentrated in the
+opening seconds (45 by frame 654, 55 by 1223, 76 by the end), i.e. the phone bursts
+its initial window and 64 slots still reject part of that burst. overlap grew to 155
+by the end of the opening burst, so the phone did retransmit. Steady state reached
+about 560 frames/s (~0.9 MB/s in 5 s windows) after the slow start.
+This run used merge OFF (-j 0), so joined frames stay 0; the 1.12 MB/s best used merge ON.
+Before freezing, the chain was stopped by killing only the package children (verified: no leftovers, 49876/49877/8771/15353 free). No radio state was reset or channel changed. Note: the keep-alive TCP connection stayed open after the transfer (proxy 2 active=1, lwip_recv/local_recv), so the proxy holds those two worker threads until the phone closes it.
