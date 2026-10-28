@@ -18,6 +18,7 @@ extern "C" {
 
 #include <cstdint>
 #include <atomic>
+#include <chrono>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -35,6 +36,12 @@ namespace {
 constexpr uint16_t kIpcPort = 49877;
 constexpr size_t kMaxFrame = 2048;
 constexpr DWORD kIpcSendTimeoutMs = 5000;
+// How long the IPC reader waits for lwIP to accept one frame before treating
+// it as lost. Blocking this thread is the intended backpressure: awdld's send
+// then stalls instead of netd silently discarding frames the phone would have
+// to retransmit.
+constexpr int kInputRetrySleepMs = 1;
+constexpr int kInputRetryLimitMs = 500;
 
 SOCKET g_ipc = INVALID_SOCKET;
 SOCKET g_listen = INVALID_SOCKET;
@@ -44,14 +51,17 @@ std::atomic<bool> g_ipc_failed{false};
 struct {
     std::atomic<unsigned long long> rx_seen{0}, rx_bytes{0}, rx_queued{0};
     std::atomic<unsigned long long> alloc_fail{0}, copy_fail{0}, input_fail{0};
+    std::atomic<unsigned long long> input_retry{0};
     std::atomic<unsigned long long> tx_frames{0}, tx_bytes{0}, tx_fail{0};
 } g_stats;
 
 void print_stats() {
     std::fprintf(stderr, "awdl_netd: ipc stats rx_seen=%llu rx_bytes=%llu rx_queued=%llu "
-        "alloc_fail=%llu copy_fail=%llu input_fail=%llu tx_frames=%llu tx_bytes=%llu tx_fail=%llu\n",
+        "alloc_fail=%llu copy_fail=%llu input_fail=%llu input_retry=%llu "
+        "tx_frames=%llu tx_bytes=%llu tx_fail=%llu\n",
         g_stats.rx_seen.load(), g_stats.rx_bytes.load(), g_stats.rx_queued.load(),
         g_stats.alloc_fail.load(), g_stats.copy_fail.load(), g_stats.input_fail.load(),
+        g_stats.input_retry.load(),
         g_stats.tx_frames.load(), g_stats.tx_bytes.load(), g_stats.tx_fail.load());
     tcp_diag::print();
 }
@@ -162,14 +172,27 @@ void deliver_ip_packet(const uint8_t *packet, u16_t len) {
         pbuf_free(p);
         return;
     }
-    if (g_netif.input(p, &g_netif) != ERR_OK) {
-        ++g_stats.input_fail;
-        tcp_diag::observe(packet, len, true, false);
-        pbuf_free(p);
-        return;
+    // tcpip_input() reports ERR_MEM when its inbound message pool or mailbox
+    // is momentarily full and leaves the pbuf owned by us. A drop here is
+    // self-inflicted loss: the radio already delivered the frame and only the
+    // phone's retransmission can recover it. Wait briefly instead; this reader
+    // thread is the only producer, so blocking it pushes back on awdld.
+    for (int waited = 0;; waited += kInputRetrySleepMs) {
+        const err_t err = g_netif.input(p, &g_netif);
+        if (err == ERR_OK) {
+            ++g_stats.rx_queued; // Queued to lwIP, not proof of TCP/file delivery.
+            tcp_diag::observe(packet, len, true, true);
+            return;
+        }
+        if (err != ERR_MEM || g_ipc_failed.load() || waited >= kInputRetryLimitMs) {
+            ++g_stats.input_fail;
+            tcp_diag::observe(packet, len, true, false);
+            pbuf_free(p);
+            return;
+        }
+        ++g_stats.input_retry;
+        std::this_thread::sleep_for(std::chrono::milliseconds(kInputRetrySleepMs));
     }
-    ++g_stats.rx_queued; // Queued to lwIP, not proof of TCP/file delivery.
-    tcp_diag::observe(packet, len, true, true);
 }
 
 void ipc_reader() {

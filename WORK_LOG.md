@@ -1,5 +1,13 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-28：Q38 输入投递改为背压等待（同晚，真机前）
+
+- Q37 显示 64 槽仍会在手机开局整窗突发时丢帧（76 帧）。根因是 `tcpip_inpkt()` 拿不到 `struct tcpip_msg` 时返回 `ERR_MEM`，而 netd 直接丢掉这一帧。
+- 改成 `g_netif.input()` 返回 `ERR_MEM` 时按 1 ms/次最多等 500 ms 后重投同一 pbuf（失败时 pbuf 仍归调用方），超时才计 `input_fail` 丢弃；新增 `input_retry` 计数并在 `ipc stats` 里输出，分析工具显示为 `input waits=`（旧日志无此字段也能解析，回归 10/10）。
+- 本机同一突发 A/B（16 MB、240 KB 在途、batch 128）：Q31 `input_fail=115` / 4.47 MB/s / 1 次回退；Q38 `input_retry=21` / `input_fail=0` / 7.25 MB/s / 0 次回退。batch 16/64 不触发等待，说明只在过驱动时生效。CTest 7/7。
+- 测试包 `build/diagnostics/input-retry/test-package`（334 文件只换 netd `300aac25…`，两份 `--check` exit 0，入口 `Start-Q38-Test.cmd`）已备好，**尚未上手机**。
+- 未做：真机验证；没有改池/窗口/合包或驱动。
+
 ## 2026-10-28：Q37 真机第一次用 Q31 包（fixed 149/20、-j 0）
 
 - 用户手机可用后起链路：23:54:04 起（radio listening 23:54:46），会话 `20261028-235404`；参数与 `Start-Q31-Test.cmd` 一致，只额外加 `--smoke 1500`（限定寿命）。

@@ -1,0 +1,40 @@
+﻿# Q38 offline evidence: let the IPC reader wait instead of dropping frames
+# Loopback only. No radio/AWDL/USB/air interface/iPhone. 2026-10-28 (UTC+8).
+
+## change
+deliver_ip_packet() now retries g_netif.input() on ERR_MEM (1 ms steps, 500 ms bound)
+instead of dropping the frame. tcpip_inpkt() leaves the pbuf owned by the caller on
+failure, so the same pbuf is re-posted; the reader thread is the only producer, so
+blocking it is end-to-end backpressure towards awdld. New counter input_retry.
+
+## binaries
+300aac2531dcdf68be450682604097fe03ca528479cfb00846f29374af357d1a  build/awdl_netd/Release/awdl_netd.exe  (with retry, Q38)
+9cc25b27ca8e2ab2013748a747849b308878654c7d0ffca078d671fb5f424bf9  build/diagnostics/ipc-queue/test-package/backend/awdl_netd.exe  (Q31, drops immediately)
+
+## A/B at the same burst: 16 MB, 240 KB in flight, batch 128
+-- Q31 (drop immediately)
+cycle 0: 16.7772 MB up in 3.750 s = 4.47 MB/s (incl. 0 s receiver idle); 0.252075 MB down in 16.0 ms = 15.75 MB/s (total 3.766 s); retransmits=1; netd handles=121 working=7.1 MB private=2.3 MB
+PASS: 1 sequential connection(s), 16 MB byte-exact each way, drops=[0, 0, 115, 0], proxy idle after cleanup, handle growth 0, private growth 0.0 MB; netd awdl_netd: ipc stats rx_seen=12725 rx_bytes=17786484 rx_queued=12610 alloc_fail=0 copy_fail=0 input_fail=115 tx_frames=7977 tx_bytes=730719 tx_fail=0
+-- Q38 (wait instead of drop)
+cycle 0: 16.7772 MB up in 2.313 s = 7.25 MB/s (incl. 0 s receiver idle); 0.252075 MB down in 15.0 ms = 16.81 MB/s (total 2.328 s); retransmits=0; netd handles=121 working=7.1 MB private=2.3 MB
+PASS: 1 sequential connection(s), 16 MB byte-exact each way, drops=[0, 0, 0, 0], proxy idle after cleanup, handle growth 0, private growth 0.0 MB; netd awdl_netd: ipc stats rx_seen=12545 rx_bytes=17529924 rx_queued=12545 alloc_fail=0 copy_fail=0 input_fail=0 input_retry=21 tx_frames=7891 tx_bytes=725559 tx_fail=0
+
+## same test at batch 16 / batch 64 (no overflow, retry path unused)
+PASS: 1 sequential connection(s), 16 MB byte-exact each way, drops=[0, 0, 0, 0], proxy idle after cleanup, handle growth 0, private growth 0.0 MB; netd awdl_netd: ipc stats rx_seen=12544 rx_bytes=17529864 rx_queued=12544 alloc_fail=0 copy_fail=0 input_fail=0 input_retry=0 tx_frames=7970 tx_bytes=730299 tx_fail=0
+PASS: 1 sequential connection(s), 16 MB byte-exact each way, drops=[0, 0, 0, 0], proxy idle after cleanup, handle growth 0, private growth 0.0 MB; netd awdl_netd: ipc stats rx_seen=12545 rx_bytes=17529924 rx_queued=12545 alloc_fail=0 copy_fail=0 input_fail=0 input_retry=21 tx_frames=7891 tx_bytes=725559 tx_fail=0
+
+## CTest (7/7) with the retry build
+100% tests passed, 0 tests failed out of 7 (netd_ipc_io, netd_tcp_diag, netd_process_faults,
+netd_tcp_roundtrip, netd_tcp_faults, netd_proxy_soak, netd_proxy_soak_mdns); 60.7 s
+
+## test package (phone run, not executed here)
+root      build/diagnostics/input-retry/test-package
+files     334 backend files, same set as dist/app/20261028-143130/backend
+changed   awdl_netd.exe only (300aac2531dcdf68be450682604097fe03ca528479cfb00846f29374af357d1a)
+launcher  Start-Q38-Test.cmd (fixed 149/20, -j 0, same as Q31/Q29)
+plans     both supervisor --check plans exit 0, no MISSING lines
+
+## reading
+Drop-to-wait trades latency for zero loss: 115 rejected frames became 21 waits and
+0 rejections, and the sender never had to rewind. A frame is still dropped after
+500 ms of no progress, so a wedged tcpip thread cannot hang the reader forever.

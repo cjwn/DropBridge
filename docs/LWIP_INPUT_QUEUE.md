@@ -233,3 +233,31 @@ fixed 149/20、`-j 0`、metric 200 / counter 100000，同一视频、同一 `dis
 
 证据：[q31-phone-fixed-j0-2026-10-28.log](../evidence/q31-phone-fixed-j0-2026-10-28.log)；
 冻结会话（日志 + 分析 + 清单）：`build/diagnostics/20261028-235816-q31-fixed-j0-phone/`。
+
+## 14. Q38：把“丢帧”改成“等待”（本机 A/B 通过，待真机）
+
+Q37 说明 64 槽仍会在手机**开局整窗突发**时丢帧。丢帧的代价不是慢一点，而是
+手机 cwnd 回退 + 重传。真正的原因是 `tcpip_inpkt()` 拿不到
+`struct tcpip_msg` 时返回 `ERR_MEM`，而 netd 选择**丢掉这一帧**。
+
+改法（`src/awdl_netd/main.cpp`）：`g_netif.input()` 返回 `ERR_MEM` 就**等**——
+每次 1 ms、最多 500 ms。`tcpip_inpkt` 失败时 pbuf 仍归调用方，所以重试是重投
+同一个 pbuf；IPC 读线程是唯一生产者，阻塞它就是把背压传回 awdld 的 TCP 连接。
+超过 500 ms 仍失败才计 `input_fail` 并丢弃，避免 lwIP 线程卡死时把读线程也锁死。
+新增计数 `input_retry`（`ipc stats` 里），分析工具会显示为 `input waits=`。
+
+本机同一突发（16 MB、240 KB 在途、`batch 128`）：
+
+| netd | 结果 | 丢弃 | 重传 |
+| --- | --- | --- | --- |
+| Q31（立即丢） | 16 MB / 3.750 s = 4.47 MB/s | **input_fail=115** | 1 次回退 |
+| Q38（改为等待） | 16 MB / 2.313 s = 7.25 MB/s | **input_fail=0**，`input_retry=21` | 0 次 |
+
+即 115 次丢帧变成 21 次短等待，发送端不再需要回退，吞吐反而更高。
+`batch 16/64` 时根本不触发等待（`input_retry=0`），说明该路径只在过驱动时出现。
+CTest 仍 **7/7**。测试包 `build/diagnostics/input-retry/test-package`（334 文件，
+只换 netd `300aac25…`，两份 `--check` 均 exit 0）已备好，**尚未上手机**。
+
+真机预期：开局那 76 次丢帧应变成等待、`overlap` 不再暴涨、慢启动不被打断。
+如果反而变慢或出现卡顿，说明 500 ms 的等待太短或 tcpip 线程本身跟不上，
+下一个变量才是 `MEMP_NUM_TCPIP_MSG_INPKT` 之外的池/窗口参数。

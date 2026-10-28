@@ -53,6 +53,22 @@ class NetdSummaryTest(unittest.TestCase):
         self.assertIsNone(netd_summary([]))
         self.assertIsNone(netd_summary(['10:00:00.001 awdl_netd: AWDL data plane up']))
 
+    def test_input_retry_field_is_optional(self):
+        """Older logs have no input_retry counter; newer ones must parse it."""
+        old = netd_summary([
+            '10:00:00.001 awdl_netd: ipc stats rx_seen=1 rx_bytes=2 rx_queued=1 '
+            'alloc_fail=0 copy_fail=0 input_fail=3 tx_frames=1 tx_bytes=2 tx_fail=0',
+        ])
+        self.assertEqual(old['totals']['input_fail'], 3)
+        self.assertEqual(old['totals']['input_retry'], 0)
+        new = netd_summary([
+            '10:00:00.001 awdl_netd: ipc stats rx_seen=1 rx_bytes=2 rx_queued=1 '
+            'alloc_fail=0 copy_fail=0 input_fail=0 input_retry=7 '
+            'tx_frames=1 tx_bytes=2 tx_fail=0',
+        ])
+        self.assertEqual(new['totals']['input_retry'], 7)
+        self.assertEqual(new['totals']['tx_fail'], 0)
+
 
 class UploadLogTest(unittest.TestCase):
     def test_prefixed_success_keeps_archive_and_file_size_distinct(self):

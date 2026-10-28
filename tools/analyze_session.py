@@ -31,9 +31,11 @@ AWD = re.compile(r'^(\d\d:\d\d:\d\d\.\d+) .*peers (\d+) \| rx action (\d+), data
                  r' \| tx action (\d+), data (\d+)')
 
 # netd writes these to stderr every 5 s; the supervisor prefixes its own clock.
+# `input_retry` is newer than some archived logs, so it stays optional.
 NETD_STATS = re.compile(
     r'ipc stats rx_seen=(\d+) rx_bytes=(\d+) rx_queued=(\d+) alloc_fail=(\d+) '
-    r'copy_fail=(\d+) input_fail=(\d+) tx_frames=(\d+) tx_bytes=(\d+) tx_fail=(\d+)')
+    r'copy_fail=(\d+) input_fail=(\d+) (?:input_retry=(\d+) )?'
+    r'tx_frames=(\d+) tx_bytes=(\d+) tx_fail=(\d+)')
 NETD_FLOW = re.compile(
     r'tcp flow=(\d+) t_ms=(\d+) dir=(rx|tx) .*?payload=(\d+) accepted=(\d+) failed=(\d+)'
     r'.*?data_idle_ms=(-?\d+)')
@@ -41,7 +43,7 @@ NETD_PROXY = re.compile(
     r'proxy flow=(\d+) t_ms=(\d+) active=(\d+) up_read=(\d+) up_written=(\d+) '
     r'down_read=(\d+) down_written=(\d+) up_phase=(\S+) down_phase=(\S+)')
 NETD_FIELDS = ('rx_seen', 'rx_bytes', 'rx_queued', 'alloc_fail', 'copy_fail',
-               'input_fail', 'tx_frames', 'tx_bytes', 'tx_fail')
+               'input_fail', 'input_retry', 'tx_frames', 'tx_bytes', 'tx_fail')
 
 MB = 1_000_000
 
@@ -256,7 +258,7 @@ def netd_summary(netd_lines):
     for line in netd_lines:
         match = NETD_STATS.search(line)
         if match:
-            samples.append({name: int(value)
+            samples.append({name: int(value or 0)
                             for name, value in zip(NETD_FIELDS, match.groups())})
     if not samples:
         return None
@@ -294,7 +296,8 @@ def report_netd(summary):
           f"{totals['rx_bytes'] / MB:.2f} MB, queued {totals['rx_queued']}, "
           f"tx {totals['tx_frames']} frames")
     print(f"  dropped frames: alloc={totals['alloc_fail']} copy={totals['copy_fail']} "
-          f"input={totals['input_fail']} tx={totals['tx_fail']}")
+          f"input={totals['input_fail']} tx={totals['tx_fail']}; "
+          f"input waits={totals['input_retry']}")
     if totals['input_fail'] or totals['alloc_fail'] or totals['copy_fail']:
         print('  !! netd rejected inbound frames before TCP: the peer has to retransmit; '
               'this is the lwIP input-queue / pool boundary, not an air-interface measurement')
