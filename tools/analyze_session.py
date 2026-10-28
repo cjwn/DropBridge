@@ -26,6 +26,7 @@ import sys
 UPLOAD_START = re.compile(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d+) .*POST /Upload headers: (\{.*\})')
 UPLOAD_DONE = re.compile(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d+) .*upload \S+: (\d+) bytes received')
 STORED = re.compile(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d+) .*stored (.*)$')
+REJECTED = re.compile(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d+) .*/Upload rejected: (.*)$')
 AWD = re.compile(r'^(\d\d:\d\d:\d\d\.\d+) .*peers (\d+) \| rx action (\d+), data (\d+)(?: \((\d+) joined\))?'
                  r' \| tx action (\d+), data (\d+)')
 
@@ -71,8 +72,13 @@ def uploads(receiver_lines):
     found = []
     pending = None
     for line in receiver_lines:
+        # The tray prepends its own HH:mm:ss timestamp to Python's timestamp.
+        line = re.sub(r'^\d\d:\d\d:\d\d\.\d+\s+(?=\d{4}-)', '', line)
         start = UPLOAD_START.match(line)
         if start:
+            if pending is not None:
+                pending['status'] = 'incomplete'
+                found.append(pending)
             # The receiver logs a Python dict repr, not JSON; keep json.loads as
             # a fallback in case that ever changes.
             raw = start.group(2)
@@ -90,6 +96,7 @@ def uploads(receiver_lines):
                 'start': stamp(start.group(1)),
                 'total': total,
                 'name': None,
+                'status': 'pending',
             }
             continue
         done = UPLOAD_DONE.match(line)
@@ -100,8 +107,17 @@ def uploads(receiver_lines):
         if stored and pending is not None:
             pending['end'] = stamp(stored.group(1))
             pending['name'] = stored.group(2)
+            pending['status'] = 'complete'
             found.append(pending)
             pending = None
+        rejected = REJECTED.match(line)
+        if rejected and pending is not None:
+            pending.update(end=stamp(rejected.group(1)), status='failed',
+                           reason=rejected.group(2))
+            found.append(pending)
+            pending = None
+    if pending is not None:
+        found.append(pending)
     return found
 
 
@@ -128,6 +144,16 @@ def main(argv=None):
     awdl_lines = read_lines(os.path.join(session, 'awdld.log'))
 
     transfers = uploads(receiver_lines)
+    completed = [item for item in transfers if item['status'] == 'complete']
+    received = os.path.join(os.path.dirname(os.path.dirname(session)), 'received')
+    for item in completed:
+        # A single stored filename is unambiguous; do not split a list on a
+        # comma that might be part of a filename. Keep wire bytes separate.
+        name = item['name']
+        if name and os.path.basename(name) == name:
+            path = os.path.join(received, name)
+            if os.path.isfile(path):
+                item['file_bytes'] = os.path.getsize(path)
     samples = airtime(awdl_lines)
 
     if args.json:
@@ -140,10 +166,14 @@ def main(argv=None):
     if not transfers:
         print('no /Upload found (no phone transfer in this session)')
     for item in transfers:
+        if item['status'] != 'complete':
+            print(f"  {item['status']}: {item.get('reason', 'no stored-file completion')}")
+            continue
         seconds = (item['end'] - item['start']).total_seconds()
-        size = item.get('bytes') or item['total'] or 0
+        size = item.get('file_bytes') or item['total'] or item.get('bytes') or 0
+        basis = 'stored file' if 'file_bytes' in item else 'announced/wire; file not verified'
         print(f"  {item['name']}: {size:,} bytes in {seconds:.2f} s "
-              f"= {size / MB / seconds:.2f} MB/s")
+              f"= {size / MB / seconds:.2f} MB/s ({basis})")
 
     if len(samples) >= 2:
         window = samples[-1]['time'], samples[0]['time']
@@ -151,12 +181,16 @@ def main(argv=None):
         data_frames = samples[-1]['rx_data'] - samples[0]['rx_data']
         span = (dt.datetime.strptime(samples[-1]['time'], '%H:%M:%S.%f')
                 - dt.datetime.strptime(samples[0]['time'], '%H:%M:%S.%f')).total_seconds()
+        if span < 0:
+            span += 24 * 60 * 60
+        if span == 0:
+            return 0
         print(f'awdl: {span:.1f} s, rx data frames {data_frames}, joined {joined} '
               f'({joined / span:.0f} joined/s), tx data {samples[-1]["tx_data"] - samples[0]["tx_data"]}')
-        if transfers:
-            item = transfers[-1]
+        if completed:
+            item = completed[-1]
             seconds = (item['end'] - item['start']).total_seconds()
-            size = item.get('bytes') or item['total'] or 0
+            size = item.get('file_bytes') or item['total'] or item.get('bytes') or 0
             if seconds > 0:
                 print(f'   transfer needs {size / seconds / 1400:.0f} frames/s at 1400 B/frame; '
                       f'observed {joined / span:.0f} joined/s overall')

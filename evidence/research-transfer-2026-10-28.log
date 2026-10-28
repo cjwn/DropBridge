@@ -1,0 +1,27 @@
+2026-10-28 14:44 +08:00 / Q20 / real iPhone -> Windows uploads
+Session: dist/data/logs/20261028-143206
+Code: d007eee; telemetry from 1db868f
+Package SHA256: DB84F74B2FB512EE116A089F170DC82C5E60AF5440334F222EF2E260ADDA58BC
+Config: channel 149, 20 MHz, election metric 200/counter 100000, social slots,
+firmware fast retune with 20 ms completion wait plus RF18 readback.
+
+Attempt 1: 7545-2.MP4, 29456959 stored file bytes, 75.25 s, 0.39145 MB/s.
+Attempt 2: 7545-3.MP4, 29456959 stored file bytes, 77.45 s, 0.38034 MB/s.
+Both received file SHA256:
+5D057F9C5BAD719872CF316A9B6935FC965B6FF80ECC65EC5FE82EF768C73C54
+No phone-side source SHA256 was obtained.
+
+Attempt 3: upload began 14:42:46.504; failed 14:43:49.054, HTTP 408.
+Receiver: 10212587 wire bytes in 62.5 s; 30 s no new input; waiting for
+a chunk header after 700 chunks. No completed output file for this attempt.
+Radio: data frames zero from 14:43:27 onward while channel switching continued;
+thermal raw/delta approximately 29/3 before and after data stopped.
+
+Snapshot through 14:44: 1324 completed channel-change log records;
+median 1559 us, maximum 33339 us, no unconfirmed-channel errors;
+2 missing C2H events confirmed by RF readback after bounded wait.
+This is host completion/readback timing, not an independent RF-air oracle.
+
+Verdict: 2/3 complete, throughput 0.38-0.39 MB/s for successful uploads.
+Stability and speed acceptance NOT met. No further experiment or root-cause
+claim. Development paused at the user's request; raw local logs preserved.

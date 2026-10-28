@@ -1,3 +1,9 @@
-# Unified patches contain one-space context lines by definition. Keep their
-# wire format as LF; source whitespace is checked separately by git/apply.
-patches/*.patch text eol=lf -whitespace
+* text=auto
+*.md text eol=lf
+*.py text eol=lf
+*.ps1 text eol=crlf
+*.json text eol=lf
+# Patches are applied with `git apply`, which matches context byte-for-byte; a
+# CRLF checkout (core.autocrlf=true) makes them fail against the LF upstream.
+# One-space context lines belong to patch syntax, not source whitespace.
+*.patch -text -whitespace
