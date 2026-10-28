@@ -1,0 +1,26 @@
+# 单文件 exe 在任意文件夹内自包含（分发验证 2026-10-28）
+
+目标：把一个 `AirBridge32.exe` 复制到任意可写文件夹，它应当只在该文件夹里解压与写数据，不需要安装、不写本机其他目录。
+
+## 验证
+
+```text
+1. 新建空目录 build\portable-check\，只放入 dist\AirBridge32.exe
+2. .\AirBridge32.exe --extract
+   -> build\portable-check\app\20261028-125826\
+      backend\（radio/bridge/netd/awdld/supervisor/python）
+      licenses\ tools\ README.txt Start.cmd extracted.txt
+3. app\20261028-125826\backend\AirBridge32.exe --check --root <app> --data <dir>\data
+   -> exit 0
+      root: ...\build\portable-check\app\20261028-125826
+      logs: ...\build\portable-check\data\logs\20261028-130350
+      radio: ... 149 20
+```
+
+- 载荷、数据两处都在 `portable-check\` 之内：`app\<构建>` 与 `data\`；
+- `data\` 目录此时还没创建，因为 `--check` 只解析路径、不建目录（真正启动才创建 `data\keys`、`received`、`logs`）；
+- 同目录里没有生成任何其它文件，也没有在 `%LOCALAPPDATA%` 或别处新增目录。
+
+## 结论
+
+单个 exe 具备“放到哪个文件夹，就只在那个文件夹里工作”的性质；删掉整个文件夹即为卸载（`data\received` 里是收到的文件，删前自行备份）。文件夹必须可写。
