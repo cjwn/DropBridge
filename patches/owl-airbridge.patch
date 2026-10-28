@@ -81,3 +81,31 @@ index 9c0d68e..f166c21 100644
  	return RX_OK;
  
  wire_error:
+diff --git a/src/state.c b/src/state.c
+index 6427612..92178a7 100644
+--- a/src/state.c
++++ b/src/state.c
+@@ -18,6 +18,7 @@
+  */
+ 
+ #include <time.h>
++#include <stdlib.h>
+ #include <string.h>
+ 
+ #include "version.h"
+@@ -58,6 +59,15 @@ void awdl_init_state(struct awdl_state *state, const char *hostname, const struc
+ 	state->channel.current = CHAN_NULL;
+ 	//awdl_chanseq_init(state->channel.sequence);
+ 	awdl_chanseq_init_static(state->channel.sequence, &state->channel.master);
++	/* AirBridge32: a sync master's sequence tells every peer when it can be
++	 * reached, and Apple's own sequences always put the social channel (6) at
++	 * slot 8. The plain all-master sequence omitted it, which is the likely
++	 * reason an iPhone kept its own sparse sequence for minutes before
++	 * adopting a 149-heavy one. AWDL_CHANSEQ=social builds 149 in every slot
++	 * except slot 8, which stays on channel 6. */
++	if (getenv("AWDL_CHANSEQ") != NULL) {
++		state->channel.sequence[8] = CHAN_OPCLASS_6;
++	}
+ 
+ 	awdl_election_state_init(&state->election, self);
+ 

@@ -294,11 +294,10 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     if (retry_limit < 0) retry_limit = 0;
     if (retry_limit > 63) retry_limit = 63;
     config.tx.retry_limit = retry_limit;
-    // AWDL sequences mix 5 GHz and 2.4 GHz slots; a cross-band retune costs
-    // ~90 ms and would stall a whole superframe, so an opt-in mode keeps the
-    // current channel for those slots instead.
-    const bool hop_skip_crossband =
-        env_int("AIRBRIDGE_HOP_SKIP_CROSSBAND", 0) != 0;
+    // AWDL sequences mix 5 GHz and 2.4 GHz slots. With the firmware fast path
+    // (H2C 0x1D, Jaguar2) a cross-band hop costs ~2 ms instead of ~90 ms, so
+    // the per-superframe social-channel slot becomes affordable.
+    config.tuning.fastretune_fw = env_int("AIRBRIDGE_FASTRETUNE_FW", 0);
     auto radio = driver.CreateRadio(handle, ctx, usb_lock, config);
     if (!radio) {
         logger->error("radio: CreateRadio failed (chip support not built?)");
@@ -514,9 +513,6 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
                    payload.size() == 1) {
             const uint8_t previous = radio->GetSelectedChannel().Channel;
             const uint8_t target = payload[0];
-            SelectedChannel next = radio->GetSelectedChannel();
-            next.Channel = target;
-            const bool same_band = (previous > 14) == (target > 14);
             const auto started = std::chrono::steady_clock::now();
             const auto elapsed_us = [&started] {
                 return std::chrono::duration_cast<std::chrono::microseconds>(
@@ -525,18 +521,13 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
             try {
                 if (target == previous) {
                     logger->debug("radio: channel {} unchanged", target);
-                } else if (same_band) {
+                } else {
+                    // FastRetune keeps the firmware fast path when it is
+                    // configured (cross-band included) and falls back to the
+                    // full SetMonitorChannel itself otherwise.
                     radio->FastRetune(target);
                     channel = target;
-                    logger->info("radio: channel {} -> {} ({} us, fast)",
-                                 previous, target, elapsed_us());
-                } else if (hop_skip_crossband) {
-                    logger->debug("radio: hop {} -> {} skipped (cross-band)",
-                                  previous, target);
-                } else {
-                    radio->SetMonitorChannel(next);
-                    channel = target;
-                    logger->info("radio: channel {} -> {} ({} us, full)",
+                    logger->info("radio: channel {} -> {} ({} us, fastretune)",
                                  previous, target, elapsed_us());
                 }
             } catch (const std::exception &error) {

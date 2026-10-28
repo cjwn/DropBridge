@@ -439,6 +439,10 @@ internal sealed class Supervisor
                 // Keep the 5 s link counters at warn level so the rate watchdog
                 // works without the per-frame noise info level produces.
                 { "AIRBRIDGE_LINK_STATS", "1" },
+                // The advertised sequence keeps the social channel (6) in slot
+                // 8 so an iPhone accepts it; the firmware fast path makes that
+                // cross-band hop ~2 ms instead of ~90 ms.
+                { "AIRBRIDGE_FASTRETUNE_FW", "2" },
             },
             _root, "listening on 127.0.0.1:49876", _log, OnChildLine);
         var bridge = new Child("bridge", BridgePath(), "",
@@ -459,6 +463,10 @@ internal sealed class Supervisor
             {
                 { "AWDL_ELECTION_METRIC", "200" },
                 { "AWDL_ELECTION_COUNTER", "100000" },
+                // 149 in every slot except slot 8 (social channel 6), the shape
+                // Apple's own sequences use; without it an iPhone keeps its
+                // sparse sequence for minutes before switching.
+                { "AWDL_CHANSEQ", "social" },
             },
             _root, "host interface", _log, OnChildLine);
         var receiver = NewReceiver();
