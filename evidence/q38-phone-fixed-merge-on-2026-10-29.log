@@ -1,0 +1,32 @@
+﻿# Q39 real-device run: merge ON (join_us=400), fixed 149/20, same Q38 netd
+# Aborted by the operator at ~4.7 MB because it ran at roughly 40 KB/s.
+# 2026-10-29 00:07:16 - 00:09:14 (UTC+8).
+
+## conditions
+session        dist\data\logs\20261029-000451 (frozen: build\diagnostics\20261029-000917-q38-fixed-merge-on-phone)
+package        build\diagnostics\input-retry\test-package (netd 300aac25...)
+arguments      --chanseq fixed, merge ON (join_us=400), no --no-tcp-merge
+vs Q38         identical except merge: Q38 used -j 0 and reached 0.8518 MB/s at 00:04
+
+## observation
+upload start   00:07:16.185 (/Upload headers)
+stopped        00:09:14 with about 4,693,932 B of the 29,456,959 B body
+rate           about 4.69 MB / 118 s = 0.040 MB/s (roughly 40 KB/s)
+radio          00:09:11 peer frames=175 fps=32.6 rssi=73 rate=19
+awdld          00:09:12 rx action 2019, data 4333 (3465 joined) - merge was active
+netd 00:09:11  rx_seen=863 rx_bytes=5043138 input_fail=0 input_retry=0 (netd was not the limit)
+netd flow      overlap=211, repeat_ack=189, syn=6 - heavy retransmission in both directions
+receiver       00:05:46 and 00:06:44 WARNING /Discover rejected: invalid or overlong chunk-size line
+
+## reading
+Merge ON did not help here and coincided with a retransmission storm at about 33 fps.
+This run is NOT yet attributable to merge alone: RSSI fell from 79 (Q37/Q38) to 73 and the
+previous evidence (Q24/Q27, STATUS section 5) shows the link can degrade over a session.
+A control run with the same package and -j 0 immediately afterwards (session
+20261029-000925) decides between "merge hurts at fixed 149" and "radio state degraded".
+The /Discover chunk-size rejections are a separate receiver-side finding, not the cause of
+the slow upload (the upload itself was accepted and streamed).
+
+## files
+frozen session: build\diagnostics\20261029-000917-q38-fixed-merge-on-phone
+partial body: dist\data\received\tmp2vhadjey (removed by the receiver or left as a temp file)
