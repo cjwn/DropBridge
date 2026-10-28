@@ -2,7 +2,9 @@
 # Built and verified locally 2026-10-29 00:36-00:41 (UTC+8). No iPhone involved.
 
 ## artifacts (dist/ is not tracked; hashes below are the record)
-zip        dist\AirBridge32-portable.zip  16,852,043 B  b23c187564a440b9de2dc33c707acc731e1b2d23e00b56b19e588f176c1912da
+zip        dist\AirBridge32-portable.zip  16,852,043 B  1421ee7cc1314a7308a29322b6e21a673c9b843f1c01d6499e47a3cbc8dd41ea
+single exe dist\AirBridge32.exe            16,850,432 B  5339ee60b2cb461e919aca0a8da10966d0d61141206c82c289c1939cb764aff2
+built at commit 4ee95cd (VERSION.txt records the same commit)
 folder     dist\AirBridge32  333 files  36.5 MB
 entry      AirBridge32.exe  154bdb877bd2033dbb24bd7b639d4d6c17af6a1f69116e2d7bb0ae6d5dc16877
 netd       300aac2531dcdf68be450682604097fe03ca528479cfb00846f29374af357d1a
@@ -41,3 +43,9 @@ tools/Package-Distributable.ps1 builds dist\AirBridge32 + dist\AirBridge32-porta
 ## not done
 clean Windows 11 VM, code signature, Realtek firmware redistribution decision,
 uninstall residue check, 24 h soak, and a real iPhone transfer from this exact zip.
+
+## final rebuild (after the code commit, same binaries)
+dist\AirBridge32-portable.zip 1421ee7c... 19:41:56 (16,852,043 B)
+dist\AirBridge32.exe          5339ee60... 19:42:12 (16,850,432 B)
+re-extracted the final zip to build\diagnostics\dist-check2 and ran --check: exit 0,
+no MISSING, plan social + merge, netd 300aac25...
