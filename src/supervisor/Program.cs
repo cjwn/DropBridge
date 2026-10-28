@@ -73,11 +73,12 @@ internal sealed class Child
     private readonly string _workdir;
     private readonly string _needle;
     private readonly LogSink _log;
+    private readonly Action<string> _lineSeen;
     private Process _process;
 
     public Child(string name, string exe, string arguments,
                  Dictionary<string, string> environment, string workdir,
-                 string needle, LogSink log)
+                 string needle, LogSink log, Action<string> lineSeen = null)
     {
         Name = name;
         _exe = exe;
@@ -86,6 +87,7 @@ internal sealed class Child
         _workdir = workdir;
         _needle = needle;
         _log = log;
+        _lineSeen = lineSeen;
     }
 
     public bool HasExited
@@ -134,6 +136,7 @@ internal sealed class Child
     {
         if (line == null) return;
         _log.Write(Name, line);
+        if (_lineSeen != null) _lineSeen(line);
         if (_needle != null && line.IndexOf(_needle, StringComparison.Ordinal) >= 0)
         {
             Ready.Set();
@@ -208,6 +211,26 @@ internal sealed class Supervisor
     public string ReceivedDirectory { get { return Path.Combine(_data, "received"); } }
     public string LogDirectory { get { return _log.DirectoryPath; } }
     public string Root { get { return _root; } }
+
+    /* Latest peer frame rate, parsed from the radio's 5 s "peer frames=N"
+     * sample. A transfer at ~800 frames/s is the ~1 MB/s case; the 250-360
+     * KB/s runs sit near 200. */
+    public double Fps { get; private set; }
+    public long FpsSamples { get; private set; }
+
+    private void OnChildLine(string line)
+    {
+        const string marker = "peer frames=";
+        int at = line.IndexOf(marker, StringComparison.Ordinal);
+        if (at < 0) return;
+        int start = at + marker.Length;
+        int end = line.IndexOf(' ', start);
+        string value = end < 0 ? line.Substring(start) : line.Substring(start, end - start);
+        int frames;
+        if (!int.TryParse(value, out frames)) return;
+        Fps = frames / 5.0;
+        FpsSamples++;
+    }
 
     public void Log(string message)
     {
@@ -362,8 +385,14 @@ internal sealed class Supervisor
         string radioLevel = Environment.GetEnvironmentVariable("AIRBRIDGE_RADIO_LOG");
         if (string.IsNullOrEmpty(radioLevel)) radioLevel = "warn";
         var radio = new Child("radio", RadioPath(), RadioArguments,
-            new Dictionary<string, string> { { "AIRBRIDGE_LOG_LEVEL", radioLevel } },
-            _root, "listening on 127.0.0.1:49876", _log);
+            new Dictionary<string, string>
+            {
+                { "AIRBRIDGE_LOG_LEVEL", radioLevel },
+                // Keep the 5 s link counters at warn level so the rate watchdog
+                // works without the per-frame noise info level produces.
+                { "AIRBRIDGE_LINK_STATS", "1" },
+            },
+            _root, "listening on 127.0.0.1:49876", _log, OnChildLine);
         var bridge = new Child("bridge", BridgePath(), "",
             null, _root, "waiting for awdld", _log);
         var netd = new Child("netd", NetdPath(), "",
@@ -447,6 +476,8 @@ internal sealed class TrayApp : ApplicationContext
     private SynchronizationContext _ui;
     private FileSystemWatcher _watcher;
     private bool _reportedExit;
+    private int _slowSamples;
+    private bool _slowWarned;
     private int _starting;
     private readonly object _startGate = new object();
     private int _failures;
@@ -469,6 +500,12 @@ internal sealed class TrayApp : ApplicationContext
             delegate { ToggleAutostart(); }) { Checked = AutostartEnabled() };
         menu.Items.Add(_autostart);
         menu.Items.Add(new ToolStripMenuItem("重新启动后端", null, delegate { StartBackends(); }));
+        menu.Items.Add(new ToolStripMenuItem("重置链路", null, delegate
+        {
+            _slowSamples = 0;
+            _slowWarned = false;
+            RequestStart(false);
+        }));
         menu.Items.Add(new ToolStripMenuItem("退出", null, delegate { Exit(); }));
 
         _icon = new NotifyIcon
@@ -638,12 +675,39 @@ internal sealed class TrayApp : ApplicationContext
         worker.Start();
     }
 
+    /* Measured 2026-10-28: a healthy transfer sits near 700-850 frames/s,
+     * the slow ones near 190-280 with the same loss. Two consecutive low
+     * samples warn once; the tray's 重置链路 restarts the radio, which is the
+     * only thing that recovered a degraded chip so far. */
+    private void WatchLinkRate()
+    {
+        if (_supervisor.FpsSamples == 0 || _supervisor.Fps <= 0) return;
+        if (_supervisor.Fps < 300)
+        {
+            _slowSamples++;
+        }
+        else if (_supervisor.Fps >= 500)
+        {
+            _slowSamples = 0;
+            _slowWarned = false;
+        }
+        if (_slowSamples >= 2 && !_slowWarned)
+        {
+            _slowWarned = true;
+            _supervisor.Log("low link rate: " + (int)_supervisor.Fps + " frames/s");
+            _icon.ShowBalloonTip(8000, "AirBridge32",
+                "链路速率偏低（约 " + (int)_supervisor.Fps +
+                " 帧/s）。可从托盘菜单选“重置链路”后重试。", ToolTipIcon.Warning);
+        }
+    }
+
     private void CheckChildren()
     {
         if (!_supervisor.Running || _gaveUp) return;
         if (_supervisor.AllAlive)
         {
             _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
+            WatchLinkRate();
             return;
         }
         // A dead backend leaves a half-working system: restore it, loudly.

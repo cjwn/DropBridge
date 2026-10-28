@@ -27,7 +27,7 @@
 | Q4 | 单文件自解压原型 | 无 | 干净 VM 双击可跑，≤30 MB，退出可清理 | ✅ 2026-10-27 原型：16.0 MB 单 exe、首解 0.4 s、二次 0.03 s；干净 VM/AV 未验 | `evidence/single-exe-prototype.log` |
 | Q5 | 原生托盘监管（替代 Flutter） | Q4 | 无窗口常驻、单实例、开机自启、退出清理、完成通知 | ✅ 2026-10-27：20 KB winexe；真机 `--smoke` 与托盘 `--auto-exit` 均起停干净、无残留；气泡/菜单未肉眼验 | `evidence/supervisor-tray.log` |
 | Q6 | 日志轮转与诊断包 | Q5 | 5 MB 滚动；会话保留；诊断信息可导出 | ✅ 2026-10-27：5 MiB 滚动 + 保留 10 会话 + 剪贴板诊断 | `evidence/supervisor-recovery.log` |
-| Q7 | 看门狗与恢复阶梯 | 硬件授权 | 假死注入后 ≤10 s 自动恢复；24 h 无泄漏 | 🔜 进程死亡恢复已做（receiver 单独重启 <1 s；其它整链重启）；radio 假死检测、24 h、固件重试提示未做 | `evidence/supervisor-recovery.log` |
+| Q7 | 看门狗与恢复阶梯 | 硬件授权 | 假死注入后 ≤10 s 自动恢复；24 h 无泄漏 | 🔜 进程死亡恢复已做（receiver 单独重启 <1 s；其它整链重启）；**低速链路检测已做**（帧率 <300 连续两个 5 s 样本告警 + 托盘“重置链路”）；radio 假死、24 h 未做 | `evidence/supervisor-recovery.log` |
 | Q8 | E1 时隙/信道序列实测 | 硬件授权 | 149 占空比、joined 帧/s、队列深度曲线 | ⬜ | — |
 | Q9 | E2 ACK 延迟与 TX 优先级 | 硬件授权 | ACK 等待分布；对照调优前后 MB/s | ⬜ | — |
 | Q10 | E3 USB 帧率/聚合 | 硬件授权 | URB/s、帧/s、单帧字节 | ⬜ | — |

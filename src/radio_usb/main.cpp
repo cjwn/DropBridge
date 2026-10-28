@@ -449,7 +449,10 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     uint64_t tx_sent = 0, tx_failed = 0;
 
     // Periodic link counters: a transfer's CRC share must be visible while it
-    // runs, not only in the teardown line.
+    // runs, not only in the teardown line. AIRBRIDGE_LINK_STATS keeps them at
+    // warn level so the supervisor can watch the rate without the radio's
+    // per-frame "bulk_send" noise that info level produces.
+    const bool stats_at_warn = env_flag("AIRBRIDGE_LINK_STATS");
     std::atomic<bool> stats_stop{false};
     std::thread stats_thread([&] {
         while (!stats_stop.load()) {
@@ -457,19 +460,32 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             if (stats_stop.load()) break;
-            logger->info(
-                "radio: stats cb={} crc={} small={} filtered={} queued={} drop={} tx={} failed={}",
-                g_rx_cb.load(), g_rx_crc.load(), g_rx_small.load(),
-                g_rx_filtered.load(), g_rx_queued.load(), g_rx_dropped.load(),
-                tx_sent, tx_failed);
             const uint64_t frames = g_rx_frames.load();
             const int64_t rssi_sum = g_rx_rssi_sum.load();
-            logger->info(
-                "radio: peer frames={} rssi={} rate={} bw={} sgi={}",
-                frames, frames ? static_cast<int>(rssi_sum / frames) : 0,
-                static_cast<unsigned>(g_rx_last_rate.load()),
-                static_cast<unsigned>(g_rx_last_bw.load()),
-                static_cast<unsigned>(g_rx_last_sgi.load()));
+            const int rssi = frames ? static_cast<int>(rssi_sum / frames) : 0;
+            if (stats_at_warn) {
+                logger->warn(
+                    "radio: stats cb={} crc={} small={} filtered={} queued={} drop={} tx={} failed={}",
+                    g_rx_cb.load(), g_rx_crc.load(), g_rx_small.load(),
+                    g_rx_filtered.load(), g_rx_queued.load(),
+                    g_rx_dropped.load(), tx_sent, tx_failed);
+                logger->warn("radio: peer frames={} rssi={} rate={} bw={} sgi={}",
+                             frames, rssi,
+                             static_cast<unsigned>(g_rx_last_rate.load()),
+                             static_cast<unsigned>(g_rx_last_bw.load()),
+                             static_cast<unsigned>(g_rx_last_sgi.load()));
+            } else {
+                logger->info(
+                    "radio: stats cb={} crc={} small={} filtered={} queued={} drop={} tx={} failed={}",
+                    g_rx_cb.load(), g_rx_crc.load(), g_rx_small.load(),
+                    g_rx_filtered.load(), g_rx_queued.load(),
+                    g_rx_dropped.load(), tx_sent, tx_failed);
+                logger->info("radio: peer frames={} rssi={} rate={} bw={} sgi={}",
+                             frames, rssi,
+                             static_cast<unsigned>(g_rx_last_rate.load()),
+                             static_cast<unsigned>(g_rx_last_bw.load()),
+                             static_cast<unsigned>(g_rx_last_sgi.load()));
+            }
             g_rx_frames.store(0);
             g_rx_rssi_sum.store(0);
         }
