@@ -1,5 +1,5 @@
 diff --git a/src/election.c b/src/election.c
-index fda2e9d..8bacdc7 100644
+index fda2e9d..c6fe0a0 100644
 --- a/src/election.c
 +++ b/src/election.c
 @@ -19,6 +19,7 @@
@@ -10,16 +10,23 @@ index fda2e9d..8bacdc7 100644
  
  #include "election.h"
  #include "peers.h"
-@@ -37,8 +38,13 @@ int awdl_election_is_sync_master(const struct awdl_election_state *state, const
+@@ -37,8 +38,19 @@ int awdl_election_is_sync_master(const struct awdl_election_state *state, const
  }
  
  static void awdl_election_reset_metric(struct awdl_election_state *state) {
-+	/* AirBridge32: a peer is accepted when its metric is higher, so a higher
-+	 * self metric makes this node the sync master and lets it dictate an
-+	 * all-149 MHz sequence (the fast path). Opt-in via env. */
-+	const char *metric = getenv("AWDL_ELECTION_METRIC");
- 	state->self_counter = AWDL_ELECTION_COUNTER_INIT;
+-	state->self_counter = AWDL_ELECTION_COUNTER_INIT;
 -	state->self_metric = AWDL_ELECTION_METRIC_INIT;
++	/* AirBridge32: the election compares master_counter first and only then
++	 * master_metric, and rejects a peer only when its value is LOWER. OWL never
++	 * increments self_counter, while an iPhone's counter grows by 1 every 3.14 s
++	 * of mastership (seen at 1514), so a static 0 loses the election after a
++	 * few minutes no matter how good the metric is. Both knobs are env-driven
++	 * and default to OWL's constants; the supervisor sets them so a dedicated
++	 * receiver keeps mastership and its all-149 MHz sequence. */
++	const char *metric = getenv("AWDL_ELECTION_METRIC");
++	const char *counter = getenv("AWDL_ELECTION_COUNTER");
++	state->self_counter = counter ? (uint32_t) strtoul(counter, NULL, 10)
++	                              : AWDL_ELECTION_COUNTER_INIT;
 +	state->self_metric = metric ? (uint32_t) strtoul(metric, NULL, 10)
 +	                            : AWDL_ELECTION_METRIC_INIT;
  }
