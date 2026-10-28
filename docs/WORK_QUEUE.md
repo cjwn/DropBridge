@@ -63,7 +63,7 @@
 | Q35 | 生产配置（mDNS 代理开启）下的 TCP 回归 | ✅ 本机：`--mdns` 让 netd 以 `AWDL_NETD_MDNS_PROXY=1` 起（与监管一致），2×16 MB / 64 KB 在途吞吐 3.65/4.13 MB/s、零丢弃、句柄 126 且跨连接不增长、字节一致；CTest 增加 `netd_proxy_soak_mdns`，**7/7** | `evidence/netd-mdns-soak-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §11 |
 | Q36 | 100 连接反复建立/清理 | ✅ 本机：100 个顺序连接（每个 1 MB、32 KB 在途、每次停读 0.3 s）全部字节一致、零丢弃，结束 `active=0`；句柄 121→122 后稳定、私有 2.3 MB 不变，单连接 1.60–1.68 MB/s（含 0.3 s 停读）。未覆盖并发与异常重连竞态 | `evidence/netd-churn-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §12 |
 | Q37 | Q31 包真机单变量（fixed 149/20、-j 0） | ✅ **真机完成**：29,456,959 B 完整落盘、76.79 s = **0.3836 MB/s**、无 408、哈希一致。同一配置 Q27 老 netd 为 0.114/0.104 MB/s → **3.4–3.7 倍**。netd `input_fail=76/22,075`（0.34%，集中起步突发），`overlap` 涨到 155 说明手机在重传。仍未达 1.12 MB/s（那次是 social + 合并开启） | `evidence/q31-phone-fixed-j0-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §13 |
-| Q38 | 输入投递改为背压等待（不丢帧） | ✅ 本机 A/B 通过、**待真机**：`g_netif.input()` 返回 `ERR_MEM` 时按 1 ms/次最多等 500 ms 后重投同一 pbuf，超时才丢；新增 `input_retry` 计数。同一突发（16 MB、240 KB 在途、batch 128）Q31 为 `input_fail=115`/4.47 MB/s，Q38 为 `input_retry=21`/`input_fail=0`/7.25 MB/s；CTest 7/7。测试包只换 netd `300aac25…`，两份 `--check` exit 0，未上手机 | `evidence/netd-input-backpressure-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §14 |
+| Q38 | 输入投递改为背压等待（不丢帧） | ✅ **真机通过**：`g_netif.input()` 返回 `ERR_MEM` 时按 1 ms/次最多等 500 ms 后重投同一 pbuf，超时才丢；新增 `input_retry`。同一包同一参数只换 netd（`9cc25b27`→`300aac25`）：Q37 76.79 s / 0.3836 MB/s / `input_fail=76` → Q38 **34.58 s / 0.8518 MB/s / `input_fail=0` / `input_retry=103`**，落盘哈希一致、无 408。本机 A/B 与 CTest 7/7 亦通过 | `evidence/netd-input-backpressure-2026-10-28.log`、`evidence/q38-phone-fixed-j0-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §14 |
 
 ## 3. 每项的具体做法
 

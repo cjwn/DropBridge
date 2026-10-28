@@ -1,0 +1,45 @@
+﻿# Q38 real-device run: input backpressure (wait instead of drop), fixed 149/20, -j 0
+# Same package and arguments as the Q37 run; only netd changed (9cc25b27 -> 300aac25).
+# iPhone sent the usual 29,456,959-byte video once. 2026-10-29 00:03-00:04 (UTC+8).
+
+## fixed conditions
+session          dist\data\logs\20261029-000151 (frozen copy: build\diagnostics\20261029-000444-q38-fixed-j0-phone)
+chain start      00:01:51 (radio listening 00:02:33, data plane 00:02:33)
+upload           /Ask 00:03:55.334, /Upload 00:03:55.399, stored 00:04:29.983
+netd             build\diagnostics\input-retry\test-package\backend\awdl_netd.exe  300aac2531dcdf68be450682604097fe03ca528479cfb00846f29374af357d1a
+supervisor       3ec4d28b2045b1bf619bd7829c8e8c22f1ff9838d81798a20b8fa70a62963c9d
+launch           same as Start-Q38-Test.cmd plus --smoke 1500 (bounded lifetime only)
+data             dist\data (same certificate, same AirDrop service id, same received dir)
+
+## result
+file             7545-8.MP4  29,456,959 bytes
+wall clock       34.58 s  -> 0.8518 MB/s
+completion       stored + POST /Upload 200, no 408
+sha256           5d057f9c5bad719872cf316a9b6935fc965b6ff80ecc65ec5fe82ef768c73c54
+
+## analyzer output
+session: J:\New soft project\DropBridge\dist\data\logs\20261029-000151
+  7545-8.MP4: 29,456,959 bytes in 34.58 s = 0.85 MB/s (stored file)
+netd: 25 sample(s); ipc rx 21754 frames 30.85 MB, queued 21754, tx 12190 frames
+  dropped frames: alloc=0 copy=0 input=0 tx=0; input waits=103
+  tcp 1/rx: payload 0.00 MB, accepted 13, failed 0, idle at last sample 5694 ms
+  tcp 1/tx: payload 0.00 MB, accepted 9, failed 0, idle at last sample 5693 ms
+  tcp 2/rx: payload 29.54 MB, accepted 21735, failed 0, idle at last sample 10205 ms
+  tcp 2/tx: payload 0.00 MB, accepted 12025, failed 0, idle at last sample 9334 ms
+  proxy 1: up 4542->4542 B, down 2122->2122 B, active=0, phase cancelled/local_eof
+  proxy 2: up 29503419->29503419 B, down 2256->2256 B, active=1, phase lwip_recv/local_recv
+awdl: 124.0 s, rx data frames 21754, joined 0 (0 joined/s), tx data 12184
+   transfer needs 608 frames/s at 1400 B/frame; observed 0 joined/s overall
+
+## comparison, identical configuration (fixed 149/20, -j 0, same video)
+Q27  old netd, 8 slots, no Q29 cleanup, drops on overflow   258.107 / 284.562 s = 0.11413 / 0.10352 MB/s
+Q37  Q31 netd, 64 slots, still drops on burst                76.79 s = 0.3836 MB/s, input_fail=76
+Q38  Q38 netd, 64 slots, waits instead of dropping           34.58 s = 0.8518 MB/s, input_fail=0, input_retry=103
+
+## reading
+Removing the software drop more than doubled throughput and removed the retransmission
+storm: input_fail 76 -> 0, overlap collapsed, and the phone no longer had to recover a
+collapsed congestion window. 103 waits replaced the drops, so the loss was real and it
+came from netd, not from the air. The 1.12 MB/s historical best used merge ON and a
+social slot; this run still used -j 0, so the next single variable is the merge.
+The keep-alive TCP connection again stayed open after the transfer (proxy 2 active=1).
