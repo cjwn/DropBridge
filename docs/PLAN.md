@@ -12,6 +12,8 @@
 
 实现语言（2026-10-27 决定）：**Dart/Flutter 负责应用层与 AWDL/AirDrop 逻辑；C++ `radio.exe` 保留 devourer/libusb 无线后端**。Dart 不直接访问 USB；通过命名管道使用 `radio_link` v3。AWDL 的目标实现是 Dart；Phase 3 可先用可复用的 C++ AWDL 作对照，再决定迁移范围。详见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
+**该条已被 2026-10-28 的决定取代**：Dart/Flutter 壳已删除（`app/` 移除），应用层与托盘改用系统自带 .NET Framework 4.8 的 C#；AWDL 继续用 OWL/awdld（GPL-3.0），接收端保留 Python。现行交付形态见 [FINAL_PLAN.md](FINAL_PLAN.md)。
+
 ## Phase 0：补齐进入实验的条件（进行中）
 
 已完成：源任务书归档、五个仓库固定版本、专用分支检查、关键调用链审计、初次本地配置尝试、Git 约定；隔离依赖下的 C8821C-only Windows 构建与 74 项无硬件自检（含 3 项 OpenSSL 加密自检）；目标网卡身份（`0bda:c820`，MI_02 已绑 WinUSB，libusb 可 open/claim，芯片 ID 只读确认 `0x09`）；WinAWDL ↔ devourer 契约对照；许可证矩阵；Zadig 绑定手册与只读 USB 探针。

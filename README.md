@@ -2,7 +2,7 @@
 
 Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirBridge32 为任务书暂定产品名；没有 ESP32 固件要求。
 
-**当前：Phase 3 首次真实 AirDrop 传输成功。iPhone 15 Pro Max（iOS 17.5）在隔空投送中看到 AirBridge32，并通过 AWDL/Wintun 把一张 2.9 MB PNG（1290×2796）传到 Windows；文件大小与 PNG 签名已核对。无线侧使用专用 RTL8821CU：频道 149、AWDL 控制面同步、TCP radio、命名管道桥和 AirDrop 接收服务全部跑通。测试时必须关闭 v2rayN 的 TUN（其 `EnableIPv6=false` + `StrictRoute=true` 会让 IPv6 不可用）；v2ray 兼容配置、5 GHz 空口 TX/ACK、GUI 和打包仍未完成。**
+**当前：单文件 exe + 原生托盘，已达 1 MB/s 量级。** 用户侧只有一个 `AirBridge32.exe`：解压到同目录的 `app\`，数据（证书、实例 ID、接收文件、日志）全部留在同目录的 `data\`，不写 `%LOCALAPPDATA%`。后端是 radio（devourer/RTL8821CU）+ awdld（OWL）+ awdld 用户态网络栈 + Python 接收端，托盘负责启动、监控、低速告警与自恢复。**实测吞吐 1121 KB/s（29.46 MB / 26.3 s）**，配置为 149 / 20 MHz 且让 Windows 当 AWDL 同步主控；40 MHz 已实测更慢且会退化，不再使用。Dart/Flutter 壳已删除。固件再分发授权、代码签名与干净机器验收仍未完成。
 
 目标是让 iPhone 系统原生隔空投送通过专用 RTL8821CU USB 网卡把文件交给 Windows，不依赖 WSL2、虚拟机或 iPhone 第三方应用。
 
@@ -16,8 +16,8 @@ Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirB
 - [Windows 构建记录](docs/BUILD_WINDOWS.md)
 - [USB radio 后端状态](docs/RADIO_USB.md)
 - [Phase 3：AWDL/AirDrop 实测](docs/PHASE3_AWDL.md)
-- [便携版 ZIP 与启动壳](docs/PORTABLE.md)
-- [目标架构：Dart 应用 + C++ radio](docs/ARCHITECTURE.md)
+- [历史：便携版 ZIP 与 Flutter 壳（已移除）](docs/PORTABLE.md)
+- [历史：Dart 应用架构（已废弃，现行方案见最终方案）](docs/ARCHITECTURE.md)
 - [无线层契约对照](docs/RADIO_CONTRACT.md)
 - [硬件接入与驱动绑定检查单](docs/HARDWARE_INTAKE.md)
 - [WinUSB 绑定运行手册（Zadig）](docs/BINDING_RUNBOOK.md)
@@ -39,6 +39,7 @@ Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirB
 .\tools\Start-Chain.ps1           # 无 Flutter 起停整条链路；默认 dry-run，加 -Run 才发帧
 .\tools\Build-Supervisor.ps1      # 编译托盘监管（C#，系统自带 csc）
 .\tools\Package-Headless.ps1      # 打无 Dart 的包：dist\AirBridge32-headless.zip（16 MB）
+.\tools\Monitor-Soak.ps1          # 24 h 常驻采样：内存/句柄/进程/端口，CSV 落 build\soak
 .\tools\Build-Sfx.ps1             # 打成单文件 dist\AirBridge32.exe（16 MB）
 python .\tools\analyze_session.py --latest dist\AirBridge32-headless   # 从日志算真实 MB/s 与帧率
 python .\tools\bench_receiver.py --mb 20 --runs 3   # receiver 离线吞吐（不涉及射频）
@@ -74,10 +75,10 @@ python .\tools\check_project.py   # 文档、证据与版本锁一致性
 
 ## 仍未完成
 
-1. **v2ray TUN 兼容**：当前 TUN 关闭时可用；需要在 TUN 开启时把 IPv6/link-local 排除，或改用系统代理模式。
-2. **5 GHz 空口 TX/ACK**：ESP32-S3 只能见证 2.4 GHz；5 GHz 的 TX 和硬件 ACK/BlockAck 仍需第三方观察设备或 iPhone 侧确认。
-3. **Dart/Flutter 应用与 UI**：目前是命令行 radio + awdld + Python 接收服务，还不是用户可见的单一程序。
-4. **打包/安装**：Wintun、管理员权限、防火墙、驱动回滚和卸载流程尚未产品化。
+1. **固件再分发授权**：radio 静态链接了 Realtek 固件，发布前必须三选一（取得许可 / 运行时由用户提供 / 只发源码）。
+2. **代码签名**：未签名 exe 会触发 SmartScreen；分发包需要签名证书。
+3. **干净机器验收**：全新 Windows 11 VM 上从单个 exe 到接收文件的全流程（Q13）。
+4. **长时间常驻**：24 h 内存/句柄无泄漏、异常自恢复（Q7 剩余，采样已启动）。
 5. **WinUSB 回滚演练**：仍保留为发布前必须完成的恢复路径。
 
 本轮不复制上游实现，不赋予第三方代码统一许可证。产品发布许可证将在复用范围确定后处理。

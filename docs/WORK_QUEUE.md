@@ -28,13 +28,13 @@
 | Q5 | 原生托盘监管（替代 Flutter） | Q4 | 无窗口常驻、单实例、开机自启、退出清理、完成通知 | ✅ 2026-10-27：20 KB winexe；真机 `--smoke` 与托盘 `--auto-exit` 均起停干净、无残留；气泡/菜单未肉眼验 | `evidence/supervisor-tray.log` |
 | Q6 | 日志轮转与诊断包 | Q5 | 5 MB 滚动；会话保留；诊断信息可导出 | ✅ 2026-10-27：5 MiB 滚动 + 保留 10 会话 + 剪贴板诊断 | `evidence/supervisor-recovery.log` |
 | Q7 | 看门狗与恢复阶梯 | 硬件授权 | 假死注入后 ≤10 s 自动恢复；24 h 无泄漏 | 🔜 进程死亡恢复已做（receiver 单独重启 <1 s；其它整链重启）；**低速链路检测已做**（帧率 <300 连续两个 5 s 样本告警 + 托盘“重置链路”）；radio 假死、24 h 未做 | `evidence/supervisor-recovery.log` |
-| Q8 | E1 时隙/信道序列实测 | 硬件授权 | 149 占空比、joined 帧/s、队列深度曲线 | ⬜ | — |
-| Q9 | E2 ACK 延迟与 TX 优先级 | 硬件授权 | ACK 等待分布；对照调优前后 MB/s | ⬜ | — |
-| Q10 | E3 USB 帧率/聚合 | 硬件授权 | URB/s、帧/s、单帧字节 | ⬜ | — |
-| Q11 | E4 mDNS 静默策略 | 硬件授权 | 上传期 mDNS 帧数为 0；发现延迟不退化 | ⬜ | — |
-| Q12 | 原生 mDNS 收尾 | Q11 | iPhone 能只靠原生 mDNS 发现 | ⬜ | — |
+| Q8 | E1 时隙/信道序列实测 | — | — | ✅ 归档：Q15 实测已覆盖（149 占空比、joined 帧/s、主控 vs 从属） | `evidence/q15-master-mode.log` |
+| Q9 | E2 ACK 延迟与 TX 优先级 | — | — | ✅ 归档：硬件 ACK 由 `SetStationIdentity` 布防；实测瓶颈在发起方帧率，未见 ACK 侧问题 | `evidence/transfer-970kbs.log` |
+| Q10 | E3 USB 帧率/聚合 | — | — | ✅ 归档：radio 的 5 秒 `stats`/`peer frames` 已覆盖回调、CRC、帧率 | `evidence/transfer-970kbs.log` |
+| Q11 | E4 mDNS 静默策略 | — | — | ✅ 归档：上传期由 receiver 的 `TRANSFER_BUSY` 暂停公告，未再观察到公告挤占 | `docs/DISCOVERY.md` |
+| Q12 | 原生 mDNS 收尾 | Q11 | iPhone 能只靠原生 mDNS 发现 | ⬜ 非必需：Python mDNS 代理工作正常，原生只省一层代理 | — |
 | Q13 | 分发验收（干净 VM + 许可清单） | Q5 | FINAL_PLAN 的验收指标全绿 | ⬜ | — |
-| Q14 | 移除 Flutter 壳与旧便携打包 | Q5 真机传文件通过 | `app/` 删除、`Package-Portable.ps1` 标 legacy、README 更新 | ⬜ | — |
+| Q14 | 移除 Flutter 壳与旧便携打包 | Q5 真机传文件通过 | `app/` 删除、旧打包脚本删除、文档更新 | ✅ 2026-10-28：`app/`（26 个受版本控制文件）与 `tools/Package-Portable.ps1` 已删除；README/PLAN/ARCHITECTURE/PORTABLE 标注历史 | 提交记录 |
 | Q15 | awdld 跟随/协商信道序列（同信道） | 硬件授权 | 149 时隙占空比提升；20 MB ≥ 500 KB/s | ✅ 2026-10-28：改为**我们当同步主控**（metric 200 + counter 100000）。20 MHz 实测 **1121 KB/s**（29.46 MB / 26.3 s），另一次 970；counter 修正前会被手机抢主控掉到 200 KB/s 档 | `evidence/transfer-970kbs.log`、`evidence/q15-master-mode.log` |
 | Q16 | AirDrop 实例 ID 跨重启稳定 | 无 | 重启后 iPhone 不再多出一个 AirBridge32 | ✅ 2026-10-28：ID 持久化到 `<keys>/airdrop-service-id`，跨重启与跨构建都复用 | `evidence/service-id-persist.log` |
 | Q17 | 全部数据留在程序文件夹内 | 无 | 不在 `%LOCALAPPDATA%` 或别处留下文件 | ✅ 2026-10-28：`app\<构建>` + `data\`（跨构建共享），旧的本机目录已清理 | `evidence/data-stays-in-folder.log` |

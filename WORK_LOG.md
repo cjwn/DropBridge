@@ -546,3 +546,12 @@
 - **全部数据留在程序文件夹内**（用户新要求）：stub 解压到 `exe 目录\app\<构建>`（只留最近 2 个），`data\` 放 `keys\`（证书、实例 ID）、`received\`、`logs\`、`awdl_netd.addr`，通过 `--data` 传给监管、跨构建共享；开机自启改指向文件夹里的 stub。验证后 `%LOCALAPPDATA%\AirBridge32` 下不再生成新目录，并清掉了开发期留下的 13 个旧目录。
 - 提交：`1cedcdf`（counter）、`cc3b026`（实例 ID + 1121 KB/s）、本条（便携布局）。
 - 证据：`evidence/transfer-970kbs.log`、`evidence/service-id-persist.log`、`evidence/data-stays-in-folder.log`。
+
+## 2026-10-28：删除 Flutter 壳；启动 24 h 常驻采样
+
+- 按 Q14 删除 `app/`（Flutter 项目，26 个受版本控制文件、磁盘上 328 MB 含构建产物）与 `tools/Package-Portable.ps1`；现行打包只剩 `Package-Headless.ps1` + `Build-Sfx.ps1`。
+- 文档同步：README 顶部换成当前状态（单文件 exe、托盘、1121 KB/s、20 MHz + 主控、数据留在文件夹内），阅读入口把 PORTABLE/ARCHITECTURE 标为历史；PLAN 在 Dart 决策下加“已被 2026-10-28 决定取代”；ARCHITECTURE、PORTABLE 加历史提示。
+- 队列：Q14 完成；Q8–Q11 归档（Q15 的实测已覆盖时隙、帧率、ACK、mDNS 四项）；Q12 标为非必需。
+- 新增 `tools/Monitor-Soak.ps1` 并已在后台启动（24 h、每 60 s 一次，CSV 落 `build\soak\soak.csv`）：记录 supervisor/radio/bridge/netd/awdld/receiver 的工作集、私有内存、句柄、CPU，以及缺失进程与监听端口。首帧：AirBridge32 33 MB 工作集 / 75 MB 私有 / 423 句柄；radio 7 MB；awdld 4 MB；receiver 25 MB；端口 49876/49877/8771 在听。
+- 样本里 15353 不在列表是因为它只开 UDP，端口检查只看 TCP——不是缺失。
+- 下一步：常驻采样跑满一段后看趋势；速度基线（A）等你方便时发 3 次 29 MB 视频。

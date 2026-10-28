@@ -1,5 +1,8 @@
 # 便携版 / Portable ZIP
 
+> **历史文档：Flutter 壳与这个 27 MB 的便携 ZIP 已于 2026-10-28 移除。**
+> 现行分发是单个自解压 exe：载荷解到同目录 `app\`，数据全部留在同目录 `data\`，见 [FINAL_PLAN.md](FINAL_PLAN.md) 第 7 节和 `evidence/data-stays-in-folder.log`。`tools/Package-Portable.ps1` 已删除；现行打包用 [tools/Package-Headless.ps1](../tools/Package-Headless.ps1) + [tools/Build-Sfx.ps1](../tools/Build-Sfx.ps1)。
+
 目标：一个 ZIP，解压后双击 `AirBridge32.exe`，不需要安装器、不需要目标机 Python/VC++ 运行库、不写注册表、不装服务、不创建 Wintun。
 
 ## 产物
