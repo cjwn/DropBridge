@@ -294,6 +294,7 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     // (H2C 0x1D, Jaguar2) a cross-band hop costs ~2 ms instead of ~90 ms, so
     // the per-superframe social-channel slot becomes affordable.
     config.tuning.fastretune_fw = env_int("AIRBRIDGE_FASTRETUNE_FW", 0);
+    config.tuning.fastretune_wait_ms = 20; // RX C2H + one post-completion RF check.
     auto radio = driver.CreateRadio(handle, ctx, usb_lock, config);
     if (!radio) {
         logger->error("radio: CreateRadio failed (chip support not built?)");
@@ -534,11 +535,15 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
                     // full SetMonitorChannel itself otherwise.
                     radio->FastRetune(target);
                     channel = target;
-                    logger->info("radio: channel {} -> {} ({} us, fastretune)",
+                    logger->warn("radio: channel {} -> {} ({} us, confirmed retune)",
                                  previous, target, elapsed_us());
                 }
             } catch (const std::exception &error) {
                 logger->error("radio: channel change failed: {}", error.what());
+                // Hardware/software channel state is uncertain. Disconnect the
+                // chain instead of continuing to inject on an assumed channel.
+                shutdown(client, SD_BOTH);
+                break;
             }
         } else if (header.type == RADIO_LINK_SET_BSSID_FILTER &&
                    payload.size() == 6) {

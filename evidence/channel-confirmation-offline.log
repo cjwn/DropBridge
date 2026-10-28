@@ -1,0 +1,23 @@
+2026-10-28 / Q19 / implementation and offline validation only
+devourer base: f7e073175852eeb87ccab7bfa619c41156a1b26b
+Patch: patches/devourer-airbridge.patch (8 files)
+Original upstream/devourer: git status --short is empty.
+
+Build-Radio.ps1: MSVC Release radio + bridge built successfully.
+ctest: peer_telemetry PASS; channel_completion PASS; 2/2, zero failures.
+Completion regression: reject truncated/extended event, ignore unsolicited
+completion, event-before-wait, RX-thread wake, bounded timeout, fresh re-arm.
+Fresh locked build/devourer-repro-lf + tracked patch:
+  all 8 file SHA256 hashes equal build/devourer-airbridge;
+  applying again reports already applied.
+PowerShell compatibility and Windows min-macro build failures were fixed;
+build/radio-confirmed-build-first-failed.log preserves the initial compiler log.
+build/devourer-reproduce.log preserves the initial CRLF hash mismatch.
+
+Protocol references (not copied into product source):
+https://github.com/morrownr/8821cu-20210916/blob/main/hal/halmac/halmac_original_c2h_nic.h
+https://github.com/morrownr/8821cu-20210916/blob/main/hal/hal_com.c
+References are GPL-2.0, same as the modified devourer/radio process.
+
+Pending independent hardware evidence: actual completion latency, channel
+agreement, continuous iPhone uploads, file hashes, sustained rate, recovery.

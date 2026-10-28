@@ -23,7 +23,12 @@ set(DEVOURER_JAGUAR2_8821C ON CACHE BOOL "" FORCE)
 set(DEVOURER_PCIE OFF CACHE BOOL "" FORCE)
 set(DEVOURER_MT7612U OFF CACHE BOOL "" FORCE)
 
-add_subdirectory("${CMAKE_CURRENT_SOURCE_DIR}/../../upstream/devourer"
+set(AIRBRIDGE_DEVOURER_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/../../build/devourer-airbridge"
+    CACHE PATH "Locked devourer build copy with tracked AirBridge patches")
+if(NOT EXISTS "${AIRBRIDGE_DEVOURER_SOURCE}/src/ChannelSwitchCompletion.h")
+    message(FATAL_ERROR "Run tools/Prepare-Devourer.ps1 before building radio")
+endif()
+add_subdirectory("${AIRBRIDGE_DEVOURER_SOURCE}"
                  devourer EXCLUDE_FROM_ALL)
 
 add_executable(airbridge_radio main.cpp radio_link.h)
@@ -33,8 +38,11 @@ target_compile_features(airbridge_radio PRIVATE cxx_std_20)
 enable_testing()
 add_executable(peer_telemetry_test peer_telemetry_test.cpp)
 target_include_directories(peer_telemetry_test PRIVATE
-    "${CMAKE_CURRENT_SOURCE_DIR}/../../upstream/devourer/src")
+    "${AIRBRIDGE_DEVOURER_SOURCE}/src")
 add_test(NAME peer_telemetry COMMAND peer_telemetry_test)
+add_executable(channel_completion_test channel_completion_test.cpp)
+target_include_directories(channel_completion_test PRIVATE "${AIRBRIDGE_DEVOURER_SOURCE}/src")
+add_test(NAME channel_completion COMMAND channel_completion_test)
 
 # awdld (WinAWDL/OWL) still opens the named pipe; this byte pump connects it to
 # the TCP radio without touching the wire protocol.

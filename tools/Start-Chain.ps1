@@ -10,7 +10,7 @@
 [CmdletBinding()]
 param(
     [int]$Channel = 149,
-    [int]$Width = 40,
+    [int]$Width = 20,
     [string]$Python = '',
     [switch]$Trace,
     [switch]$RadioVerbose,
@@ -178,7 +178,7 @@ $handler = [ConsoleCancelEventHandler] {
 
 try {
     Start-Backend -Name 'radio' -Exe $binaries.radio -Arguments $radioArgs `
-        -Environment @{ AIRBRIDGE_LOG_LEVEL = $(if ($RadioVerbose) { 'info' } else { 'warn' }) } | Out-Null
+        -Environment @{ AIRBRIDGE_LOG_LEVEL = $(if ($RadioVerbose) { 'info' } else { 'warn' }); AIRBRIDGE_LINK_STATS = '1'; AIRBRIDGE_FASTRETUNE_FW = '2' } | Out-Null
     Wait-Ready -Name 'radio' -Needle 'listening on 127.0.0.1:49876' -TimeoutSeconds $ReadyTimeoutSeconds
 
     Start-Backend -Name 'bridge' -Exe $binaries.bridge -Arguments @() -Environment @{} | Out-Null
@@ -188,7 +188,8 @@ try {
         -Environment @{ AWDL_NETD_MDNS_PROXY = '1'; AWDL_NETD_ADDR_FILE = $addrFile } | Out-Null
     Wait-Ready -Name 'netd' -Needle 'waiting for awdld' -TimeoutSeconds 30
 
-    Start-Backend -Name 'awdld' -Exe $binaries.awdld -Arguments $awdlArgs -Environment @{} | Out-Null
+    Start-Backend -Name 'awdld' -Exe $binaries.awdld -Arguments $awdlArgs `
+        -Environment @{ AWDL_ELECTION_METRIC = '200'; AWDL_ELECTION_COUNTER = '100000'; AWDL_CHANSEQ = 'social' } | Out-Null
     Wait-Ready -Name 'awdld' -Needle 'host interface' -TimeoutSeconds 60
 
     $deadline = (Get-Date).AddSeconds(60)

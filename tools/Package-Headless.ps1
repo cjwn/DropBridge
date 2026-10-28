@@ -33,7 +33,15 @@ Need $supervisor 'run tools\Build-Supervisor.ps1 first'
 Need $python 'prepare build\python-embed (embeddable Python + cryptography) first'
 Need (Join-Path $airdrop 'receiver.py') 'upstream/winawdl is missing'
 
-if (Test-Path $stage) { Remove-Item $stage -Recurse -Force }
+$stageFull = [IO.Path]::GetFullPath($stage)
+$distFull = [IO.Path]::GetFullPath($dist).TrimEnd('\') + '\'
+if (-not $stageFull.StartsWith($distFull, [StringComparison]::OrdinalIgnoreCase)) {
+    throw "refusing to replace stage outside dist: $stageFull"
+}
+if (Test-Path (Join-Path $stage 'data')) {
+    throw "stage contains user data; preserve it before packaging: $stageFull"
+}
+if (Test-Path $stage) { Remove-Item -LiteralPath $stageFull -Recurse -Force }
 foreach ($dir in 'backend\airdrop', 'tools', 'licenses') {
     New-Item -ItemType Directory -Force (Join-Path $stage $dir) | Out-Null
 }
@@ -90,7 +98,7 @@ AirBridge32 headless package
 1. Extract this folder anywhere writable.
 2. Bind the RTL8821CU MI_02 interface to WinUSB once if this PC never used it
    (Zadig; the only step that needs Administrator). See docs\BINDING_RUNBOOK.md.
-3. Double-click Start.cmd. It starts radio (149 / 40 MHz), bridge, awdl_netd,
+3. Double-click Start.cmd. It starts radio (149 / 20 MHz), bridge, awdl_netd,
    awdld and the Python receiver, all without Flutter or a Dart runtime.
 4. On iPhone open AirDrop, choose "Everyone for 10 Minutes", send a file.
    Files land in data\received; logs in data\chain-logs\<timestamp>.
