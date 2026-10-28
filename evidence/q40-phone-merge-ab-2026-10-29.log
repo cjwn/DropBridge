@@ -1,0 +1,37 @@
+﻿# Q40: merge on/off A/B at fixed 149/20 with the same Q38 netd (real device)
+# 2026-10-29 00:03-00:15 (UTC+8). Same 29,456,959-byte video, same package.
+
+## runs
+Q38  merge OFF (-j 0)  00:03:55.399 -> 00:04:29.983   34.58 s   0.8518 MB/s  input_fail=0 input_retry=103
+Q39  merge ON  (-j 400) 00:07:16.185 -> aborted 00:09:14  4.69 MB / 118 s = 0.040 MB/s
+Q40  merge OFF (-j 0)  00:14:33.538 -> 00:15:16.134   42.60 s   0.6917 MB/s  input_fail=0 input_retry=75
+
+## radio counters over each session (devourer log deltas, computed by build/_radio_compare.py)
+Q37 Q31 j0: cb=39953 crc=4540 (11.4%) small=12509 queued=22904 drop=0 tx=17438
+   peer fps median=121 max=564 rssi 75-79 mcs median=19
+Q38 Q38 j0: cb=38720 crc=4679 (12.1%) small=11902 queued=22139 drop=0 tx=15080
+   peer fps median=625 max=674 rssi 76-80 mcs median=18
+Q39 merge:  cb=11924 crc=4802 (40.3%) small=647  queued=6461  drop=0 tx=6098
+   peer fps median=33  max=41  rssi 73-80 mcs median=19
+
+## reading
+The control run (Q40) repeats Q38 without the radio having been touched: 0.69 MB/s,
+500-561 fps, RSSI 77, zero drops. So the radio had not degraded when merge ON collapsed
+to 33 fps. The difference is the merge itself: with join_us=400 the phone sends joined
+frames and their CRC error rate is 40.3% versus 11-12% for single frames at the same MCS
+(median 19). Two of the three "merge on" seconds also lose frames at the receiver, but
+netd still reported input_fail=0 - the loss was on the air, not in software.
+
+Conclusion for the configuration: at fixed 149/20 keep TCP merge OFF (-j 0). The
+historical 1.12 MB/s used merge ON together with the social slot sequence, so merge is
+not universally bad - it is bad at this fixed-channel condition, where bigger frames
+cost 3.4x the CRC rate. That social+merge configuration with the Q38 netd is the next
+single-variable run (it is also the supervisor default).
+
+Note: Q38 and Q40 differ by 23% (0.85 vs 0.69 MB/s) with identical settings; that is
+run-to-run variance of the phone/link, not a code difference.
+
+## frozen sessions
+build/diagnostics/20261029-000444-q38-fixed-j0-phone
+build/diagnostics/20261029-000917-q38-fixed-merge-on-phone
+build/diagnostics/20261029-001530-q38-fixed-j0-control
