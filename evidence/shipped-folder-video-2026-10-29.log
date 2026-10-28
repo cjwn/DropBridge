@@ -1,0 +1,31 @@
+﻿# Q46 real-device run: shipped folder artifact, 29 MB video — best run of the night
+# dist\AirBridge32\AirBridge32.exe, default configuration, 2026-10-29 01:01:59.934 -> 01:02:26.772.
+
+## conditions
+entry       dist\AirBridge32\AirBridge32.exe  supervisor 154bdb87..., netd 300aac25...
+args        --root dist\AirBridge32 --data dist\data --auto-exit 1200 (tray mode)
+config      defaults: social chanseq, merge ON (join_us=400), 149 / 20 MHz
+identity    same certificate and AirDrop service id as every earlier run
+
+## result
+file        7545-11.MP4  29,456,959 bytes
+wall clock  01:01:59.934 -> 01:02:26.772 = 26.84 s
+rate        1.0975 MB/s (MB = 10^6 B)  <- best of the night, matches the 1.12 MB/s historical best
+completion  stored + POST /Upload 200, no 408
+sha256      5d057f9c5bad719872cf316a9b6935fc965b6ff80ecc65ec5fe82ef768c73c54
+netd        ipc rx 1,286 frames / 29.66 MB, input_fail=0, input_retry=0, tx_fail=0
+awdld       aggregation active: 1,286 frames carried 29.66 MB (about 23 KB per frame)
+radio       fps median 787 max 891, rssi 62-70, mcs 17-19, CRC 15.1%, queued 22,328, drop=0
+
+## all real runs on the default configuration (social + merge)
+Q41  0.9231 MB/s  31.91 s  CRC 15.8%  fps median 670  netd 300aac25
+Q46  1.0975 MB/s  26.84 s  CRC 15.1%  fps median 787  netd 300aac25 (shipped folder)
+historical 1.12 MB/s  26.26 s (old netd, social + merge)
+
+## reading
+The shipped artifact, with no configuration overrides, hit the historical best within 2%.
+Since input_fail/input_retry are both zero and CRC is 15.1%, the transfer is limited by
+airtime and aggregation size, not by the data plane. Two runs of this configuration now
+exist (0.92 and 1.10 MB/s), so the 3-run median is still one send away.
+
+frozen session: build/diagnostics/20261029-010238-shipped-folder-video

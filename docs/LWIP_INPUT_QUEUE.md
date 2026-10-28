@@ -302,3 +302,22 @@ CTest 仍 **7/7**。测试包 `build/diagnostics/input-retry/test-package`（334
 
 证据：[q40-phone-merge-ab-2026-10-29.log](../evidence/q40-phone-merge-ab-2026-10-29.log)、
 [q41-phone-social-merge-2026-10-29.log](../evidence/q41-phone-social-merge-2026-10-29.log)。
+
+## 16. 成品分发版定版实测（2026-10-29 01:02）
+
+把 Q38 的 netd 打进**要发出去的那个文件夹**（`dist\AirBridge32\`，即
+`AirBridge32-portable.zip` 的内容）后用默认配置再跑一次 29 MB 视频：
+
+| 项 | 结果 |
+| --- | --- |
+| 入口 | `dist\AirBridge32\AirBridge32.exe`（托盘模式，无覆盖参数） |
+| 文件/耗时 | 29,456,959 B / **26.84 s** = **1.0975 MB/s** |
+| 完整性 | 落盘 SHA-256 `5d057f9c…` 一致、`POST /Upload 200`、无 408 |
+| 数据面 | `input_fail=0`、`input_retry=0`、`tx_fail=0` |
+| 无线侧 | 手机帧率中位数 787（峰值 891）、CRC 15.1%、RSSI 62–70、MCS 17–19 |
+| 聚合 | 1,286 帧承载 29.66 MB，约 23 KB/帧（合并生效） |
+
+这是当晚最好的一次，**与历史最好 1.12 MB/s（26.26 s）相差 2% 以内**。默认配置两轮
+0.9231 / 1.0975 MB/s，还差一次才能取 3 次中位数。
+
+证据：[shipped-folder-video-2026-10-29.log](../evidence/shipped-folder-video-2026-10-29.log)。
