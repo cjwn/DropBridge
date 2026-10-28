@@ -1,7 +1,57 @@
 """Regression fixtures taken from the supervisor's actual log format."""
 import unittest
 import datetime as dt
-from analyze_session import uploads, failure_context
+from analyze_session import uploads, failure_context, netd_summary
+
+
+class NetdSummaryTest(unittest.TestCase):
+    """netd counters are the only host-side signal for dropped inbound frames."""
+
+    def test_deltas_and_drop_detection(self):
+        rows = netd_summary([
+            '19:50:20.554 awdl_netd: ipc stats rx_seen=100 rx_bytes=140000 rx_queued=98 '
+            'alloc_fail=0 copy_fail=1 input_fail=2 tx_frames=10 tx_bytes=1000 tx_fail=0',
+            '19:50:25.554 awdl_netd: ipc stats rx_seen=600 rx_bytes=840000 rx_queued=590 '
+            'alloc_fail=0 copy_fail=1 input_fail=12 tx_frames=60 tx_bytes=6000 tx_fail=0',
+            '19:50:25.554 awdl_netd: tcp flow=1 t_ms=5 dir=rx remote_port=50000 local_port=8771 '
+            'packets=600 payload=840000 accepted=590 failed=10 seq=1 ack=2 win_raw=65535 '
+            'ws_offer=0 syn=1 fin=0 rst=0 zero_window=0 gap=0 overlap=0 repeat_ack=0 '
+            'data_idle_ms=30123 ack_idle_ms=5',
+            '19:50:25.554 awdl_netd: tcp flow=1 t_ms=5 dir=tx remote_port=50000 local_port=8771 '
+            'packets=60 payload=6000 accepted=60 failed=0 seq=2 ack=1 win_raw=61440 '
+            'ws_offer=2 syn=1 fin=0 rst=0 zero_window=0 gap=0 overlap=0 repeat_ack=0 '
+            'data_idle_ms=-1 ack_idle_ms=5',
+            '19:50:25.554 awdl_netd: proxy flow=1 t_ms=5 active=0 up_read=840000 '
+            'up_written=840000 down_read=6000 down_written=6000 up_phase=lwip_eof '
+            'down_phase=local_eof',
+        ])
+        self.assertEqual(rows['samples'], 2)
+        self.assertFalse(rows['counters_reset'])
+        self.assertEqual(rows['totals']['rx_seen'], 600)
+        self.assertEqual(rows['totals']['rx_bytes'], 840000)
+        self.assertEqual(rows['totals']['input_fail'], 12)
+        self.assertEqual(rows['totals']['copy_fail'], 1)
+        self.assertEqual(rows['flows']['1/rx']['payload_bytes'], 840000)
+        self.assertEqual(rows['flows']['1/rx']['failed'], 10)
+        self.assertEqual(rows['flows']['1/rx']['data_idle_ms_at_end'], 30123)
+        self.assertEqual(rows['proxy']['1']['up_written'], 840000)
+        self.assertEqual(rows['proxy']['1']['active'], 0)
+        self.assertEqual(rows['proxy']['1']['up_phase'], 'lwip_eof')
+
+    def test_restart_inside_session_uses_last_lifetime(self):
+        rows = netd_summary([
+            '10:00:00.001 awdl_netd: ipc stats rx_seen=900 rx_bytes=9 rx_queued=9 '
+            'alloc_fail=0 copy_fail=0 input_fail=4 tx_frames=1 tx_bytes=1 tx_fail=0',
+            '10:00:05.001 awdl_netd: ipc stats rx_seen=5 rx_bytes=5 rx_queued=5 '
+            'alloc_fail=0 copy_fail=0 input_fail=1 tx_frames=1 tx_bytes=1 tx_fail=0',
+        ])
+        self.assertTrue(rows['counters_reset'])
+        self.assertEqual(rows['totals']['rx_seen'], 5)
+        self.assertEqual(rows['totals']['input_fail'], 1)
+
+    def test_no_netd_log_is_not_an_error(self):
+        self.assertIsNone(netd_summary([]))
+        self.assertIsNone(netd_summary(['10:00:00.001 awdl_netd: AWDL data plane up']))
 
 
 class UploadLogTest(unittest.TestCase):

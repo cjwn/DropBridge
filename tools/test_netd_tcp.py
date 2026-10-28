@@ -205,7 +205,22 @@ class Peer:
         retransmits = 0
         last_acked, last_progress = self.acked, time.monotonic()
         schedule = time.monotonic()
-        while offset < len(data):
+
+        def resend_unacked():
+            """Go-back-N over the unacknowledged window (bounded by inflight)."""
+            start = self.acked - base
+            end = min(len(data), start + inflight)
+            seq = self.acked
+            while start < end:
+                size = min(MSS, end - start)
+                self.send(24, data[start:start + size], seq=seq)
+                seq += size
+                start += size
+            self.seq = seq
+
+        # Keep going while bytes are still to send OR the tail is unacknowledged:
+        # a lost final segment must be retransmitted too, as real TCP would.
+        while offset < len(data) or self.acked < self.seq:
             def available():
                 return min(self.acked + self.window - self.seq,
                            inflight - (self.seq - self.acked))
@@ -232,8 +247,8 @@ class Peer:
                         f'{offset}/{len(data)} bytes (unacked={self.seq - self.acked} '
                         f'window={self.window} retransmits={retransmits})')
                 if self.seq > self.acked:
-                    self.seq = self.acked  # go-back-N from the first missing byte
-                    offset = self.seq - base
+                    resend_unacked()
+                    offset = max(offset, self.seq - base)
                     retransmits += 1
                 elif offset < len(data):
                     # Zero-window probe, as TCP does: one byte past the window
@@ -262,7 +277,6 @@ class Peer:
                     delay = schedule - time.monotonic()
                     if delay > 0:
                         time.sleep(delay)
-        self.wait(lambda: self.acked >= self.seq, 'upload ACK', timeout=15)
         return offset, retransmits
 
     def finish(self):

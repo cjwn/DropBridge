@@ -30,6 +30,19 @@ REJECTED = re.compile(r'^(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d,\d+) .*/Upload rejected
 AWD = re.compile(r'^(\d\d:\d\d:\d\d\.\d+) .*peers (\d+) \| rx action (\d+), data (\d+)(?: \((\d+) joined\))?'
                  r' \| tx action (\d+), data (\d+)')
 
+# netd writes these to stderr every 5 s; the supervisor prefixes its own clock.
+NETD_STATS = re.compile(
+    r'ipc stats rx_seen=(\d+) rx_bytes=(\d+) rx_queued=(\d+) alloc_fail=(\d+) '
+    r'copy_fail=(\d+) input_fail=(\d+) tx_frames=(\d+) tx_bytes=(\d+) tx_fail=(\d+)')
+NETD_FLOW = re.compile(
+    r'tcp flow=(\d+) t_ms=(\d+) dir=(rx|tx) .*?payload=(\d+) accepted=(\d+) failed=(\d+)'
+    r'.*?data_idle_ms=(-?\d+)')
+NETD_PROXY = re.compile(
+    r'proxy flow=(\d+) t_ms=(\d+) active=(\d+) up_read=(\d+) up_written=(\d+) '
+    r'down_read=(\d+) down_written=(\d+) up_phase=(\S+) down_phase=(\S+)')
+NETD_FIELDS = ('rx_seen', 'rx_bytes', 'rx_queued', 'alloc_fail', 'copy_fail',
+               'input_fail', 'tx_frames', 'tx_bytes', 'tx_fail')
+
 MB = 1_000_000
 
 
@@ -228,6 +241,77 @@ def failure_context(item, radio_lines, awdl_lines):
     return result
 
 
+def netd_summary(netd_lines):
+    """Summarise netd's 5 s counters and per-flow proxy totals.
+
+    netd starts at zero every launch, so the last snapshot is the cumulative
+    total for that process lifetime; a session that restarts netd keeps only
+    the last lifetime (flagged by `counters_reset`). `input_fail` counts
+    inbound frames rejected before TCP (allocation, mailbox or the
+    MEMP_NUM_TCPIP_MSG_INPKT pool), so a nonzero value is the one host-side
+    counter that says the data plane itself dropped frames. It is not proof
+    that air-interface bytes were lost.
+    """
+    samples = []
+    for line in netd_lines:
+        match = NETD_STATS.search(line)
+        if match:
+            samples.append({name: int(value)
+                            for name, value in zip(NETD_FIELDS, match.groups())})
+    if not samples:
+        return None
+    reset = any(samples[index][name] < samples[index - 1][name]
+                for index in range(1, len(samples)) for name in NETD_FIELDS)
+    flows, proxies = {}, {}
+    for line in netd_lines:
+        match = NETD_FLOW.search(line)
+        if match:
+            flow, _, direction, payload, accepted, failed, idle = match.groups()
+            entry = flows.setdefault(f'{flow}/{direction}', {
+                'payload_bytes': 0, 'accepted': 0, 'failed': 0, 'data_idle_ms_at_end': 0})
+            entry['payload_bytes'] = max(entry['payload_bytes'], int(payload))
+            entry['accepted'] = max(entry['accepted'], int(accepted))
+            entry['failed'] = max(entry['failed'], int(failed))
+            # Idle since the last payload in the LAST sample: large after a
+            # finished transfer too, so read it together with proxy active.
+            entry['data_idle_ms_at_end'] = int(idle)
+            continue
+        match = NETD_PROXY.search(line)
+        if match:
+            (flow, _, active, up_read, up_written, down_read, down_written,
+             up_phase, down_phase) = match.groups()
+            proxies[flow] = {'active': int(active), 'up_read': int(up_read),
+                             'up_written': int(up_written), 'down_read': int(down_read),
+                             'down_written': int(down_written), 'up_phase': up_phase,
+                             'down_phase': down_phase}
+    return {'samples': len(samples), 'counters_reset': reset, 'totals': samples[-1],
+            'flows': flows, 'proxy': proxies}
+
+
+def report_netd(summary):
+    totals = summary['totals']
+    print(f"netd: {summary['samples']} sample(s); ipc rx {totals['rx_seen']} frames "
+          f"{totals['rx_bytes'] / MB:.2f} MB, queued {totals['rx_queued']}, "
+          f"tx {totals['tx_frames']} frames")
+    print(f"  dropped frames: alloc={totals['alloc_fail']} copy={totals['copy_fail']} "
+          f"input={totals['input_fail']} tx={totals['tx_fail']}")
+    if totals['input_fail'] or totals['alloc_fail'] or totals['copy_fail']:
+        print('  !! netd rejected inbound frames before TCP: the peer has to retransmit; '
+              'this is the lwIP input-queue / pool boundary, not an air-interface measurement')
+    if summary['counters_reset']:
+        print('  note: counters went backwards (netd restarted); values cover the last run only')
+    for name in sorted(summary['flows']):
+        entry = summary['flows'][name]
+        print(f"  tcp {name}: payload {entry['payload_bytes'] / MB:.2f} MB, "
+              f"accepted {entry['accepted']}, failed {entry['failed']}, "
+              f"idle at last sample {entry['data_idle_ms_at_end']} ms")
+    for flow in sorted(summary['proxy']):
+        entry = summary['proxy'][flow]
+        print(f"  proxy {flow}: up {entry['up_read']}->{entry['up_written']} B, "
+              f"down {entry['down_read']}->{entry['down_written']} B, "
+              f"active={entry['active']}, phase {entry['up_phase']}/{entry['down_phase']}")
+
+
 def main(argv=None):
     args = parse_args(argv)
     session = resolve(args)
@@ -246,6 +330,7 @@ def main(argv=None):
             if os.path.isfile(path):
                 item['file_bytes'] = os.path.getsize(path)
     samples = airtime(awdl_lines)
+    netd = netd_summary(read_lines(os.path.join(session, 'netd.log')))
     if args.diagnose:
         radio_lines = read_lines(os.path.join(session, 'radio.log'))
         for item in transfers:
@@ -255,7 +340,8 @@ def main(argv=None):
     if args.json:
         print(json.dumps({'session': session, 'transfers': [
             {key: (value.isoformat() if isinstance(value, dt.datetime) else value)
-             for key, value in item.items()} for item in transfers]}, ensure_ascii=False, indent=2))
+             for key, value in item.items()} for item in transfers],
+            'netd': netd}, ensure_ascii=False, indent=2))
         return 0
 
     print(f'session: {session}')
@@ -272,6 +358,9 @@ def main(argv=None):
         basis = 'stored file' if 'file_bytes' in item else 'announced/wire; file not verified'
         print(f"  {item['name']}: {size:,} bytes in {seconds:.2f} s "
               f"= {size / MB / seconds:.2f} MB/s ({basis})")
+
+    if netd:
+        report_netd(netd)
 
     if len(samples) >= 2:
         window = samples[-1]['time'], samples[0]['time']
