@@ -1,9 +1,10 @@
 {
   "baseline_commit": "0c2f028",
   "session": "20261028-143206",
+  "source_snapshot": "frozen after old chain stopped, archived under build/diagnostics/baseline-20261028",
   "source_sha256": {
-    "radio.log": "50d367d31276860738adcf86701e03d07b93ea06dc0e0f4996f29606ce9efe7d",
-    "awdld.log": "c7d32b6c1ec5fb9db5a29f1c833e8198e0aad51110a1612eb2565fce5aa0e0ee",
+    "radio.log": "e89e9e6d73810341219ef4af036e1576c1f8fe445d761af1af46620d947cb0ca",
+    "awdld.log": "3847a2eab1770e9f56a6e2f998dd59d38b6346b022ca812c5733e55fea081265",
     "receiver.log": "407a55d35affc0636433c14cdb7424a0093070201010a0e4e68e08498eee7014",
     "netd.log": "c1ccbdeee236b282a9ab6156c1502696b8c90f27b160d00b1f2a155ef7aafced"
   },
@@ -37,30 +38,32 @@
       3,
       3
     ],
-    "awdl_after_zero": {
-      "start": "2026-10-28T14:43:28.610000",
+    "receiver_idle_seconds": 30.0,
+    "receiver_idle_start_estimate": "2026-10-28T14:43:19.054000",
+    "awdl_during_receiver_idle": {
+      "start": "2026-10-28T14:43:20.611000",
       "end": "2026-10-28T14:43:48.611000",
       "delta": {
-        "rx_action": 55,
+        "rx_action": 75,
         "rx_data": 0,
         "joined": 0,
-        "tx_action": 483,
+        "tx_action": 676,
         "tx_data": 0
       },
       "counters_reset": false,
       "peers_end": 1
     },
-    "radio_after_zero": {
-      "start": "2026-10-28T14:43:32.485000",
+    "radio_during_receiver_idle": {
+      "start": "2026-10-28T14:43:21.611000",
       "end": "2026-10-28T14:43:48.786000",
       "delta": {
-        "cb": 262,
-        "crc": 136,
-        "small": 15,
-        "filtered": 1,
-        "queued": 46,
+        "cb": 474,
+        "crc": 239,
+        "small": 39,
+        "filtered": 19,
+        "queued": 73,
         "drop": 0,
-        "tx": 392,
+        "tx": 655,
         "failed": 0
       },
       "counters_reset": false

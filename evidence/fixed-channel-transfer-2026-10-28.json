@@ -1,0 +1,90 @@
+{
+  "mode": "fixed",
+  "code_commit": "0741be7",
+  "session": "20261028-150311",
+  "radio_and_awdl_package": "20261028-143130",
+  "channel": 149,
+  "width_mhz": 20,
+  "source_sha256": {
+    "radio.log": "40e210fed96c7b296534d6bff13c2734470930d06a30e066be1d99455a3fec8b",
+    "awdld.log": "96ca8a266fe43caa34b1e2069e1618c4ebb9f8f57380b6af4d3435994ec1af59",
+    "receiver.log": "978e2832ccfc4c495263d99ae42382c72e1b9d57e7e55d4bf4e04ee2a14b9429",
+    "netd.log": "8c7393fc15f97a8a5fbcbd5fc5441ab25037aae18eb80da0b30077d949a33e9a",
+    "supervisor.log": "760a08cdbda56450956be61ca9b22e4a63051e3a12c84b373d041410d39b416a"
+  },
+  "transfers": [
+    {
+      "status": "complete",
+      "start": "2026-10-28T15:07:18.833000",
+      "end": "2026-10-28T15:08:49.969000",
+      "seconds": 91.136,
+      "file_bytes": 29456959,
+      "wire_bytes": 29419846,
+      "file_sha256": "5d057f9c5bad719872cf316a9b6935fc965b6ff80ecc65ec5fe82ef768c73c54",
+      "MB_per_s": 0.32321979239817417
+    },
+    {
+      "status": "failed",
+      "start": "2026-10-28T15:10:30.267000",
+      "end": "2026-10-28T15:15:54.080000",
+      "seconds": 323.813,
+      "http_status": 408,
+      "wire_bytes": 15982835,
+      "link_context": {
+        "last_positive_radio_sample": {
+          "time": "2026-10-28T15:15:49.756000",
+          "frames": 1,
+          "fps": 0.182916,
+          "rssi": 70.0,
+          "rssi_n": 1.0,
+          "thermal_raw": 28,
+          "thermal_delta": 2
+        },
+        "first_zero_radio_sample": null,
+        "zero_tail_samples": 0,
+        "confirmed_retunes": 0,
+        "max_retune_us": null,
+        "thermal_raw_range": [
+          28,
+          28
+        ],
+        "thermal_delta_range": [
+          2,
+          2
+        ],
+        "receiver_idle_seconds": 30.0,
+        "receiver_idle_start_estimate": "2026-10-28T15:15:24.080000",
+        "awdl_during_receiver_idle": {
+          "start": "2026-10-28T15:15:25.270000",
+          "end": "2026-10-28T15:15:53.271000",
+          "delta": {
+            "rx_action": 53,
+            "rx_data": 7,
+            "joined": 0,
+            "tx_action": 676,
+            "tx_data": 7
+          },
+          "counters_reset": false,
+          "peers_end": 1
+        },
+        "radio_during_receiver_idle": {
+          "start": "2026-10-28T15:15:27.896000",
+          "end": "2026-10-28T15:15:49.755000",
+          "delta": {
+            "cb": 383,
+            "crc": 297,
+            "small": 7,
+            "filtered": 15,
+            "queued": 64,
+            "drop": 0,
+            "tx": 531,
+            "failed": 0
+          },
+          "counters_reset": false
+        }
+      }
+    }
+  ],
+  "third_attempt": "not performed: stop after an observed failure",
+  "limitations": "No phone-side source hash. Host frame counts do not prove TCP payload progress or RF ACK delivery."
+}

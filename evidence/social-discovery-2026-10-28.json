@@ -1,0 +1,46 @@
+{
+  "mode": "social",
+  "code_commit": "0741be7",
+  "session": "20261028-151652",
+  "radio_and_awdl_package": "20261028-143130",
+  "channel": 149,
+  "width_mhz": 20,
+  "phone_observation": "AirBridge32 not visible; still absent after closing and reopening share sheet",
+  "discover_requests": 0,
+  "upload_attempts": 0,
+  "peer_observed": true,
+  "switches_to_6": 264,
+  "radio_ready_clock": "15:17:35.000",
+  "receiver_ready_clock": "15:17:35.479",
+  "source_sha256": {
+    "radio.log": "329be5496dcab8dad78710b7f9b30c130a16de644f2d88ca8844a0482894cc6f",
+    "awdld.log": "f4dd6efeedf97d5342b8b068cdf14031e9bef7fea8f2fafd249808bf7c7d0db4",
+    "receiver.log": "236bff8c89acc407e1ef724da23a20889c79583f1cddd3e06ec3242df43b658b",
+    "netd.log": "8408f0ea964921c2cad7a154eca51370117657e6b47521e40778d602ee1eb7fd",
+    "supervisor.log": "7e33f2e72404b7389cc3bedfbd6ff935f11b5b175c8b6b9c4f3047c45aec5b34"
+  },
+  "backend_sha256": [
+    {
+      "file": "backend\\airbridge_radio.exe",
+      "sha256": "6D27F091BE099842CCCEA6E089C4D9ED45346ABAC65C1F8FA0665BEAE8A821B0"
+    },
+    {
+      "file": "backend\\awdld.exe",
+      "sha256": "4750FCDA7C9A0DC973B557F6D4788AEA5225C91B3863968C4488B7C7AB82D807"
+    },
+    {
+      "file": "backend\\awdl_netd.exe",
+      "sha256": "6C3F4465578C552F007ABEC946F7CEBCD1E2738B0BE3737E21A1CB07314012B3"
+    },
+    {
+      "file": "backend\\radio_pipe_bridge.exe",
+      "sha256": "2A00C5CE2351E838DDACF530E636DD7B2E7B015532E0CF4DA29C88752A922B5B"
+    },
+    {
+      "file": "backend\\airdrop\\receiver.py",
+      "sha256": "3AF9C952B544BB9C9E35D6D9B5AFAD030F8C9A9458DD387BE04EE64FAA43070E"
+    }
+  ],
+  "result": "discovery failure; not an upload failure and no throughput comparison",
+  "after_test": "Owned project chain stopped. MI_02 remains WinUSB OK; MI_00 has same pre-existing Error status. No extra device reset or driver/network modification."
+}

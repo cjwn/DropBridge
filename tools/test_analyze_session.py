@@ -64,6 +64,20 @@ class UploadLogTest(unittest.TestCase):
         self.assertIsNone(row['thermal_raw_range'])
         self.assertIsNone(row['max_retune_us'])
 
+    def test_receiver_timeout_keeps_context_despite_sparse_radio_frames(self):
+        item = {'start': dt.datetime(2026, 10, 28, 14),
+                'end': dt.datetime(2026, 10, 28, 14, 1),
+                'reason': 'request body read timed out, nothing arrived for 30 s'}
+        row = failure_context(item, [
+            '14:00:40.000 radio: peer frames=1',
+            '14:00:45.000 radio: stats cb=100 tx=10 failed=0',
+            '14:00:55.000 radio: stats cb=110 tx=12 failed=0',
+        ], [])
+        self.assertIsNone(row['first_zero_radio_sample'])
+        self.assertEqual(row['receiver_idle_start_estimate'], '2026-10-28T14:00:30')
+        self.assertEqual(row['radio_during_receiver_idle']['delta']['tx'], 2)
+        self.assertIsNone(row['awdl_during_receiver_idle'])
+
 
 if __name__ == '__main__':
     unittest.main()

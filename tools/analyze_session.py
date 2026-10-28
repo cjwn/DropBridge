@@ -193,15 +193,26 @@ def failure_context(item, radio_lines, awdl_lines):
     for key in ('thermal_raw', 'thermal_delta'):
         values = [row[key] for row in radio if key in row]
         result[key + '_range'] = [min(values), max(values)] if values else None
-    if not zeros:
+    idle = re.search(r'nothing arrived for (\d+(?:\.\d+)?) s', item.get('reason', ''))
+    if idle:
+        idle_seconds = float(idle[1])
+        tail_start = end - dt.timedelta(seconds=idle_seconds)
+        result['receiver_idle_seconds'] = idle_seconds
+        result['receiver_idle_start_estimate'] = tail_start.isoformat()
+        # A few radio data frames can be TCP probes/ACKs, not upload payload.
+        # Keep the receiver's timeout window even when the radio never hits 0.
+        suffix = '_during_receiver_idle'
+    elif zeros:
+        tail_start = dt.datetime.fromisoformat(zeros[0]['time'])
+        suffix = '_after_zero'
+    else:
         return result
-    zero_at = dt.datetime.fromisoformat(zeros[0]['time'])
-    # All deltas begin at the first available sample AFTER the zero upload
-    # window. They are observed counter changes, not ACK delivery evidence.
+    # Deltas begin at the first sample AFTER the selected window starts.
+    # These are host counter changes, not ACK delivery evidence.
     awdl = [(time, airtime([line])[0]) for time, line in timed(awdl_lines)
-            if time >= zero_at and AWD.match(line)]
-    tails = {'awdl_after_zero': awdl,
-             'radio_after_zero': [(time, row) for time, row in stats if time >= zero_at]}
+            if time >= tail_start and AWD.match(line)]
+    tails = {'awdl' + suffix: awdl,
+             'radio' + suffix: [(time, row) for time, row in stats if time >= tail_start]}
     for key, rows in tails.items():
         if len(rows) < 2:
             result[key] = None

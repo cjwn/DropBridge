@@ -45,10 +45,12 @@
 | --- | --- | --- | --- |
 | Q18 | 链路统计与监测线程异常 | ✅ radio/监管编译、离线回归通过：上传数据分类、有效 RSSI、并发窗口计数；未据此声称实机提速 | `evidence/radio-telemetry-fix.log` |
 | Q19 | 换台完成确认与跨频段补偿同步 | ✅ 实现与离线验证：C2H 有界等待后回读真实信道，失败断开链路；跨频段恢复功率表/天线配置并更新补偿上下文；实机效果独立记 Q20 | `evidence/channel-confirmation-offline.log`、`patches/devourer-airbridge.patch` |
-| Q20 | 修复版连续传输验收 | 🔜 上轮 2/3 成功、0.39/0.38 MB/s，第三次约 10.2 MB 后 408。用户现已要求继续排障：Q22 复盘、Q23 单变量模式入口完成；待 iPhone 配合固定 149 / social 对照，未据离线测试宣称真机通过 | `docs/RESEARCH_2026-10-28.md`、`docs/STALL_DIAGNOSIS.md` |
+| Q20 | 修复版连续传输验收 | 🔜 未通过。最新 Q24：fixed 首次 0.323 MB/s 成功，第二次约 15.98 MB 传输体后 408；social 未发现接收端，未进入上传。停止追加发送，链路已退出；下一步采集 TCP 载荷/ACK/窗口证据 | `docs/RESEARCH_2026-10-28.md`、`docs/STALL_DIAGNOSIS.md` |
 | Q21 | 修正真实传输分析工具 | ✅ 识别监管时间前缀，区分成功/失败/进行中，区分落盘与传输体字节；三项离线回归通过 | `tools/test_analyze_session.py` |
-| Q22 | 失败会话分层时间线复盘 | ✅ 2026-10-28：离线确认控制面仍活动、上传数据停顿；本次上传最大换台 2175 us，温度 29/+3；五项分析回归通过，不推断热故障或空口 ACK | `docs/STALL_DIAGNOSIS.md`、`evidence/stall-context-2026-10-28.json` |
-| Q23 | 固定信道 / 社交时隙单变量入口 | ✅ 2026-10-28：监管 `--chanseq` / 脚本 `-ChannelSequence`；固定模式真实移除 presence 开关，两模式禁用继承的跟随。真实子进程离线测试、两组 `--check`、非法参数拒绝通过；尚无新传输结果 | `evidence/chanseq-offline-2026-10-28.log`、`src/supervisor/channel_sequence_test.cs` |
+| Q22 | 失败会话分层时间线复盘 | ✅ 2026-10-28：离线确认控制面仍活动、上传数据停顿；本次上传最大换台 2175 us，温度 29/+3；后续补齐接收空窗仍有少量数据帧的诊断，六项分析回归通过 | `docs/STALL_DIAGNOSIS.md`、`evidence/stall-context-2026-10-28.json` |
+| Q23 | 固定信道 / 社交时隙单变量入口 | ✅ 2026-10-28：监管 `--chanseq` / 脚本 `-ChannelSequence`；固定模式真实移除 presence 开关，两模式禁用继承的跟随。真实子进程离线测试、两组 `--check`、非法参数拒绝通过；真机结果见 Q24 | `evidence/chanseq-offline-2026-10-28.log`、`src/supervisor/channel_sequence_test.cs` |
+| Q24 | 固定 149 / social 真机排障 | ✅ 实验与负结果记录完成，非验收通过：fixed 1/2 完成，第二次 408 后停止第三次；social 用户两次报告不可见，零 Discover/Upload。仅关闭跳频不足以解决，不能排除历史射频状态；原始日志已冻结备份 | `evidence/fixed-channel-transfer-2026-10-28.json`、`evidence/social-discovery-2026-10-28.json` |
+| Q25 | TCP 数据面被动诊断 | ⬜ 记录 IPC→lwIP→receiver 的载荷字节、TCP seq/ACK/窗口和输入丢弃；先离线验证再配合一次真机复现，禁止据 USB TX 成功判定空口 ACK 正常 | — |
 
 ## 3. 每项的具体做法
 
