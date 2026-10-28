@@ -39,6 +39,8 @@ def parse_args(argv=None):
     parser.add_argument('--latest', metavar='ROOT',
                         help='pick the newest session under ROOT\\data\\logs')
     parser.add_argument('--json', action='store_true')
+    parser.add_argument('--diagnose', action='store_true',
+                        help='add existing radio/AWDL evidence around failed uploads')
     return parser.parse_args(argv)
 
 
@@ -130,11 +132,89 @@ def airtime(awdl_lines):
         samples.append({
             'time': match.group(1),
             'peers': int(match.group(2)),
+            'rx_action': int(match.group(3)),
             'rx_data': int(match.group(4)),
             'joined': int(match.group(5) or 0),
             'tx_data': int(match.group(7)),
+            'tx_action': int(match.group(6)),
         })
     return samples
+
+
+def failure_context(item, radio_lines, awdl_lines):
+    """Correlate host log samples, without inferring air ACKs or phone state.
+
+    Each window must be shorter than 12 h so an HH:mm:ss clock is unambiguous
+    around midnight. Missing counters stay missing, rather than becoming zero.
+    """
+    start, end = item['start'], item.get('end')
+    if end is None:
+        return {}
+    if not 0 <= (end - start).total_seconds() < 12 * 3600:
+        return {'unavailable': 'diagnostic window must be shorter than 12 h'}
+
+    def timed(lines):
+        for line in lines:
+            clock = re.match(r'^(\d\d:\d\d:\d\d\.\d+)', line.lstrip('\ufeff'))
+            if not clock:
+                continue
+            time = dt.datetime.combine(start.date(),
+                                       dt.datetime.strptime(clock[1], '%H:%M:%S.%f').time())
+            time = min((time - dt.timedelta(days=1), time, time + dt.timedelta(days=1)),
+                       key=lambda value: abs((value - start).total_seconds()))
+            if start <= time <= end:
+                yield time, line
+
+    radio, stats, switches = [], [], []
+    for time, line in timed(radio_lines):
+        fields = dict(re.findall(r'(\w+)=(-?[\d.]+(?:/-?\d+)?)', line))
+        if 'peer frames=' in line:
+            sample = {'time': time.isoformat(), 'frames': int(fields['frames'])}
+            for key in ('fps', 'rssi', 'rssi_n'):
+                if key in fields:
+                    sample[key] = float(fields[key])
+            if fields.get('thermal_valid') == '1':
+                sample['thermal_raw'], sample['thermal_delta'] = map(int, fields['thermal'].split('/'))
+            radio.append(sample)
+        elif 'radio: stats ' in line:
+            stats.append((time, {key: int(value) for key, value in fields.items()}))
+        switch = re.search(r'channel (\d+) -> (\d+) \((\d+) us, confirmed retune\)', line)
+        if switch:
+            switches.append(int(switch[3]))
+
+    positive = [row for row in radio if row['frames'] > 0]
+    last = positive[-1] if positive else None
+    zeros = [row for row in radio if row['frames'] == 0 and
+             (last is None or row['time'] > last['time'])]
+    result = {'last_positive_radio_sample': last,
+              'first_zero_radio_sample': zeros[0] if zeros else None,
+              'zero_tail_samples': len(zeros), 'confirmed_retunes': len(switches),
+              'max_retune_us': max(switches) if switches else None}
+    for key in ('thermal_raw', 'thermal_delta'):
+        values = [row[key] for row in radio if key in row]
+        result[key + '_range'] = [min(values), max(values)] if values else None
+    if not zeros:
+        return result
+    zero_at = dt.datetime.fromisoformat(zeros[0]['time'])
+    # All deltas begin at the first available sample AFTER the zero upload
+    # window. They are observed counter changes, not ACK delivery evidence.
+    awdl = [(time, airtime([line])[0]) for time, line in timed(awdl_lines)
+            if time >= zero_at and AWD.match(line)]
+    tails = {'awdl_after_zero': awdl,
+             'radio_after_zero': [(time, row) for time, row in stats if time >= zero_at]}
+    for key, rows in tails.items():
+        if len(rows) < 2:
+            result[key] = None
+            continue
+        first_time, first = rows[0]
+        last_time, last_row = rows[-1]
+        counters = ('rx_action', 'rx_data', 'joined', 'tx_action', 'tx_data') if key.startswith('awdl') else tuple(first)
+        delta = {name: last_row[name] - first[name] for name in counters}
+        result[key] = {'start': first_time.isoformat(), 'end': last_time.isoformat(),
+                       'delta': delta, 'counters_reset': any(value < 0 for value in delta.values())}
+        if key.startswith('awdl'):
+            result[key]['peers_end'] = last_row['peers']
+    return result
 
 
 def main(argv=None):
@@ -155,6 +235,11 @@ def main(argv=None):
             if os.path.isfile(path):
                 item['file_bytes'] = os.path.getsize(path)
     samples = airtime(awdl_lines)
+    if args.diagnose:
+        radio_lines = read_lines(os.path.join(session, 'radio.log'))
+        for item in transfers:
+            if item['status'] == 'failed':
+                item['link_context'] = failure_context(item, radio_lines, awdl_lines)
 
     if args.json:
         print(json.dumps({'session': session, 'transfers': [
@@ -168,6 +253,8 @@ def main(argv=None):
     for item in transfers:
         if item['status'] != 'complete':
             print(f"  {item['status']}: {item.get('reason', 'no stored-file completion')}")
+            if 'link_context' in item:
+                print(json.dumps(item['link_context'], ensure_ascii=False, indent=2))
             continue
         seconds = (item['end'] - item['start']).total_seconds()
         size = item.get('file_bytes') or item['total'] or item.get('bytes') or 0

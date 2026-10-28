@@ -47,6 +47,7 @@
 | Q19 | 换台完成确认与跨频段补偿同步 | ✅ 实现与离线验证：C2H 有界等待后回读真实信道，失败断开链路；跨频段恢复功率表/天线配置并更新补偿上下文；实机效果独立记 Q20 | `evidence/channel-confirmation-offline.log`、`patches/devourer-airbridge.patch` |
 | Q20 | 修复版连续传输验收 | 🔜 验收未通过，用户要求暂停：两次成功 0.39/0.38 MB/s，接收文件哈希一致；第三次约 10.2 MB 后 408。后续不追加实验，先交付简报 | `docs/RESEARCH_2026-10-28.md`、`evidence/research-transfer-2026-10-28.log` |
 | Q21 | 修正真实传输分析工具 | ✅ 识别监管时间前缀，区分成功/失败/进行中，区分落盘与传输体字节；三项离线回归通过 | `tools/test_analyze_session.py` |
+| Q22 | 失败会话分层时间线复盘 | ✅ 2026-10-28：离线确认控制面仍活动、上传数据停顿；本次上传最大换台 2175 us，温度 29/+3；五项分析回归通过，不推断热故障或空口 ACK | `docs/STALL_DIAGNOSIS.md`、`evidence/stall-context-2026-10-28.json` |
 
 ## 3. 每项的具体做法
 
