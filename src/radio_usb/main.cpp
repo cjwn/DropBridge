@@ -49,6 +49,7 @@
 #include "WiFiDriver.h"
 #include "logger.h"
 #include "radio_link.h"
+#include "peer_telemetry.h"
 
 namespace {
 
@@ -127,11 +128,13 @@ bool recv_exact(SOCKET sock, void *dst, size_t len) {
  * stalling the USB RX ring. */
 class OutQueue {
   public:
-    void push(std::vector<uint8_t> message) {
+    bool push(std::vector<uint8_t> message) {
         std::lock_guard<std::mutex> lock(mu_);
-        if (queue_.size() >= kMaxQueued) queue_.pop_front();
+        const bool dropped = queue_.size() >= kMaxQueued;
+        if (dropped) queue_.pop_front();
         queue_.push_back(std::move(message));
         cv_.notify_one();
+        return dropped;
     }
 
     bool pop(std::vector<uint8_t> &message) {
@@ -173,11 +176,7 @@ std::atomic<uint64_t> g_rx_queued{0};
 std::atomic<uint64_t> g_rx_dropped{0};
 // Accepted data frames only: what the peer's rate control is doing is the
 // difference between a 900 KB/s and a 250 KB/s transfer with identical loss.
-std::atomic<uint64_t> g_rx_frames{0};
-std::atomic<int64_t> g_rx_rssi_sum{0};
-std::atomic<uint32_t> g_rx_last_rate{0};
-std::atomic<uint32_t> g_rx_last_bw{0};
-std::atomic<uint32_t> g_rx_last_sgi{0};
+PeerTelemetry g_peer;
 std::chrono::steady_clock::time_point g_start;
 
 long long elapsed_ms() {
@@ -190,6 +189,7 @@ void on_rx(const Packet &packet, OutQueue &queue, FilterState &state,
            std::atomic<bool> &client_ready) {
     g_rx_cb.fetch_add(1);
     if (!client_ready.load(std::memory_order_relaxed)) return;
+    if (packet.RxAtrib.pkt_rpt_type != RX_PACKET_TYPE::NORMAL_RX) return;
     if (packet.RxAtrib.crc_err) {
         g_rx_crc.fetch_add(1);
         return;
@@ -207,6 +207,7 @@ void on_rx(const Packet &packet, OutQueue &queue, FilterState &state,
             g_rx_filtered.fetch_add(1);
             return;
         }
+        if (state.has_own) g_peer.observe(packet, state.own);
     }
 
     std::vector<uint8_t> message(sizeof(radio_link_header) + kRadiotapBytes +
@@ -226,13 +227,8 @@ void on_rx(const Packet &packet, OutQueue &queue, FilterState &state,
         g_rx_small.fetch_add(1);
         return;
     }
-    queue.push(std::move(message));
+    if (queue.push(std::move(message))) g_rx_dropped.fetch_add(1);
     g_rx_queued.fetch_add(1);
-    g_rx_frames.fetch_add(1);
-    g_rx_rssi_sum.fetch_add(packet.RxAtrib.rssi[0]);
-    g_rx_last_rate.store(packet.RxAtrib.data_rate);
-    g_rx_last_bw.store(packet.RxAtrib.bw);
-    g_rx_last_sgi.store(packet.RxAtrib.sgi);
 }
 
 int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
@@ -383,6 +379,7 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         g_rx_filtered = 0;
         g_rx_queued = 0;
         g_rx_dropped = 0;
+        (void)g_peer.take();
 
         OutQueue queue;
     FilterState state;
@@ -445,7 +442,7 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         }
     });
 
-    uint64_t tx_sent = 0, tx_failed = 0;
+    std::atomic<uint64_t> tx_sent{0}, tx_failed{0};
 
     // Periodic link counters: a transfer's CRC share must be visible while it
     // runs, not only in the teardown line. AIRBRIDGE_LINK_STATS keeps them at
@@ -454,43 +451,49 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     const bool stats_at_warn = env_flag("AIRBRIDGE_LINK_STATS");
     std::atomic<bool> stats_stop{false};
     std::thread stats_thread([&] {
+        auto previous_sample = std::chrono::steady_clock::now();
         while (!stats_stop.load()) {
             for (int tick = 0; tick < 50 && !stats_stop.load(); tick++) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(100));
             }
             if (stats_stop.load()) break;
-            const uint64_t frames = g_rx_frames.load();
-            const int64_t rssi_sum = g_rx_rssi_sum.load();
-            const int rssi = frames ? static_cast<int>(rssi_sum / frames) : 0;
+            const auto now = std::chrono::steady_clock::now();
+            const double seconds = std::chrono::duration<double>(now - previous_sample).count();
+            previous_sample = now;
+            const auto sample = g_peer.take();
+            const int rssi = sample.signal_samples
+                ? static_cast<int>(sample.rssi_sum / sample.signal_samples) : 0;
             // Chip temperature meter rides along: the slow-transfer events have
             // shown an RSSI collapse, and heat is the first thing to rule out.
-            const devourer::ThermalStatus thermal = radio->GetThermalStatus();
+            devourer::ThermalStatus thermal;
+            try {
+                thermal = radio->GetThermalStatus();
+            } catch (const std::exception &error) {
+                logger->warn("radio: thermal sample unavailable: {}", error.what());
+            }
             if (stats_at_warn) {
                 logger->warn(
                     "radio: stats cb={} crc={} small={} filtered={} queued={} drop={} tx={} failed={}",
                     g_rx_cb.load(), g_rx_crc.load(), g_rx_small.load(),
                     g_rx_filtered.load(), g_rx_queued.load(),
-                    g_rx_dropped.load(), tx_sent, tx_failed);
+                    g_rx_dropped.load(), tx_sent.load(), tx_failed.load());
                 logger->warn(
-                    "radio: peer frames={} rssi={} rate={} bw={} sgi={} thermal={}/{}",
-                    frames, rssi, static_cast<unsigned>(g_rx_last_rate.load()),
-                    static_cast<unsigned>(g_rx_last_bw.load()),
-                    static_cast<unsigned>(g_rx_last_sgi.load()),
-                    static_cast<unsigned>(thermal.raw), thermal.delta);
+                    "radio: peer frames={} fps={:.1f} rssi={} rssi_n={} bytes={} rate={} bw={} sgi={} thermal={}/{} thermal_valid={}",
+                    sample.frames, sample.frames / seconds, rssi, sample.signal_samples,
+                    sample.bytes, sample.rate, sample.bw, sample.sgi,
+                    static_cast<unsigned>(thermal.raw), thermal.delta, thermal.valid);
             } else {
                 logger->info(
                     "radio: stats cb={} crc={} small={} filtered={} queued={} drop={} tx={} failed={}",
                     g_rx_cb.load(), g_rx_crc.load(), g_rx_small.load(),
                     g_rx_filtered.load(), g_rx_queued.load(),
-                    g_rx_dropped.load(), tx_sent, tx_failed);
+                    g_rx_dropped.load(), tx_sent.load(), tx_failed.load());
                 logger->info(
-                    "radio: peer frames={} rssi={} rate={} bw={} sgi={} thermal={}/{}",
-                    frames, rssi, static_cast<unsigned>(g_rx_last_rate.load()),
-                    static_cast<unsigned>(g_rx_last_bw.load()),
-                             static_cast<unsigned>(g_rx_last_sgi.load()));
+                    "radio: peer frames={} fps={:.1f} rssi={} rssi_n={} bytes={} rate={} bw={} sgi={} thermal={}/{} thermal_valid={}",
+                    sample.frames, sample.frames / seconds, rssi, sample.signal_samples,
+                    sample.bytes, sample.rate, sample.bw, sample.sgi,
+                    static_cast<unsigned>(thermal.raw), thermal.delta, thermal.valid);
             }
-            g_rx_frames.store(0);
-            g_rx_rssi_sum.store(0);
         }
     });
     for (;;) {
@@ -596,7 +599,7 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     stats_stop = true;
     if (stats_thread.joinable()) stats_thread.join();
     logger->info("radio: client gone; tx sent {} failed {}; stopping",
-                 tx_sent, tx_failed);
+                 tx_sent.load(), tx_failed.load());
     logger->info("radio: rx cb={} crc={} small={} filtered={} queued={} drop={}",
                  g_rx_cb.load(), g_rx_crc.load(), g_rx_small.load(),
                  g_rx_filtered.load(), g_rx_queued.load(), g_rx_dropped.load());

@@ -30,6 +30,12 @@ add_executable(airbridge_radio main.cpp radio_link.h)
 target_link_libraries(airbridge_radio PRIVATE devourer PkgConfig::libusb ws2_32)
 target_compile_features(airbridge_radio PRIVATE cxx_std_20)
 
+enable_testing()
+add_executable(peer_telemetry_test peer_telemetry_test.cpp)
+target_include_directories(peer_telemetry_test PRIVATE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../../upstream/devourer/src")
+add_test(NAME peer_telemetry COMMAND peer_telemetry_test)
+
 # awdld (WinAWDL/OWL) still opens the named pipe; this byte pump connects it to
 # the TCP radio without touching the wire protocol.
 add_executable(radio_pipe_bridge radio_pipe_bridge.cpp radio_link.h)

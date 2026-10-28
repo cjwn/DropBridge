@@ -39,6 +39,14 @@
 | Q16 | AirDrop 实例 ID 跨重启稳定 | 无 | 重启后 iPhone 不再多出一个 AirBridge32 | ✅ 2026-10-28：ID 持久化到 `<keys>/airdrop-service-id`，跨重启与跨构建都复用 | `evidence/service-id-persist.log` |
 | Q17 | 全部数据留在程序文件夹内 | 无 | 不在 `%LOCALAPPDATA%` 或别处留下文件 | ✅ 2026-10-28：`app\<构建>` + `data\`（跨构建共享），旧的本机目录已清理 | `evidence/data-stays-in-folder.log` |
 
+### 2026-10-28 独立源码复查后的修复项
+
+| ID | 事项 | 状态与完成判据 | 证据 |
+| --- | --- | --- | --- |
+| Q18 | 链路统计与监测线程异常 | ✅ radio/监管编译、离线回归通过：上传数据分类、有效 RSSI、并发窗口计数；未据此声称实机提速 | `evidence/radio-telemetry-fix.log` |
+| Q19 | 换台完成确认与跨频段补偿同步 | 🔜 等真实完成后才发送、补偿跟随实际频段、超时可观测、补丁可复现；在 build 副本修改，保留 upstream 原样 | — |
+| Q20 | 修复版连续传输验收 | ⬜ 同一约 29 MB 文件三次，记录真实字节/耗时/哈希；用户已同意配合，链路就绪后提示发送 | — |
+
 ## 3. 每项的具体做法
 
 ### Q1 receiver 离线吞吐台

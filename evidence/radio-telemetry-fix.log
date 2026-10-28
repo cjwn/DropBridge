@@ -1,0 +1,16 @@
+2026-10-28 / Q18 / verification scope: offline only, no RF operation
+Base commit: 4d13c0a2599028321209f1a70f734b567c0c11e2
+
+MSVC Release: airbridge_radio and peer_telemetry_test built successfully.
+ctest --test-dir build/radio_usb -C Release -R ^peer_telemetry$:
+  1/1 passed, 0 failures (0.01 s).
+Regression fixtures: QoS payload, missing PHY, action, QoS null, other
+destination, C2H, concurrent window exchange (10000 produced == observed).
+tools/Build-Supervisor.ps1: built successfully, 28 KB.
+Initial PowerShell launch hit the local script execution policy; retried
+with -ExecutionPolicy Bypass on this child process only. No policy changed.
+python tools/check_project.py: PASS.
+git diff --check: PASS (only existing Windows autocrlf notices).
+
+No claim of hardware recovery, sustained throughput or file transfer from
+these compile/unit checks. Hardware acceptance belongs to Q20.

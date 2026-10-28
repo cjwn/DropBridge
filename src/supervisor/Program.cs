@@ -16,6 +16,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Globalization;
 using System.Text;
 using System.Threading;
 using System.Windows.Forms;
@@ -251,7 +252,19 @@ internal sealed class Supervisor
             int frames;
             if (int.TryParse(value, out frames))
             {
-                Fps = frames / 5.0;
+                Fps = frames / 5.0; // Compatibility with old radio builds.
+                const string fpsMarker = " fps=";
+                int fpsAt = line.IndexOf(fpsMarker, StringComparison.Ordinal);
+                if (fpsAt >= 0)
+                {
+                    int fpsStart = fpsAt + fpsMarker.Length;
+                    int fpsEnd = line.IndexOf(' ', fpsStart);
+                    string fpsValue = fpsEnd < 0 ? line.Substring(fpsStart)
+                        : line.Substring(fpsStart, fpsEnd - fpsStart);
+                    double measured;
+                    if (double.TryParse(fpsValue, NumberStyles.Float,
+                        CultureInfo.InvariantCulture, out measured)) Fps = measured;
+                }
                 FpsSamples++;
             }
             return;
