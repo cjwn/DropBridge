@@ -56,6 +56,7 @@
 | Q28 | 无需手机的 netd IPC 修复与回归 | ✅ 发送失败返回 ERR_IF，建立后断链退出 2，分配/投递丢弃计数，5 s socket 发送无进展超时。真实池/回环及五种进程情形 CTest 2/2；同一 EOF 在旧版复现 >3 s 假活。仅本机构建未替换原包，未声称真机提速/断流修复 | `docs/NETD_OFFLINE_FIX.md`、`evidence/netd-offline-2026-10-28.log` |
 | Q29 | TCP 代理回压/复位异常清理 | ✅ 本地 send 5 s 无进展超时、两侧 recv 1 s 轮询检查退出标记、join 后关闭；正常空闲/FIN 响应保留。真实回压+RST、远端 RST、本地 RST 和往返回归最终 CTest 5/5；334 后端文件对照仅换 netd，两个 --check 通过，未启动真机 | `docs/TCP_PROXY_CLEANUP.md`、`evidence/tcp-proxy-cleanup-2026-10-28.log` |
 | Q30 | 最新状态交接快照 | ✅ 2026-10-28：整合至 240f88c，现场只读复查 MI_02 OK/WinUSB、MI_00 Error/31，项目进程与指定监听为空；复核新旧版本/334 文件清单，明确首次真机沿用 Q27 fixed/-j 0，仅换 netd。文档/证据整理，无新无线实验 | `docs/HANDOFF_2026-10-28.md`、`evidence/handoff-check-2026-10-28.json` |
+| Q31 | lwIP 输入队列深度与代理吞吐 | ✅ 本机完成、**未经真机**：新增 soak 台暴露 `tcpip_inpkt` 只用 `MEMP_NUM_TCPIP_MSG_INPKT` 默认 8 槽，约 8 段（11 KB）在途即丢帧；16 KB 在途塌到 0.01 MB/s（28 次重传/142 帧丢弃）。改为 64 后 64 KB 在途零丢帧、本机 2.6–16.8 MB/s，CTest 6/6（新增 netd_proxy_soak）。**不声称真机提速**；仅换 netd 的 Q31 测试包已备好待真机对照 | `docs/LWIP_INPUT_QUEUE.md`、`evidence/lwip-input-queue-2026-10-28.log`、`evidence/lwip-input-queue-2026-10-28.json` |
 
 ## 3. 每项的具体做法
 

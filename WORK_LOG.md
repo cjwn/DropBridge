@@ -1,5 +1,14 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-28：Q31 lwIP 输入队列深度（8 → 64）与本机代理吞吐
+
+- 给 `tools/test_netd_tcp.py` 增加 `--case soak`：顺序复用同一 netd 进程的多次连接，双向逐字节校验，统计 goodput/回退重传，8 s 无 ACK 进展即失败，并断言句柄与私有字节不随连接增长；注册 CTest `netd_proxy_soak`。测试台首轮还修掉两个自身缺陷：丢帧后死等 ACK（加 go-back-N 重传与零窗口探测），以及只检查 `seq > acked` 时漏掉零窗口停等。
+- soak 第一次跑就暴露真问题：`input_fail` 非零后传输停住。定位到 `tcpip_inpkt()` 从 `MEMP_NUM_TCPIP_MSG_INPKT`（上游默认 8 槽）取 `struct tcpip_msg`，槽满即 `ERR_MEM` 丢帧；8 槽约等于 8 个 1360 B 段（≈11 KB）在途。
+- 单变量 A/B（同一测试台、同一冻结基线，只有 netd 不同）：槽=8 时 8 KB 在途 2.15 MB/s 正常，11 KB 在途掉到 0.38 MB/s（3 次重传），16 KB 在途 1 MB 用了 85.1 s（0.01 MB/s、28 次重传、142 帧被丢）；槽=64 时 16/32/64 KB 分别为 2.58/3.63/16.78 MB/s，零丢帧、零重传。
+- 改动：`lwipopts.h` 把该池设为 64（`#ifndef` 保护，注释写明理由与 win32 100 项环形上限），内存代价约 3 KB，工作集/私有字节实测不变。CTest **6/6**。
+- 准备只换 netd 的 `build/diagnostics/ipc-queue/test-package`（334 文件集合与冻结包相同，仅 `awdl_netd.exe` 不同，最终哈希 `9cc25b27…`），两次 `--check`（fixed 149/20，`-j 400` / `-j 0`）exit 0、无 MISSING；入口 `Start-Q31-Test.cmd` 未执行。
+- 未做：真机/空口、24 h、多连接并发、窗口/池/合包调参、驱动或网络改动。本机成功不代表 iPhone 断流已修复；0.10–0.32 MB/s 与本机塌速相似，只是需要真机验证的假设。
+
 ## 2026-10-28：Q30 当前状态交接快照
 
 - 用户要求将目前情况出一版交接文档；新增 docs/HANDOFF_2026-10-28.md，整合至 240f88c，集中列明目标/授权、硬件、版本、真机负结果、Q28/Q25/Q29 本机验证边界、测试目录/哈希、下一次 fixed/-j 0 单组件入口及停止条件。HANDOFF 保留历史时间线，修正过时的“先设计 TCP 观测”指令；README/STATUS/队列同步入口。

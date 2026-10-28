@@ -72,6 +72,15 @@ if(Python3_Interpreter_FOUND)
         "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/test_netd_tcp.py" "$<TARGET_FILE:awdl_netd>" --case faults)
     set_tests_properties(netd_tcp_faults PROPERTIES TIMEOUT 45
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+    # Streams 12 segments in flight through the real proxy: above the legacy
+    # lwIP input-queue depth, so a regression to a shallow queue fails here
+    # with input_fail/drops instead of only showing up as slow real transfers.
+    add_test(NAME netd_proxy_soak COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/test_netd_tcp.py" "$<TARGET_FILE:awdl_netd>"
+        --case soak --mb 4 --cycles 3)
+    set_tests_properties(netd_proxy_soak PROPERTIES TIMEOUT 180
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
     # All these process tests own 49877; never connect to a pre-existing chain.
-    set_tests_properties(netd_process_faults netd_tcp_roundtrip netd_tcp_faults PROPERTIES RESOURCE_LOCK netd_loopback)
+    set_tests_properties(netd_process_faults netd_tcp_roundtrip netd_tcp_faults netd_proxy_soak
+        PROPERTIES RESOURCE_LOCK netd_loopback)
 endif()

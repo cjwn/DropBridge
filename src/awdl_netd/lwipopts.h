@@ -42,6 +42,19 @@
 #define MEM_SIZE (512 * 1024)
 #define MEMP_NUM_PBUF 64
 #define MEMP_NUM_SYS_TIMEOUT 128
+/* Upstream's default of 8 struct tcpip_msg entries at the IPC->lwIP boundary
+ * holds only ~11 KB of 1360-byte segments in flight: tcpip_inpkt() returns
+ * ERR_MEM as soon as the tcpip thread is a few frames behind the reader, and
+ * each rejection is a silent frame drop that the peer must retransmit.
+ * Measured locally (tools/test_netd_tcp.py --case soak): with 8, inbound
+ * frames are already dropped at 8 segments (11 KB) of in-flight data and
+ * goodput falls from ~2 MB/s to 0.38 MB/s (3 rewinds) and 0.01 MB/s (28
+ * rewinds) as the window grows. TCP_WND here is 240 KB, so a deeper queue is
+ * the intended pairing: 64 holds 87 KB of segments and stays under the win32
+ * port's 100-entry mailbox ring. */
+#ifndef MEMP_NUM_TCPIP_MSG_INPKT
+#define MEMP_NUM_TCPIP_MSG_INPKT 64
+#endif
 #define MEMP_NUM_TCP_PCB 16
 #define MEMP_NUM_TCP_SEG 128
 #define PBUF_POOL_SIZE 256

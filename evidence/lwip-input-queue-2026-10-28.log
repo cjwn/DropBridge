@@ -1,0 +1,90 @@
+﻿# Q31 offline evidence: lwIP input queue depth vs proxy goodput
+# All runs are loopback (127.0.0.1 IPC into real lwIP + real Windows sockets).
+# No radio, AWDL, USB, air interface, driver, network or iPhone involved.
+# Date: 2026-10-28 (UTC+8). Queue 8 = upstream default; queue 64 = this change.
+
+## netd binaries
+6c3f4465578c552f007abec946f7cebcd1e2738b0be3737e21a1cb07314012b3  dist\app\20261028-143130\backend\awdl_netd.exe
+06264244435625bb24ce9e613e99fdc87264b54c1ab05234fc6da08d8acd4a3b  build\diagnostics\proxy-cleanup\test-package\backend\awdl_netd.exe
+9cc25b27ca8e2ab2013748a747849b308878654c7d0ffca078d671fb5f424bf9  build\diagnostics\ipc-queue\test-package\backend\awdl_netd.exe
+9cc25b27ca8e2ab2013748a747849b308878654c7d0ffca078d671fb5f424bf9  build\awdl_netd\Release\awdl_netd.exe
+# MSVC does not reproduce byte-identical binaries: an earlier comment-only
+# rebuild produced 788db05e...; the queues/behaviour are unchanged and all
+# numbers below come from the final build listed above.
+
+## queue sweep (tools/test_netd_tcp.py --case soak --mb 4 --cycles 1 --stall 0 --batch 8)
+binary          inflight    goodput        rewinds  netd drops (alloc/copy/input/tx)
+queue8-baseline    5.5 KB   2.02 MB/s            0   0, 0, 0, 0
+queue8-baseline      8 KB   2.15 MB/s            0   0, 0, 0, 0
+queue8-baseline     11 KB   0.38 MB/s            3   0, 0, 4, 0
+queue8-baseline     16 KB   not completed in 150 s (4 MB run aborted by the harness)
+queue8-baseline     16 KB   0.01 MB/s           28   0, 0, 142, 0   <- separate 1 MB run, see below
+queue64-new         16 KB   2.49 MB/s            0   0, 0, 0, 0
+queue64-new         32 KB   4.06 MB/s            0   0, 0, 0, 0
+queue64-new         64 KB  24.39 MB/s            0   0, 0, 0, 0      (16.78-26.84 MB/s across runs)
+
+## collapse detail: 8-slot queue, 16 KB in flight, only 1 MB of data
+cycle 0: 1.04858 MB up in 85.125 s = 0.01 MB/s (incl. 0 s receiver idle); 0.252075 MB down in 31.0 ms = 8.13 MB/s (total 85.156 s); retransmits=28; netd handles=122 working=7.1 MB private=2.3 MB
+PASS: 1 sequential connection(s), 1 MB byte-exact each way, drops=[0, 0, 142, 0], proxy idle after cleanup, handle growth 0, private growth 0.0 MB; netd awdl_netd: ipc stats rx_seen=1348 rx_bytes=1588216 rx_queued=1206 alloc_fail=0 copy_fail=0 input_fail=142 tx_frames=948 tx_bytes=308975 tx_fail=0
+
+## 8-slot queue, 11 KB in flight, 4 MB
+cycle 0: 4.1943 MB up in 11.141 s = 0.38 MB/s (incl. 0 s receiver idle); 0.252075 MB down in 16.0 ms = 15.75 MB/s (total 11.157 s); retransmits=3; netd handles=121 working=7.1 MB private=2.3 MB
+PASS: 1 sequential connection(s), 4 MB byte-exact each way, drops=[0, 0, 4, 0], proxy idle after cleanup, handle growth 0, private growth 0.0 MB; netd awdl_netd: ipc stats rx_seen=3419 rx_bytes=4433244 rx_queued=3415 alloc_fail=0 copy_fail=0 input_fail=4 tx_frames=1902 tx_bytes=366215 tx_fail=0
+
+## 64-slot queue, 64 KB in flight, 4 MB (final build)
+cycle 0: 4.1943 MB up in 0.172 s = 24.39 MB/s (incl. 0 s receiver idle); 0.252075 MB down in 31.0 ms = 8.13 MB/s (total 0.203 s); retransmits=0; netd handles=121 working=7.1 MB private=2.3 MB
+PASS: 1 sequential connection(s), 4 MB byte-exact each way, drops=[0, 0, 0, 0], proxy idle after cleanup, handle growth 0, private growth 0.0 MB; netd awdl_netd: ipc stats rx_seen=3325 rx_bytes=4393812 rx_queued=3325 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=2145 tx_bytes=380799 tx_fail=0
+
+## 64-slot queue, 3 connections x 4 MB with a 1.2 s receiver idle (CTest netd_proxy_soak)
+6/6 Test #6: netd_proxy_soak ..................   Passed   15.36 sec
+100% tests passed, 0 tests failed out of 6
+
+## CTest after the change (6/6)
+Internal ctest changing into directory: J:/New soft project/DropBridge/build/awdl_netd
+Test project J:/New soft project/DropBridge/build/awdl_netd
+    Start 1: netd_ipc_io
+1/6 Test #1: netd_ipc_io ......................   Passed    0.12 sec
+    Start 2: netd_tcp_diag
+2/6 Test #2: netd_tcp_diag ....................   Passed    0.01 sec
+    Start 3: netd_process_faults
+3/6 Test #3: netd_process_faults ..............   Passed    8.82 sec
+    Start 4: netd_tcp_roundtrip
+4/6 Test #4: netd_tcp_roundtrip ...............   Passed    5.25 sec
+    Start 5: netd_tcp_faults
+5/6 Test #5: netd_tcp_faults ..................   Passed   20.64 sec
+    Start 6: netd_proxy_soak
+6/6 Test #6: netd_proxy_soak ..................   Passed   15.36 sec
+
+100% tests passed, 0 tests failed out of 6
+
+Total Test time (real) =  50.48 sec
+
+## supervisor --check plans for build/diagnostics/ipc-queue/test-package
+### fixed 149/20, TCP merge on (-j 400): exit 0, no MISSING lines
+root: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package
+logs: J:\New soft project\DropBridge\dist\data\logs\20261028-231716
+radio: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\airbridge_radio.exe 149 20
+bridge: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\radio_pipe_bridge.exe
+netd: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\awdl_netd.exe  [AWDL_NETD_MDNS_PROXY=1]
+awdld: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\awdld.exe -c 149 -s 2 -j 400 -v
+tcp_merge: on (join_us=400)
+chanseq: fixed [slot 8=149]
+  AWDL_ELECTION_METRIC=200
+  AWDL_ELECTION_COUNTER=100000
+  AWDL_CHANSEQ=<unset>
+  AWDL_FOLLOW_MASTER_SEQ=<unset>
+receiver: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\python\python.exe -u J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\airdrop\receiver.py
+### fixed 149/20, TCP merge off (-j 0): exit 0, no MISSING lines
+root: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package
+logs: J:\New soft project\DropBridge\dist\data\logs\20261028-231717
+radio: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\airbridge_radio.exe 149 20
+bridge: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\radio_pipe_bridge.exe
+netd: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\awdl_netd.exe  [AWDL_NETD_MDNS_PROXY=1]
+awdld: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\awdld.exe -c 149 -s 2 -j 0 -v
+tcp_merge: off (join_us=0)
+chanseq: fixed [slot 8=149]
+  AWDL_ELECTION_METRIC=200
+  AWDL_ELECTION_COUNTER=100000
+  AWDL_CHANSEQ=<unset>
+  AWDL_FOLLOW_MASTER_SEQ=<unset>
+receiver: J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\python\python.exe -u J:\New soft project\DropBridge\build\diagnostics\ipc-queue\test-package\backend\airdrop\receiver.py

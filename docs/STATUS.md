@@ -1,5 +1,7 @@
 # 当前状态与交接（2026-10-28 14:05）
 
+> **Q31 后续（最新，仅本机）**：soak 台暴露 lwIP 输入队列 `MEMP_NUM_TCPIP_MSG_INPKT` 默认只有 8 槽，约 11 KB 在途即丢帧、16 KB 在途塌到 0.01 MB/s；改为 64 后 64 KB 在途零丢帧、本机 2.6–16.8 MB/s，CTest 6/6。**未经真机**，只换 netd 的 Q31 测试包已备好。见 [lwIP 输入队列](LWIP_INPUT_QUEUE.md)。
+
 > **当前完整交接快照：[2026-10-28](HANDOFF_2026-10-28.md)**，整合到 `240f88c`，含 21:38 只读现场、最新测试包哈希与下一次单变量入口；下方正文保留为早前状态。
 
 > Q25/Q29 后续：逐连接 TCP 观测与代理异常清理完成，真实 lwIP 本机回归 5/5；独立测试目录仅换 netd、未启动真机、未替换旧包。见 [TCP 诊断](TCP_DIAGNOSTICS.md)、[代理修复](TCP_PROXY_CLEANUP.md)。
@@ -144,3 +146,4 @@ powershell -File tools\Check-Binding.ps1               # 只读检查 WinUSB 绑
 - `evidence/supervisor-tray.log`、`evidence/supervisor-recovery.log`：托盘、恢复、日志
 - `evidence/data-stays-in-folder.log`、`evidence/single-exe-any-folder.log`：便携布局与分发
 - `evidence/bench-receiver.md`：接收端离线 228 MB/s（证明 Python 不是瓶颈）
+- `evidence/lwip-input-queue-2026-10-28.log`、`.json`：Q31 输入队列 8→64 的扫表、塌速明细、CTest 6/6 与两份计划检查
