@@ -1,6 +1,8 @@
 # DropBridge / AirBridge32：给下一位 AI 的完整交接
 
 更新：2026-10-28，Asia/Hong_Kong（UTC+8）。
+后续 Q27 更新：用户要求先测禁用 TCP 合并；新监管已支持 `--no-tcp-merge`，
+脚本支持 `-NoTcpMerge`，默认仍为 -j 400。入口已离线验证，真机结果见工作队列。
 代码与实验基线：本地 `main`，`991d2f4`。本交接自身的文档提交在其后。
 工作目录：`J:\New soft project\DropBridge`。
 
@@ -101,7 +103,8 @@ iPhone 原生 AirDrop
   不作为本轮方向。
 - 主控：`AWDL_ELECTION_METRIC=200`、`AWDL_ELECTION_COUNTER=100000`。
   OWL 先比较 counter；之前只提高 metric 仍会被 iPhone 抢主控。
-- `awdld` 当前参数：`-c 149 -s 2 -j 400 -v`，join 等待值单位为微秒。
+- `awdld` 默认参数：`-c 149 -s 2 -j 400 -v`，join 等待值单位为微秒。
+  Q27 的 `--no-tcp-merge` 将它切为 `-j 0`，其它参数不变。
 - 监管新增 `--chanseq social|fixed`，默认 social；手动脚本对应
   `-ChannelSequence social|fixed`。
 - social：本端公告 slot 8 为信道 6，其余主信道。fixed：本端全 149。
@@ -248,8 +251,8 @@ CRC 比例相近证明手机主动少发；起步帧率高证明换台和 ACK �
   也要区分 netd 已投递/已读与手机真的收到空口 ACK。
 - 保持日志低频/计数式，先离线回放验证，不用逐包海量日志改变时序。
 - `-j 0` 是现成关闭 TCP 合并的开关，可做单变量对照；当前监管参数
-  仍硬编码 `-j 400`，**尚未新增可调 join 参数，也尚未跑关闭合并实验**。
-  不要把“建议对照”写成已经完成。
+  默认 `-j 400`；后续 Q27 已新增 `--no-tcp-merge` 入口，离线验证
+  `-j 0` 旁路，真机进度以队列/证据为准，不要把入口完成写成实验成功。
 - 一次只变一个因素，同一文件、位置、手机状态，记录启动重试和初始
   状态；失败保留，不连续叠加恢复。链路 ready 后再提示用户操作 iPhone。
 

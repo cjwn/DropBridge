@@ -12,6 +12,7 @@
 //   --auto-exit <s>    tray test hook: quit cleanly after <s> seconds
 //   --autostart-on | --autostart-off
 //   --chanseq social|fixed  diagnostic A/B; default remains social
+//   --no-tcp-merge       pass -j 0 to awdld; default remains -j 400
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -183,8 +184,9 @@ internal sealed class Supervisor
     private readonly int _channel;
     private readonly int _width;
     public readonly string ChannelSequence;
+    public readonly bool TcpMerge;
     public string RadioArguments { get { return _channel + " " + _width; } }
-    public string AwdldArguments { get { return "-c " + _channel + " -s 2 -j 400 -v"; } }
+    public string AwdldArguments { get { return "-c " + _channel + " -s 2 -j " + (TcpMerge ? "400" : "0") + " -v"; } }
     // 20 MHz is the default: measured 202 KB/s against 40 MHz's 190 KB/s after a
     // cold start, and 40 MHz has a degraded mode that needs a USB replug to clear.
     public string BandText { get { return "ch" + _channel + " / " + _width + " MHz"; } }
@@ -198,12 +200,13 @@ internal sealed class Supervisor
 
     public Supervisor(string root, string sessionStamp, bool prepareDirectories,
                       int channel = 149, int width = 20, string dataDirectory = null,
-                      string channelSequence = "social")
+                      string channelSequence = "social", bool tcpMerge = true)
     {
         if (channelSequence != "social" && channelSequence != "fixed")
             throw new ArgumentException("chanseq must be social or fixed");
         _root = root;
         ChannelSequence = channelSequence;
+        TcpMerge = tcpMerge;
         _channel = channel;
         _width = width;
         _backend = Path.Combine(root, "backend");
@@ -378,6 +381,7 @@ internal sealed class Supervisor
         text.AppendLine("bridge: " + BridgePath());
         text.AppendLine("netd: " + NetdPath() + "  [AWDL_NETD_MDNS_PROXY=1]");
         text.AppendLine("awdld: " + AwdldPath() + " " + AwdldArguments);
+        text.AppendLine("tcp_merge: " + (TcpMerge ? "on (join_us=400)" : "off (join_us=0)"));
         text.AppendLine("chanseq: " + ChannelSequence + " [slot 8=" +
             (ChannelSequence == "social" ? "6" : _channel.ToString()) + "]");
         foreach (var pair in AwdldEnvironment())
@@ -463,7 +467,7 @@ internal sealed class Supervisor
         }
         if (File.Exists(AddressFile())) File.Delete(AddressFile());
         _log.Write("supervisor", "start chain root=" + _root + " args=" + RadioArguments +
-            " chanseq=" + ChannelSequence);
+            " chanseq=" + ChannelSequence + " join_us=" + (TcpMerge ? "400" : "0"));
 
         // warn keeps the radio log quiet; AIRBRIDGE_RADIO_LOG=info turns on the
         // per-5-s link counters (rx cb/crc) used when diagnosing a transfer.
@@ -1014,6 +1018,7 @@ internal static class Program
         int channel = 149;
         int width = 20;
         string channelSequence = "social";
+        bool tcpMerge = true;
         string dataArgument = null;
         for (int index = 0; index < args.Length; index++)
         {
@@ -1048,6 +1053,9 @@ internal static class Program
                     channelSequence = args[++index];
                     if (channelSequence != "social" && channelSequence != "fixed") return 2;
                     break;
+                case "--no-tcp-merge":
+                    tcpMerge = false;
+                    break;
                 case "--autostart-on":
                     autostart = 1;
                     break;
@@ -1073,7 +1081,7 @@ internal static class Program
 
         if (check)
         {
-            var supervisor = new Supervisor(root, stamp, false, channel, width, dataArgument, channelSequence);
+            var supervisor = new Supervisor(root, stamp, false, channel, width, dataArgument, channelSequence, tcpMerge);
             string plan = supervisor.Plan();
             if (string.IsNullOrEmpty(output))
             {
@@ -1086,7 +1094,7 @@ internal static class Program
 
         if (smokeSeconds > 0)
         {
-            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence);
+            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence, tcpMerge);
             string error;
             bool started = supervisor.StartAll(180, out error);
             var report = new StringBuilder();
@@ -1107,7 +1115,7 @@ internal static class Program
         {
             if (!created) return 0;
             Application.EnableVisualStyles();
-            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence);
+            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence, tcpMerge);
             using (var context = new TrayApp(supervisor, autoExitSeconds))
             {
                 Application.Run(context);

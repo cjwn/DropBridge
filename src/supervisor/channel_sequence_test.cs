@@ -22,6 +22,10 @@ internal static class ChannelSequenceTest
             foreach (string mode in new[] { "fixed", "social" })
             {
                 var supervisor = new Supervisor(".", "offline", false, 149, 20, null, mode);
+                var noMerge = new Supervisor(".", "offline", false, 149, 20, null, mode, false);
+                Require(noMerge.AwdldArguments == supervisor.AwdldArguments.Replace("-j 400", "-j 0"),
+                        "disabling TCP merge changed other AWDL arguments");
+                Require(noMerge.Plan().Contains("tcp_merge: off (join_us=0)"), "plan lost merge mode");
                 string observed = null;
                 string shell = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System),
                                              @"WindowsPowerShell\v1.0\powershell.exe");
@@ -42,7 +46,7 @@ internal static class ChannelSequenceTest
                     Require(supervisor.Plan().Contains("chanseq: " + mode), "plan lost mode");
                 }
                 finally { child.Stop(5000); }
-                Console.WriteLine("PASS: " + mode + " child environment, inherited follow removed");
+                Console.WriteLine("PASS: " + mode + " child environment, inherited follow removed, only join argument changed");
             }
             bool rejected = false;
             try { new Supervisor(".", "offline", false, 149, 20, null, "0"); }

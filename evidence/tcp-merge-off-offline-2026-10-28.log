@@ -1,0 +1,17 @@
+Q27 / offline checks / 2026-10-28 +08:00
+
+Supervisor and Start-Chain now expose --no-tcp-merge / -NoTcpMerge.
+Default stays on (-j 400); opt-in off passes -j 0 to existing awdld.
+No radio/awdld/netd/receiver implementation changed.
+
+Build-Supervisor.ps1 -Test: compiled successfully, existing environment
+inheritance and invalid-mode checks passed.
+Actual supervisor CLI --check: fixed / 149 / 20, default => -j 400.
+Actual supervisor CLI --check: identical arguments plus --no-tcp-merge => -j 0.
+Start-Chain.ps1 AST: no parse errors.
+Supervisor SHA256:
+3EC4D28B2045B1BF619BD7829C8E8C22F1FF9838D81798A20B8FA70A62963C9D
+
+Pre-test binding: MI_02 WinUSB/OK/problem 0; MI_00 pre-existing Error.
+No project chain was running before this experiment.
+These checks do not prove wireless/transfer success.

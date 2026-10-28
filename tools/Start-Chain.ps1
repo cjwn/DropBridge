@@ -13,6 +13,7 @@ param(
     [int]$Width = 20,
     [ValidateSet('social', 'fixed')]
     [string]$ChannelSequence = 'social',
+    [switch]$NoTcpMerge,
     [string]$Python = '',
     [switch]$Trace,
     [switch]$RadioVerbose,
@@ -80,7 +81,8 @@ if ($busy.Count -gt 0) {
 }
 
 $radioArgs = @($Channel, $Width)
-$awdlArgs = @('-c', $Channel, '-s', '2', '-j', '400', '-v')
+$joinWaitUs = if ($NoTcpMerge) { '0' } else { '400' }
+$awdlArgs = @('-c', $Channel, '-s', '2', '-j', $joinWaitUs, '-v')
 $receiverArgs = @('-u', $binaries.receiver, '--name', 'AirBridge32',
                   '--listen', '127.0.0.1', '--mdns-address-file', $addrFile,
                   '--outdir', $received, '--keys', $keys)
@@ -104,6 +106,7 @@ $awdlEnvironment = @{
 Write-Host "AirBridge32 chain, channel $Channel width $Width MHz, logs: $runDir"
 $plan | ForEach-Object { Write-Host "  $_" }
 Write-Host "  chanseq=$ChannelSequence (fixed removes AWDL_CHANSEQ; follow-master disabled)"
+Write-Host "  join_us=$joinWaitUs (0 disables TCP merging)"
 
 if (-not $Run) {
     Write-Host ''
@@ -116,7 +119,7 @@ if (-not $Run) {
 New-Item -ItemType Directory -Force $runDir, $dataDir, $received, $keys | Out-Null
 $chainLog = Join-Path $runDir 'chain.log'
 $commit = (& git -C $root rev-parse --short HEAD 2>$null)
-"chain start $(Get-Date -Format o) commit=$commit channel=$Channel width=$Width chanseq=$ChannelSequence python=$Python" |
+"chain start $(Get-Date -Format o) commit=$commit channel=$Channel width=$Width chanseq=$ChannelSequence join_us=$joinWaitUs python=$Python" |
     Set-Content -Encoding utf8 $chainLog
 
 $processes = [ordered]@{}

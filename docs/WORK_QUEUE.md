@@ -52,6 +52,7 @@
 | Q24 | 固定 149 / social 真机排障 | ✅ 实验与负结果记录完成，非验收通过：fixed 1/2 完成，第二次 408 后停止第三次；social 用户两次报告不可见，零 Discover/Upload。仅关闭跳频不足以解决，不能排除历史射频状态；原始日志已冻结备份 | `evidence/fixed-channel-transfer-2026-10-28.json`、`evidence/social-discovery-2026-10-28.json` |
 | Q25 | TCP 数据面被动诊断 | ⬜ 记录 IPC→lwIP→receiver 的载荷字节、TCP seq/ACK/窗口和输入丢弃；先离线验证再配合一次真机复现，禁止据 USB TX 成功判定空口 ACK 正常 | — |
 | Q26 | 汇总给下一位 AI 的完整交接 | ✅ 2026-10-28：集中记录架构、当前状态、三组结果、蓝牙/共存线索、正常与异常时间线、源码版本/证据/命令和授权边界；强调 13:43 断流早于约 13:47 蓝牙 Error，下一步先做状态对比再开展 Q25 | `HANDOFF.md`；仅文档整理、无新硬件实验 |
+| Q27 | 关闭 TCP 合并实测 | 🔜 用户明确要求先测关闭合并：fixed 149/20、主控、相同原后端，仅 `-j 400→0`。监管 `--no-tcp-merge` / 脚本 `-NoTcpMerge` 已编译及离线验证；准备真机发送，结果尚未产生 | `evidence/tcp-merge-off-offline-2026-10-28.log` |
 
 ## 3. 每项的具体做法
 
