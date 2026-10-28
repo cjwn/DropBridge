@@ -1,0 +1,15 @@
+﻿# Q36 offline evidence: 100 sequential connections (cleanup / leak churn)
+# Loopback only. No radio/AWDL/USB/air interface/iPhone. 2026-10-28 (UTC+8).
+# netd: 9cc25b27ca8e2ab2013748a747849b308878654c7d0ffca078d671fb5f424bf9
+# queue 64, 32 KB in flight, 1 MB per connection, 0.3 s receiver idle each
+# command: python tools\test_netd_tcp.py <netd> --case soak --mb 1 --cycles 100 --stall 0.3 --inflight-kb 32 --batch 16 --allow-drops
+
+PASS: 100 sequential connection(s), 1 MB byte-exact each way, drops=[0, 0, 0, 0], proxy idle after cleanup, handle growth 1, private growth -0.0 MB; netd awdl_netd: ipc stats rx_seen=99321 rx_bytes=110817660 rx_queued=99321 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=65060 tx_bytes=29111912 tx_fail=0
+
+## netd handle count per connection (grouped)
+handles=121  x50
+handles=122  x50
+
+## first and last connection lines
+cycle 0: 1.04858 MB up in 0.656 s = 1.60 MB/s (incl. 0.3 s receiver idle); 0.252075 MB down in 16.0 ms = 15.75 MB/s (total 0.672 s); retransmits=0; netd handles=121 working=7.0 MB private=2.3 MB
+cycle 99: 1.04858 MB up in 0.625 s = 1.68 MB/s (incl. 0.3 s receiver idle); 0.252075 MB down in 16.0 ms = 15.75 MB/s (total 0.641 s); retransmits=0; netd handles=122 working=7.1 MB private=2.3 MB
