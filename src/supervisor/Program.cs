@@ -605,7 +605,7 @@ internal sealed class TrayApp : ApplicationContext
 
         _icon = new NotifyIcon
         {
-            Icon = SystemIcons.Application,
+            Icon = AppIcon(),
             Text = "AirBridge32",
             ContextMenuStrip = menu,
             Visible = true,
@@ -914,6 +914,22 @@ internal sealed class TrayApp : ApplicationContext
         }
     }
 
+    /* The exe carries an icon (assets\airbridge32.ico at build time); the tray
+     * reuses it so the notification area matches the file the user launched.
+     * A checkout without the icon still runs with the stock application icon. */
+    private static Icon AppIcon()
+    {
+        try
+        {
+            Icon icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            if (icon != null) return icon;
+        }
+        catch (Exception)
+        {
+        }
+        return SystemIcons.Application;
+    }
+
     private static void OpenFolder(string path)
     {
         try
@@ -928,13 +944,19 @@ internal sealed class TrayApp : ApplicationContext
 
     /* Autostart points at the stub in the folder root, not at this build's
      * supervisor: the build directory changes on every upgrade while the stub
-     * path stays valid and re-launches the newest payload. */
+     * path stays valid and re-launches the newest payload. In the folder
+     * distribution the supervisor already sits at that root, so it registers
+     * itself. */
     private static string AutostartValue()
     {
         try
         {
-            string backend = Path.GetDirectoryName(Application.ExecutablePath);
-            string build = Path.GetDirectoryName(backend);
+            string here = Path.GetDirectoryName(Application.ExecutablePath);
+            if (Directory.Exists(Path.Combine(here, "backend")))
+            {
+                return "\"" + Application.ExecutablePath + "\"";
+            }
+            string build = Path.GetDirectoryName(here);
             string appRoot = Path.GetDirectoryName(build);
             string folder = Path.GetDirectoryName(appRoot);
             string stub = Path.Combine(folder, "AirBridge32.exe");
@@ -1002,6 +1024,13 @@ internal static class Program
             return Path.GetFullPath(argument);
         }
         string executableDirectory = Path.GetDirectoryName(Application.ExecutablePath);
+        // Folder distribution: AirBridge32.exe sits at the package root next to
+        // backend\. The self-extracting layout keeps it inside backend\ and is
+        // still handled by the parent-directory fallback.
+        if (Directory.Exists(Path.Combine(executableDirectory, "backend")))
+        {
+            return executableDirectory;
+        }
         string packageRoot = Path.GetDirectoryName(executableDirectory);
         return packageRoot;
     }

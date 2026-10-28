@@ -22,20 +22,30 @@ AirBridge32 现在是一个**单文件 exe + 原生托盘**的 Windows AirDrop �
 
 ## 2. 交付形态
 
+**主形态（2026-10-29 起）：一个文件夹 + 压缩包，托盘常驻**
+
 ```text
-<任意可写文件夹>\
-  AirBridge32.exe          唯一入口（自解压 stub + 托盘监管）
-  app\<构建时间戳>\        解压的后端，仅保留最近 2 个构建
-  data\                    全部固化数据，跨构建共享
-    keys\                  TLS 自签证书、airdrop-service-id（实例 ID 持久化）
-    received\              收到的文件
-    logs\<会话>\            各进程日志
+AirBridge32\                 ← 解压后就是这个文件夹，压缩包里也是它
+  AirBridge32.exe            唯一入口：托盘监管（无控制台窗口）
+  backend\                   radio / bridge / awdl_netd / awdld / python / airdrop
+  tools\Start-Chain.ps1      控制台调试入口（dry-run 默认）
+  licenses\
+  README.txt、VERSION.txt
+  data\                      ← 首次运行在同级生成，全部数据都在这里
+    keys\                    TLS 自签证书、airdrop-service-id（实例 ID 持久化）
+    received\                收到的文件
+    logs\<会话>\             各进程日志
     awdl_netd.addr
 ```
 
-- 不在 `%LOCALAPPDATA%` 或其它机器目录写任何东西；
-- 无需安装、无需 Python/Flutter、无需管理员（唯一需要管理员的是一次性 WinUSB 绑定，见 `docs/BINDING_RUNBOOK.md`）；
-- 文件夹必须可写，放 Program Files 会直接报错而不是写到别处。
+- 产出：`dist\AirBridge32\`（333 文件，36.5 MB）与 `dist\AirBridge32-portable.zip`（16.1 MB）；
+- 不在 `%LOCALAPPDATA%` 或其它机器目录写任何东西；无服务、无安装程序、无需管理员
+  （唯一需要管理员的是**一次性** WinUSB 绑定，见 `docs/BINDING_RUNBOOK.md`）；
+- 升级 = 覆盖 `AirBridge32.exe` 与 `backend\`，保留 `data\`；卸载 = 托盘退出后删文件夹；
+- 仍保留旧形态：`dist\AirBridge32.exe` 自解压单文件（内部解压到 `app\<时间戳>`）。
+  两种形态不要混用同一个 `data\`。
+
+细节与验证记录见 [分发形态](DISTRIBUTION.md)。
 
 ## 3. 进程与数据路径
 

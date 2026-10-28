@@ -4,7 +4,8 @@
 #
 # Output: build\supervisor\Release\AirBridge32.exe (winexe, no console window).
 # Package-Headless.ps1 copies it to backend\AirBridge32.exe, where the
-# self-extracting stub starts it.
+# self-extracting stub starts it. Package-Distributable.ps1 puts it at the
+# package root, next to backend\.
 [CmdletBinding()]
 param([switch]$Test)
 
@@ -13,13 +14,19 @@ $root = Split-Path $PSScriptRoot -Parent
 $source = Join-Path $root 'src\supervisor\Program.cs'
 $outDir = Join-Path $root 'build\supervisor\Release'
 $out = Join-Path $outDir 'AirBridge32.exe'
+$icon = Join-Path $root 'assets\airbridge32.ico'
 $csc = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 
 if (-not (Test-Path $csc)) { throw "in-box C# compiler missing: $csc" }
 if (-not (Test-Path $source)) { throw "missing $source" }
 New-Item -ItemType Directory -Force $outDir | Out-Null
 
-& $csc /nologo /target:winexe /optimize+ "/out:$out" `
+# The icon is optional so a checkout without assets\ still builds; the tray
+# falls back to a stock icon in that case.
+$iconArgument = @()
+if (Test-Path $icon) { $iconArgument = @("/win32icon:$icon") }
+
+& $csc /nologo /target:winexe /optimize+ "/out:$out" @iconArgument `
     /r:System.Windows.Forms.dll /r:System.Drawing.dll $source
 if ($LASTEXITCODE -ne 0) { throw "csc failed with $LASTEXITCODE" }
 

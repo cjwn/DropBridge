@@ -69,6 +69,7 @@
 | Q41 | 默认配置（social + 合并）真机 | ✅ 真机：**31.91 s = 0.9231 MB/s**、落盘哈希一致、无 408、`input_fail=0`、670 帧/s（峰值 826）、CRC 15.8%。当晚五轮里最快。合并不是普遍有害而是与信道序列耦合（social 开、fixed 关），监管默认值正确；仍与历史最好 1.12 MB/s 差一轮噪声的量级。需要 3 次取中位数才算验收 | `evidence/q41-phone-social-merge-2026-10-29.log`、`docs/LWIP_INPUT_QUEUE.md` §15 |
 | Q42 | 单文件包带上 Q38 netd | ✅ 离线重打包：`dist\AirBridge32.exe` 从 build 重新生成（16,824,320 B，`bf20e9f2…`），payload 内 netd 为 `300aac25…`、监管 `3ec4d28b…`；旧 exe 备份为 `dist\AirBridge32-pre-q38.exe`；`--extract` 到 `dist\app\20261029-002027` 后 `--check` exit 0、无 MISSING，计划为 social + 合并（即 Q41 实测 0.9231 MB/s 的配置）。未做干净 VM/签名/真机双击验证 | `evidence/sfx-q38-package-2026-10-29.log` |
 | Q43 | receiver 对 `/Discover` 分块解析过严 | ⬜ 未开始：Q39 会话里两次出现 `WARNING /Discover rejected: invalid or overlong chunk-size line`（00:05:46、00:06:44），同一时刻上传仍能进行，所以不是当晚慢的原因；但发现/重连路径可能因此失败。待查 chunk 边界处理与手机实际报文，用冻结日志复现，不要求手机 | `evidence/q38-phone-fixed-merge-on-2026-10-29.log` |
+| Q44 | 一文件夹 + 压缩包的托盘完整版 | ✅ 本机：`tools/Package-Distributable.ps1` 产出 `dist\AirBridge32\`（333 文件 36.5 MB，根目录 `AirBridge32.exe` 即托盘程序）+ `dist\AirBridge32-portable.zip`（16.1 MB）。默认根解析、开机自启、托盘图标已适配文件夹形态。干净解压后 `--check` exit 0 无 MISSING；`--auto-exit 150` 43 s 就绪、单实例、退出无残留、四端口全空、`%LOCALAPPDATA%` 未创建、数据全在文件夹内 | `docs/DISTRIBUTION.md`、`evidence/distributable-folder-2026-10-29.log` |
 
 ## 3. 每项的具体做法
 

@@ -1,5 +1,13 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-29 00:41：Q44 一文件夹 + 压缩包的托盘完整版
+
+- 用户要求“完整版、易分发、单文件夹、压缩包、常驻托盘”，按文件夹形态重做入口：根目录 `AirBridge32.exe` 就是托盘程序（winexe、无控制台窗口），`backend\` 放全部后端，`data\` 在同级生成。
+- 代码：`ResolveRoot` 在 exe 目录含 `backend\` 时以它为包根（自解压形态逻辑不变）；`AutostartValue` 在文件夹形态下注册根目录 exe；托盘图标改为从 exe 内嵌图标提取（`assets\airbridge32.ico`，由 `tools/make_icon.py` 用 Pillow 生成，`Build-Supervisor.ps1` 用 `/win32icon:` 嵌入），取不到回退系统图标。
+- 新增 `tools/Package-Distributable.ps1`：可重复生成 `dist\AirBridge32\` 与 `dist\AirBridge32-portable.zip`（含中文 README、VERSION、许可证、Python `._pth` 修正），拒绝在 `dist\` 之外删除、拒绝覆盖含 `data\` 的目录。
+- 验证（本机，无手机）：干净解压后无参数 `--check` exit 0 且无 MISSING；`--auto-exit 150` 43 s 就绪（49876/49877/8771 + UDP 15353），第二实例立即 exit 0（单实例），00:40:49 自动退出且无残留进程/端口；`%LOCALAPPDATA%\AirBridge32` 未创建；`data\keys/received/logs` 全在文件夹内。
+- 已知：未签名、Realtek 固件再分发许可未解决（仅供内部测试）、干净 VM/卸载残留/24 h/3 次中位数均未做。文档见 `docs/DISTRIBUTION.md`。
+
 ## 2026-10-29 00:20：Q42 单文件包带上 Q38 netd
 
 - `dist\AirBridge32.exe` 之前仍含 pre-Q28 的 netd（`6c3f4465…`），Q28/Q29/Q31/Q38 都没进日常双击路径。现从 build 重新打包：16,824,320 B、`bf20e9f2…`；payload 内 netd `300aac25…`、监管 `3ec4d28b…`；旧 exe 备份为 `dist\AirBridge32-pre-q38.exe`。

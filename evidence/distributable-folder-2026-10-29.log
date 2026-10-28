@@ -1,0 +1,43 @@
+﻿# Q44 offline evidence: one-folder tray distribution + zip
+# Built and verified locally 2026-10-29 00:36-00:41 (UTC+8). No iPhone involved.
+
+## artifacts (dist/ is not tracked; hashes below are the record)
+zip        dist\AirBridge32-portable.zip  16,852,043 B  b23c187564a440b9de2dc33c707acc731e1b2d23e00b56b19e588f176c1912da
+folder     dist\AirBridge32  333 files  36.5 MB
+entry      AirBridge32.exe  154bdb877bd2033dbb24bd7b639d4d6c17af6a1f69116e2d7bb0ae6d5dc16877
+netd       300aac2531dcdf68be450682604097fe03ca528479cfb00846f29374af357d1a
+
+## extracted copy used for the checks
+build\diagnostics\dist-check\AirBridge32
+netd there 300aac2531dcdf68be450682604097fe03ca528479cfb00846f29374af357d1a
+
+## --check with no arguments (folder layout must resolve its own root)
+root: J:\New soft project\DropBridge\build\diagnostics\dist-check\AirBridge32
+radio: J:\New soft project\DropBridge\build\diagnostics\dist-check\AirBridge32\backend\airbridge_radio.exe 149 20
+netd: J:\New soft project\DropBridge\build\diagnostics\dist-check\AirBridge32\backend\awdl_netd.exe  [AWDL_NETD_MDNS_PROXY=1]
+awdld: J:\New soft project\DropBridge\build\diagnostics\dist-check\AirBridge32\backend\awdld.exe -c 149 -s 2 -j 400 -v
+tcp_merge: on (join_us=400)
+chanseq: social [slot 8=6]
+  AWDL_CHANSEQ=social
+receiver: J:\New soft project\DropBridge\build\diagnostics\dist-check\AirBridge32\backend\python\python.exe -u J:\New soft project\DropBridge\build\diagnostics\dist-check\AirBridge32\backend\airdrop\receiver.py
+
+## tray run (--auto-exit 150)
+started        2026-10-29 00:38:18
+data plane up  00:39:01 (43 s; radio init + channel readback)
+listeners      49876, 49877, 8771 (TCP) and 15353 (UDP) all present
+tray           process stayed resident, single instance; second launch exited 0 with the first still running
+auto exit      00:40:49; afterwards no process, no listener on any of the four ports
+machine dirs   %LOCALAPPDATA%\AirBridge32 does not exist
+in-folder data data\keys, data\received, data\logs\20261029-003732, data\logs\20261029-003818, data\awdl_netd.addr, data\check.txt
+note           a fresh folder creates a fresh AirDrop service id (2c49cdfffeec); keep data\ to keep it
+
+## code changes this evidence covers
+src/supervisor/Program.cs      ResolveRoot prefers the exe directory when it contains backend\; AutostartValue registers the root exe in folder layout
+src/supervisor/Program.cs      tray icon from Icon.ExtractAssociatedIcon with a stock fallback (AppIcon)
+tools/Build-Supervisor.ps1     embeds assets\airbridge32.ico when present
+tools/make_icon.py             regenerates assets\airbridge32.ico with Pillow
+tools/Package-Distributable.ps1 builds dist\AirBridge32 + dist\AirBridge32-portable.zip
+
+## not done
+clean Windows 11 VM, code signature, Realtek firmware redistribution decision,
+uninstall residue check, 24 h soak, and a real iPhone transfer from this exact zip.
