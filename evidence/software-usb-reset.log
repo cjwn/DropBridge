@@ -1,0 +1,31 @@
+# 软件 USB 复位尝试：WiFi 复位成功，但弄坏了同复合设备的蓝牙（2026-10-28 13:47）
+
+用户不接受物理拔插，所以尝试用 Windows 的设备重启代替冷复位。
+
+## 做了什么
+
+```
+pnputil /restart-device "USB\VID_0BDA&PID_C820&MI_02\7&1D92DF5B&0&0002"   → exit 0
+```
+
+结果：
+
+- **MI_02（WiFi / WinUSB）复位成功**，之后 `usb_probe` 仍能 claim interface 2，AirDrop 链路可以正常启动；
+- **MI_00（Realtek 蓝牙）变成 Error，Problem 31（CM_PROB_FAILED_ADD）**。
+
+## 尝试过的恢复（都无效）
+
+| 操作 | 结果 |
+| --- | --- |
+| `pnputil /restart-device` MI_00 | 仍 Error |
+| `pnputil /restart-device` 复合设备（`USB\VID_0BDA&PID_C820\123456`） | 仍 Error |
+| `pnputil /disable-device` + `/enable-device` MI_00 | 仍 Error |
+| 重启 `bthserv` + `pnputil /scan-devices` | 仍 Error |
+| `pnputil /remove-device` MI_00 + `/scan-devices` | 仍 Error |
+
+## 结论与教训
+
+- 对**复合设备的子接口**做 restart-device 会打断同一复合设备上其它接口的枚举，而 Windows 不会自动把它们加回来。正确做法是复位**复合设备本身**，但那会连带重新枚举 MI_02，存在把 WinUSB 绑定换回厂商驱动的风险（需要 Zadig 重新绑定），所以没有继续尝试。
+- 蓝牙接口要恢复只能靠一次完整重枚举：**重启系统**（不是拔插）或物理拔插。
+- 因此“软件冷复位”不能作为产品里的自动恢复手段，除非能确认复合设备层面的复位不会破坏 WinUSB 绑定；这需要专门的恢复演练。
+- 当前 WiFi 侧正常，AirDrop 接收链路已重新拉起（会话 20261028-134907）。
