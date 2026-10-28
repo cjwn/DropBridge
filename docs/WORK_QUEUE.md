@@ -64,6 +64,8 @@
 | Q36 | 100 连接反复建立/清理 | ✅ 本机：100 个顺序连接（每个 1 MB、32 KB 在途、每次停读 0.3 s）全部字节一致、零丢弃，结束 `active=0`；句柄 121→122 后稳定、私有 2.3 MB 不变，单连接 1.60–1.68 MB/s（含 0.3 s 停读）。未覆盖并发与异常重连竞态 | `evidence/netd-churn-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §12 |
 | Q37 | Q31 包真机单变量（fixed 149/20、-j 0） | ✅ **真机完成**：29,456,959 B 完整落盘、76.79 s = **0.3836 MB/s**、无 408、哈希一致。同一配置 Q27 老 netd 为 0.114/0.104 MB/s → **3.4–3.7 倍**。netd `input_fail=76/22,075`（0.34%，集中起步突发），`overlap` 涨到 155 说明手机在重传。仍未达 1.12 MB/s（那次是 social + 合并开启） | `evidence/q31-phone-fixed-j0-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §13 |
 | Q38 | 输入投递改为背压等待（不丢帧） | ✅ **真机通过**：`g_netif.input()` 返回 `ERR_MEM` 时按 1 ms/次最多等 500 ms 后重投同一 pbuf，超时才丢；新增 `input_retry`。同一包同一参数只换 netd（`9cc25b27`→`300aac25`）：Q37 76.79 s / 0.3836 MB/s / `input_fail=76` → Q38 **34.58 s / 0.8518 MB/s / `input_fail=0` / `input_retry=103`**，落盘哈希一致、无 408。本机 A/B 与 CTest 7/7 亦通过 | `evidence/netd-input-backpressure-2026-10-28.log`、`evidence/q38-phone-fixed-j0-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §14 |
+| Q39 | 合并开启（fixed）真机负结果 | ✅ 负结果记录：同包同 fixed 149/20 只开合并（`join_us=400`），118 s 只到 4.69 MB（约 40 KB/s），操作者中止；fps 33、RSSI 73、`overlap=211`、`repeat_ack=189`，netd `input_fail=0/retry=0`（不是软件丢帧） | `evidence/q38-phone-fixed-merge-on-2026-10-29.log` |
+| Q40 | 合并开关真机 A/B（射频计数器归因） | ✅ 真机：合并关 0.8518 / 0.6917 MB/s（两轮），合并开约 40 KB/s。devourer 计数器：CRC 11.4%/12.1% vs **40.3%**，手机帧率中位数 121/625 vs **33**，RSSI 区间重叠（73–80）。对照轮在合并轮之后仍 0.69 MB/s、500–561 fps、零丢帧 → 射频未退化，是合并让手机发聚合帧、同 MCS（中位数 19）下 CRC 升到 3.4 倍。结论：fixed 149/20 保持 `-j 0` | `evidence/q40-phone-merge-ab-2026-10-29.log` |
 
 ## 3. 每项的具体做法
 
