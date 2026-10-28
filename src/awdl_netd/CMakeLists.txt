@@ -47,3 +47,19 @@ target_link_libraries(awdl_netd PRIVATE lwip ws2_32)
 if(MSVC)
     target_compile_options(awdl_netd PRIVATE /W4)
 endif()
+
+enable_testing()
+add_executable(netd_ipc_test ipc_io_test.cpp)
+target_include_directories(netd_ipc_test PRIVATE
+    "${LWIP_DIR}/src/include" "${LWIP_CONTRIB}/ports/win32/include"
+    "${CMAKE_CURRENT_SOURCE_DIR}")
+target_link_libraries(netd_ipc_test PRIVATE lwip ws2_32)
+add_test(NAME netd_ipc_io COMMAND netd_ipc_test)
+set_tests_properties(netd_ipc_io PROPERTIES TIMEOUT 15)
+find_package(Python3 COMPONENTS Interpreter QUIET)
+if(Python3_Interpreter_FOUND)
+    add_test(NAME netd_process_faults COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/test_netd_process.py" "$<TARGET_FILE:awdl_netd>")
+    set_tests_properties(netd_process_faults PROPERTIES TIMEOUT 30
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+endif()

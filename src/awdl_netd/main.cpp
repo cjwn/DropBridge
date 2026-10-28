@@ -17,6 +17,7 @@ extern "C" {
 }
 
 #include <cstdint>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -32,17 +33,44 @@ namespace {
 
 constexpr uint16_t kIpcPort = 49877;
 constexpr size_t kMaxFrame = 2048;
+constexpr DWORD kIpcSendTimeoutMs = 5000;
 
 SOCKET g_ipc = INVALID_SOCKET;
 SOCKET g_listen = INVALID_SOCKET;
 netif g_netif;
 uint8_t g_address[16] = {0};
+std::atomic<bool> g_ipc_failed{false};
+struct {
+    std::atomic<unsigned long long> rx_seen{0}, rx_bytes{0}, rx_queued{0};
+    std::atomic<unsigned long long> alloc_fail{0}, copy_fail{0}, input_fail{0};
+    std::atomic<unsigned long long> tx_frames{0}, tx_bytes{0}, tx_fail{0};
+} g_stats;
+
+void print_stats() {
+    std::fprintf(stderr, "awdl_netd: ipc stats rx_seen=%llu rx_bytes=%llu rx_queued=%llu "
+        "alloc_fail=%llu copy_fail=%llu input_fail=%llu tx_frames=%llu tx_bytes=%llu tx_fail=%llu\n",
+        g_stats.rx_seen.load(), g_stats.rx_bytes.load(), g_stats.rx_queued.load(),
+        g_stats.alloc_fail.load(), g_stats.copy_fail.load(), g_stats.input_fail.load(),
+        g_stats.tx_frames.load(), g_stats.tx_bytes.load(), g_stats.tx_fail.load());
+}
+
+void ipc_failed(const char *operation, int error) {
+    if (!g_ipc_failed.exchange(true)) {
+        std::fprintf(stderr, "awdl_netd: IPC failed op=%s error=%d\n", operation, error);
+        // A partial write cannot be retried as a new framed packet. Wake both
+        // directions and let main exit so the existing supervisor sees failure.
+        if (g_ipc != INVALID_SOCKET) shutdown(g_ipc, SD_BOTH);
+    }
+}
 
 bool send_all(SOCKET s, const uint8_t *data, size_t len) {
     while (len > 0) {
         int n = ::send(s, reinterpret_cast<const char *>(data),
                        static_cast<int>(len), 0);
-        if (n <= 0) return false;
+        if (n <= 0) {
+            ipc_failed("send", n < 0 ? WSAGetLastError() : 0);
+            return false;
+        }
         data += n;
         len -= static_cast<size_t>(n);
     }
@@ -50,7 +78,12 @@ bool send_all(SOCKET s, const uint8_t *data, size_t len) {
 }
 
 bool ipc_send_frame(const uint8_t *data, size_t len) {
-    if (g_ipc == INVALID_SOCKET || len == 0 || len > kMaxFrame) return false;
+    if (g_ipc == INVALID_SOCKET || g_ipc_failed.load()) {
+        // No peer during initial startup is not a broken established link.
+        // The caller still reports ERR_IF instead of pretending delivery.
+        return false;
+    }
+    if (len == 0 || len > kMaxFrame) return false;
     uint8_t header[2] = {static_cast<uint8_t>(len & 0xff),
                          static_cast<uint8_t>((len >> 8) & 0xff)};
     return send_all(g_ipc, header, sizeof(header)) &&
@@ -58,10 +91,21 @@ bool ipc_send_frame(const uint8_t *data, size_t len) {
 }
 
 err_t netif_output_ip6(struct netif *, struct pbuf *p, const ip6_addr_t *) {
-    if (!p || p->tot_len == 0 || p->tot_len > kMaxFrame) return ERR_VAL;
+    if (!p || p->tot_len == 0 || p->tot_len > kMaxFrame) {
+        ++g_stats.tx_fail;
+        return ERR_VAL;
+    }
     uint8_t buffer[kMaxFrame];
-    pbuf_copy_partial(p, buffer, p->tot_len, 0);
-    ipc_send_frame(buffer, p->tot_len);
+    if (pbuf_copy_partial(p, buffer, p->tot_len, 0) != p->tot_len) {
+        ++g_stats.tx_fail;
+        return ERR_BUF;
+    }
+    if (!ipc_send_frame(buffer, p->tot_len)) {
+        ++g_stats.tx_fail;
+        return ERR_IF;
+    }
+    ++g_stats.tx_frames;
+    g_stats.tx_bytes += p->tot_len;
     return ERR_OK;
 }
 
@@ -99,23 +143,45 @@ void write_address_file(const uint8_t address[16]) {
     std::fclose(f);
 }
 
+void deliver_ip_packet(const uint8_t *packet, u16_t len) {
+    ++g_stats.rx_seen;
+    g_stats.rx_bytes += len;
+    pbuf *p = pbuf_alloc(PBUF_RAW, len, PBUF_POOL);
+    if (!p) { ++g_stats.alloc_fail; return; }
+    if (pbuf_take(p, packet, len) != ERR_OK) {
+        ++g_stats.copy_fail;
+        pbuf_free(p);
+        return;
+    }
+    if (g_netif.input(p, &g_netif) != ERR_OK) {
+        ++g_stats.input_fail;
+        pbuf_free(p);
+        return;
+    }
+    ++g_stats.rx_queued; // Queued to lwIP, not proof of TCP/file delivery.
+}
+
 void ipc_reader() {
     std::vector<uint8_t> buffer;
     uint8_t chunk[4096];
     for (;;) {
         int n = recv(g_ipc, reinterpret_cast<char *>(chunk), sizeof(chunk), 0);
-        if (n <= 0) return;
+        if (n <= 0) {
+            const int error = n < 0 ? WSAGetLastError() : 0;
+            std::fprintf(stderr, "awdl_netd: IPC read ended pending_bytes=%zu\n", buffer.size());
+            ipc_failed("recv", error);
+            return;
+        }
         buffer.insert(buffer.end(), chunk, chunk + n);
         for (;;) {
             if (buffer.size() < 2) break;
             size_t len = buffer[0] | (static_cast<size_t>(buffer[1]) << 8);
-            if (buffer.size() < 2 + len) break;
-            pbuf *p = pbuf_alloc(PBUF_RAW, static_cast<u16_t>(len),
-                                 PBUF_POOL);
-            if (p) {
-                pbuf_take(p, buffer.data() + 2, static_cast<u16_t>(len));
-                if (g_netif.input(p, &g_netif) != ERR_OK) pbuf_free(p);
+            if (len < 40) { // Raw IPv6 must contain its fixed header.
+                ipc_failed("invalid_frame_length", static_cast<int>(len));
+                return;
             }
+            if (buffer.size() < 2 + len) break;
+            deliver_ip_packet(buffer.data() + 2, static_cast<u16_t>(len));
             buffer.erase(buffer.begin(), buffer.begin() + 2 + len);
         }
     }
@@ -126,6 +192,9 @@ bool accept_awdld() {
     int len = sizeof(addr);
     g_ipc = accept(g_listen, reinterpret_cast<sockaddr *>(&addr), &len);
     if (g_ipc == INVALID_SOCKET) return false;
+    if (setsockopt(g_ipc, SOL_SOCKET, SO_SNDTIMEO,
+            reinterpret_cast<const char *>(&kIpcSendTimeoutMs), sizeof(kIpcSendTimeoutMs)) != 0)
+        return false;
     uint8_t hello[20];
     size_t got = 0;
     while (got < sizeof(hello)) {
@@ -142,6 +211,7 @@ bool accept_awdld() {
 
 }  // namespace
 
+#ifndef AIRBRIDGE_NETD_TEST
 int main() {
     WSADATA wsa{};
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) return 1;
@@ -185,6 +255,18 @@ int main() {
     }
     awdl_netd_start_tcp_proxy();
     std::fprintf(stderr, "awdl_netd: AWDL data plane up\n");
-    for (;;) Sleep(1000);
-    return 0;
+    auto next_stats = GetTickCount64() + 5000;
+    while (!g_ipc_failed.load()) {
+        Sleep(100);
+        if (GetTickCount64() >= next_stats) {
+            print_stats();
+            next_stats = GetTickCount64() + 5000;
+        }
+    }
+    print_stats();
+    std::fprintf(stderr, "awdl_netd: data plane failed; exiting 2\n");
+    std::fflush(stderr);
+    // Workers are detached; do not destroy shared globals underneath them.
+    std::_Exit(2);
 }
+#endif

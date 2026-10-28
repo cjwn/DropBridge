@@ -1,0 +1,23 @@
+{
+  "baseline_commit": "e14259a",
+  "scope": "loopback only; no radio/AWDL/iPhone, driver/network change or replacement of frozen package",
+  "new_binary": "build/awdl_netd/Release/awdl_netd.exe",
+  "new_binary_sha256": "aee6af72ce2976c36d24d34f3b2fb16966cd6ee70bf3933edb9bec99b18b5a48",
+  "old_binary_sha256": "6c3f4465578c552f007abec946f7cebcd1e2738b0be3737e21a1cb07314012b3",
+  "source_and_evidence_sha256": {
+    "src/awdl_netd/main.cpp": "9b8f33eae92fd4b446d1e713d2567c588c9a925319549a5c57b59280e4393a11",
+    "src/awdl_netd/CMakeLists.txt": "daa64fdc0ee13dabd13af5777a02fdebe916663766b6ad39d2b456abdd70eb03",
+    "src/awdl_netd/ipc_io_test.cpp": "599b5ac20e29252cf5a5ace0ee45a71777a38bbf2f814dbe301546d7d84ea625",
+    "tools/test_netd_process.py": "ade914d0cbc569e1d2f66af86ac0cc5eaffe3ca93f17fd52814072750579278b",
+    "evidence/netd-offline-2026-10-28.log": "e81b4b051f4361db74933698be221f8d79565cd7721b8251d00181e214a57781",
+    "evidence/netd-old-eof-control-2026-10-28.log": "20fb0eaa8abf8b954df43925724a5d385dacd3898b3fdf6fcf0b520b64216fb3"
+  },
+  "ctest_native_log_sha256": "dfd95d723caf1482af31d60c2f21cc601ac8c14d6c1154e926ca008bc696463a",
+  "ctest_passed": [
+    "netd_ipc_io",
+    "netd_process_faults"
+  ],
+  "process_cases": 5,
+  "negative_control": "old frozen binary remained alive for 3 seconds after IPC EOF; expected test failure",
+  "limits": "Local fault correctness only; no measured AirDrop throughput/stability improvement; raw counters are not TCP-delivery/ACK evidence."
+}

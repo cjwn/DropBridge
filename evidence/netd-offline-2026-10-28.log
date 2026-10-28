@@ -1,0 +1,82 @@
+Start testing: Oct 28 20:51 中国标准时间
+----------------------------------------------------------
+1/2 Testing: netd_ipc_io
+1/2 Test: netd_ipc_io
+Command: "J:/New soft project/DropBridge/build/awdl_netd/Release/netd_ipc_test.exe"
+Directory: J:/New soft project/DropBridge/build/awdl_netd
+"netd_ipc_io" start time: Oct 28 20:51 中国标准时间
+Output:
+----------------------------------------------------------
+awdl_netd: IPC failed op=send error=10058
+awdl_netd: IPC failed op=send error=10060
+awdl_netd: IPC read ended pending_bytes=0
+awdl_netd: IPC failed op=recv error=0
+awdl_netd: ipc stats rx_seen=203 rx_bytes=72928 rx_queued=102 alloc_fail=1 copy_fail=0 input_fail=100 tx_frames=1 tx_bytes=64 tx_fail=2
+PASS: real pool exhaustion, input rejection and buffer ownership
+PASS: actual output framing, copy bounds and failed send => ERR_IF
+PASS: non-reading local peer terminates a blocked send
+PASS: split IPC, 60 KB input, orderly EOF and exact bytes
+<end of output>
+Test time =   0.15 sec
+----------------------------------------------------------
+Test Passed.
+"netd_ipc_io" end time: Oct 28 20:51 中国标准时间
+"netd_ipc_io" time elapsed: 00:00:00
+----------------------------------------------------------
+
+2/2 Testing: netd_process_faults
+2/2 Test: netd_process_faults
+Command: "C:/Users/ndpyz/AppData/Local/Programs/Python/Python312/python.exe" "J:/New soft project/DropBridge/src/awdl_netd/../../tools/test_netd_process.py" "J:/New soft project/DropBridge/build/awdl_netd/Release/awdl_netd.exe"
+Directory: J:/New soft project/DropBridge/src/awdl_netd/../..
+"netd_process_faults" start time: Oct 28 20:51 中国标准时间
+Output:
+----------------------------------------------------------
+PASS: healthy idle then EOF: exit=2 after EOF in 0.062 s
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready
+awdl_netd: ipc stats rx_seen=0 rx_bytes=0 rx_queued=0 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=4 tx_bytes=256 tx_fail=0
+awdl_netd: IPC read ended pending_bytes=0
+awdl_netd: IPC failed op=recv error=0
+awdl_netd: ipc stats rx_seen=0 rx_bytes=0 rx_queued=0 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=4 tx_bytes=256 tx_fail=0
+awdl_netd: data plane failed; exiting 2
+PASS: delayed initial connection then EOF: exit=2 after EOF in 0.062 s
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready
+awdl_netd: IPC read ended pending_bytes=0
+awdl_netd: IPC failed op=recv error=0
+awdl_netd: ipc stats rx_seen=0 rx_bytes=0 rx_queued=0 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=2 tx_bytes=144 tx_fail=0
+awdl_netd: data plane failed; exiting 2
+PASS: truncated packet then EOF: exit=2 after EOF in 0.016 s
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready
+awdl_netd: IPC read ended pending_bytes=10
+awdl_netd: IPC failed op=recv error=0
+awdl_netd: ipc stats rx_seen=0 rx_bytes=0 rx_queued=0 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=2 tx_bytes=144 tx_fail=0
+awdl_netd: data plane failed; exiting 2
+PASS: invalid IPv6 frame length: exit=2 after EOF in 0.093 s
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready
+awdl_netd: IPC failed op=invalid_frame_length error=1
+awdl_netd: ipc stats rx_seen=0 rx_bytes=0 rx_queued=0 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=2 tx_bytes=144 tx_fail=0
+awdl_netd: data plane failed; exiting 2
+PASS: split complete IPv6 frame then EOF: exit=2 after EOF in 0.015 s
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready
+awdl_netd: IPC read ended pending_bytes=0
+awdl_netd: IPC failed op=recv error=0
+awdl_netd: ipc stats rx_seen=1 rx_bytes=40 rx_queued=1 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=2 tx_bytes=144 tx_fail=0
+awdl_netd: data plane failed; exiting 2
+<end of output>
+Test time =   8.89 sec
+----------------------------------------------------------
+Test Passed.
+"netd_process_faults" end time: Oct 28 20:51 中国标准时间
+"netd_process_faults" time elapsed: 00:00:08
+----------------------------------------------------------
+
+End testing: Oct 28 20:51 中国标准时间

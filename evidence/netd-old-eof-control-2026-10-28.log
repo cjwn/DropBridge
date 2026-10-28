@@ -1,0 +1,24 @@
+awdl_netd: waiting for awdld on 127.0.0.1:49877
+awdl_netd: AWDL data plane up
+awdl_netd: TCP 8771 -> 127.0.0.1:8771 ready
+Traceback (most recent call last):
+  File "J:\New soft project\DropBridge\tools\test_netd_process.py", line 65, in check
+    code = process.wait(timeout=3)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ndpyz\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1264, in wait
+    return self._wait(timeout=timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\ndpyz\AppData\Local\Programs\Python\Python312\Lib\subprocess.py", line 1593, in _wait
+    raise TimeoutExpired(self.args, timeout)
+subprocess.TimeoutExpired: Command '['J:\\New soft project\\DropBridge\\dist\\app\\20261028-143130\\backend\\awdl_netd.exe']' timed out after 3 seconds
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "J:\New soft project\DropBridge\tools\test_netd_process.py", line 105, in <module>
+    main()
+  File "J:\New soft project\DropBridge\tools\test_netd_process.py", line 92, in main
+    check(exe, 'healthy idle then EOF', [], 'op=recv', pending=0, heartbeat=not args.only_eof)
+  File "J:\New soft project\DropBridge\tools\test_netd_process.py", line 67, in check
+    raise AssertionError('data connection ended but process stayed alive for 3 s') from error
+AssertionError: data connection ended but process stayed alive for 3 s
