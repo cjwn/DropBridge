@@ -1,5 +1,12 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-28：Q35 生产配置（mDNS 代理开启）下的 TCP 回归
+
+- 原有六个测试都在 `AWDL_NETD_MDNS_PROXY` 未设置时跑，而监管启动 netd 时是开着的（多两条 UDP 路径、两个 netconn、两个线程）。给 soak 加 `--mdns`：按生产环境设置该变量，并断言出现 `mDNS proxy ... ready`。
+- 同一命令只差 `--mdns`，2×16 MB、64 KB 在途：关 4.05/4.11 MB/s、句柄 121、私有 2.3 MB；开 3.65/4.13 MB/s、句柄 126、私有 2.4 MB；两臂都零丢弃、字节逐字节一致，句柄/私有跨连接不增长。
+- CTest 增加 `netd_proxy_soak_mdns`（4 MB × 2，10.3 s），全套 **7/7**。文档注明该用例占用 UDP 15353 与 TCP 8771，不能与真机链路同时跑。
+- 未做：真机、空口、并发多连接；没有改 mDNS 代码或驱动/网络。
+
 ## 2026-10-28：Q34 会话冻结与汇总脚本
 
 - 监管只保留最近会话，真机跑完必须先冻结。新增 `tools/Collect-Session.ps1`：解析会话（`-Session` 或 `-Latest`）、把六个日志复制到 `build\diagnostics\<时间>-<tag>\session\`、对**原始**会话跑 `analyze_session.py` 生成 `analysis.txt`/`analysis.json`、写 `manifest.json`（采集时间、源会话、HEAD、未提交文件、日志与收到的文件 SHA-256、当前后端二进制哈希）。

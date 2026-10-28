@@ -80,7 +80,15 @@ if(Python3_Interpreter_FOUND)
         --case soak --mb 4 --cycles 3)
     set_tests_properties(netd_proxy_soak PROPERTIES TIMEOUT 180
         WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
+    # Production enables the mDNS proxy, which adds two UDP paths and more
+    # lwIP netconns; the TCP-only tests above would never notice a regression
+    # there. Needs local UDP 15353 free, so never run it beside a live chain.
+    add_test(NAME netd_proxy_soak_mdns COMMAND "${Python3_EXECUTABLE}"
+        "${CMAKE_CURRENT_SOURCE_DIR}/../../tools/test_netd_tcp.py" "$<TARGET_FILE:awdl_netd>"
+        --case soak --mb 4 --cycles 2 --mdns)
+    set_tests_properties(netd_proxy_soak_mdns PROPERTIES TIMEOUT 180
+        WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/../..")
     # All these process tests own 49877; never connect to a pre-existing chain.
     set_tests_properties(netd_process_faults netd_tcp_roundtrip netd_tcp_faults netd_proxy_soak
-        PROPERTIES RESOURCE_LOCK netd_loopback)
+        netd_proxy_soak_mdns PROPERTIES RESOURCE_LOCK netd_loopback)
 endif()

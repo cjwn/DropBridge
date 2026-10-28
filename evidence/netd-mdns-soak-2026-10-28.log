@@ -1,0 +1,39 @@
+﻿# Q35 offline evidence: production configuration (mDNS proxy enabled) under TCP load
+# Loopback only. No radio/AWDL/USB/air interface/iPhone. 2026-10-28 (UTC+8).
+# netd: 9cc25b27ca8e2ab2013748a747849b308878654c7d0ffca078d671fb5f424bf9
+
+## command (both arms identical except --mdns)
+python tools\test_netd_tcp.py build\awdl_netd\Release\awdl_netd.exe --case soak --mb 16 --cycles 2 --inflight-kb 64 --batch 16 --stall 1.2 [--mdns]
+
+## mDNS proxy ON (production: AWDL_NETD_MDNS_PROXY=1)
+cycle 0: 16.7772 MB up in 4.593 s = 3.65 MB/s (incl. 1.2 s receiver idle); 0.252075 MB down in 16.0 ms = 15.75 MB/s (total 4.609 s); retransmits=1; netd handles=126 working=7.1 MB private=2.4 MB
+cycle 1: 16.7772 MB up in 4.062 s = 4.13 MB/s (incl. 1.2 s receiver idle); 0.252075 MB down in 16.0 ms = 15.75 MB/s (total 4.078 s); retransmits=1; netd handles=126 working=7.1 MB private=2.4 MB
+PASS: 2 sequential connection(s), 16 MB byte-exact each way, drops=[0, 0, 0, 0], proxy idle after cleanup, handle growth 0, private growth 0.0 MB; netd awdl_netd: ipc stats rx_seen=25456 rx_bytes=35212880 rx_queued=25456 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=15951 tx_bytes=1461238 tx_fail=0
+awdl_netd: mDNS proxy 127.0.0.1:15353 <-> ff02::fb:5353
+
+## mDNS proxy OFF (what the other TCP tests use)
+cycle 0: 16.7772 MB up in 4.796 s = 3.50 MB/s (incl. 1.2 s receiver idle); 0.252075 MB down in 0.0 ms = coarser than the clock (total 4.796 s); retransmits=1; netd handles=121 working=7.1 MB private=2.3 MB
+cycle 1: 16.7772 MB up in 3.766 s = 4.45 MB/s (incl. 1.2 s receiver idle); 0.252075 MB down in 15.0 ms = 16.81 MB/s (total 3.781 s); retransmits=1; netd handles=121 working=7.1 MB private=2.3 MB
+PASS: 2 sequential connection(s), 16 MB byte-exact each way, drops=[0, 0, 0, 0], proxy idle after cleanup, handle growth 0, private growth 0.0 MB; netd awdl_netd: ipc stats rx_seen=25456 rx_bytes=35212880 rx_queued=25456 alloc_fail=0 copy_fail=0 input_fail=0 tx_frames=15907 tx_bytes=1458598 tx_fail=0
+
+## CTest with the new production-configuration test (7/7)
+Internal ctest changing into directory: J:/New soft project/DropBridge/build/awdl_netd
+Test project J:/New soft project/DropBridge/build/awdl_netd
+    Start 1: netd_ipc_io
+1/7 Test #1: netd_ipc_io ......................   Passed    0.12 sec
+    Start 2: netd_tcp_diag
+2/7 Test #2: netd_tcp_diag ....................   Passed    0.01 sec
+    Start 3: netd_process_faults
+3/7 Test #3: netd_process_faults ..............   Passed    8.82 sec
+    Start 4: netd_tcp_roundtrip
+4/7 Test #4: netd_tcp_roundtrip ...............   Passed    5.26 sec
+    Start 5: netd_tcp_faults
+5/7 Test #5: netd_tcp_faults ..................   Passed   20.65 sec
+    Start 6: netd_proxy_soak
+6/7 Test #6: netd_proxy_soak ..................   Passed   15.29 sec
+    Start 7: netd_proxy_soak_mdns
+7/7 Test #7: netd_proxy_soak_mdns .............   Passed   10.27 sec
+
+100% tests passed, 0 tests failed out of 7
+
+Total Test time (real) =  60.77 sec

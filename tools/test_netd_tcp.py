@@ -296,7 +296,7 @@ class Peer:
 
 
 class Run:
-    def __init__(self, exe, name, rcvbuf=1024):
+    def __init__(self, exe, name, rcvbuf=1024, mdns=False):
         self.work = Path('build/diagnostics/tcp-diag') / f'{name}-{time.time_ns()}'
         self.work.mkdir(parents=True)
         self.lines, self.events = [], queue.Queue()
@@ -312,6 +312,10 @@ class Run:
         env = os.environ.copy()
         for key in ('AWDL_NETD_MDNS_PROXY', 'AWDL_NETD_NATIVE_MDNS'):
             env.pop(key, None)
+        if mdns:
+            # Production sets this in the supervisor; the UDP sockets it adds
+            # also consume lwIP netconns, so a TCP-only test is not equivalent.
+            env['AWDL_NETD_MDNS_PROXY'] = '1'
         env['AWDL_NETD_ADDR_FILE'] = str((self.work / 'mock.addr').resolve())
         self.process = subprocess.Popen([str(exe)], cwd=self.work, env=env,
                                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -551,7 +555,7 @@ def process_usage(pid):
 
 def soak(exe, megabytes=64.0, cycles=1, inflight=16 * 1024, batch=8, rate=0.0,
          stall=1.2, response_kb=256, handle_limit=16, private_limit_mb=32.0,
-         allow_drops=False):
+         allow_drops=False, mdns=False):
     """Stream fixed-size connections through the real proxy and check health.
 
     Asserted here: byte-exact delivery both directions, ACK progress never
@@ -562,7 +566,9 @@ def soak(exe, megabytes=64.0, cycles=1, inflight=16 * 1024, batch=8, rate=0.0,
     """
     size = int(megabytes * 1024 * 1024)
     response = (b'AirBridge32-soak-response' * (response_kb * 1024 // 26 + 1))[:response_kb * 1024]
-    run = Run(exe, 'soak', rcvbuf=None)
+    run = Run(exe, 'soak', rcvbuf=None, mdns=mdns)
+    if mdns:
+        run.wait_line(lambda line: 'mDNS proxy' in line)
     baseline = None
     cycles_done = 0
     try:
@@ -680,6 +686,8 @@ def main():
                         help='soak: seconds the local receiver idles mid-transfer')
     parser.add_argument('--allow-drops', action='store_true',
                         help='soak: over-drive on purpose; report netd drops instead of failing')
+    parser.add_argument('--mdns', action='store_true',
+                        help='soak: start netd with AWDL_NETD_MDNS_PROXY=1, as production does')
     args = parser.parse_args()
     exe = args.exe.resolve(strict=True)
     if not args.expect_stuck and args.case in ('all', 'roundtrip'):
@@ -692,7 +700,8 @@ def main():
     if args.case == 'soak':
         soak(exe, megabytes=args.mb, cycles=args.cycles,
              inflight=int(args.inflight_kb * 1024), batch=args.batch,
-             rate=args.rate, stall=args.stall, allow_drops=args.allow_drops)
+             rate=args.rate, stall=args.stall, allow_drops=args.allow_drops,
+             mdns=args.mdns)
 
 
 if __name__ == '__main__':

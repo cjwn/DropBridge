@@ -60,6 +60,7 @@
 | Q32 | 满窗/长跑边界与测试台修正 | ✅ 本机：64 槽下 80/96/128/192 KB 在途全部零丢帧，240 KB 满窗也零丢帧（首次挂住是测试台未重传尾部，已加 go-back-N 尾部重传）；256 MB 单连接 11.657 s / 23.03 MB/s、199,742 帧、0 丢帧、句柄 121 不变、私有 2.3 MB 不变。结论：64 槽吸收的是线程错位而非窗口上限 | `evidence/lwip-window-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §10 |
 | Q33 | 会话分析汇总 netd 丢帧与代理计数 | ✅ 本机：`analyze_session.py` 解析 netd 的 `ipc stats` / `tcp flow` / `proxy flow`，输出丢帧（alloc/copy/input/tx）、逐 flow 载荷与失败数、代理双向字节与结束阶段，`input_fail` 非零时显式告警并说明不是空口证据；`--json` 也带 `netd`；回归 9/9 | `tools/analyze_session.py`、`tools/test_analyze_session.py` |
 | Q34 | 会话冻结与汇总脚本 | ✅ 本机：`tools/Collect-Session.ps1` 把会话日志复制到 `build\diagnostics\<时间>-<tag>\`，跑分析并写 `manifest.json`（HEAD、未提交文件、日志与收到文件哈希、当前后端二进制哈希），**不复制密钥/收到的文件、不启动链路**；用 20261028-194820 实测，两份 29.46 MB 文件哈希一致 | `tools/Collect-Session.ps1`、`docs/HANDOFF_2026-10-28.md` §8 |
+| Q35 | 生产配置（mDNS 代理开启）下的 TCP 回归 | ✅ 本机：`--mdns` 让 netd 以 `AWDL_NETD_MDNS_PROXY=1` 起（与监管一致），2×16 MB / 64 KB 在途吞吐 3.65/4.13 MB/s、零丢弃、句柄 126 且跨连接不增长、字节一致；CTest 增加 `netd_proxy_soak_mdns`，**7/7** | `evidence/netd-mdns-soak-2026-10-28.log`、`docs/LWIP_INPUT_QUEUE.md` §11 |
 
 ## 3. 每项的具体做法
 
