@@ -555,3 +555,10 @@
 - 新增 `tools/Monitor-Soak.ps1` 并已在后台启动（24 h、每 60 s 一次，CSV 落 `build\soak\soak.csv`）：记录 supervisor/radio/bridge/netd/awdld/receiver 的工作集、私有内存、句柄、CPU，以及缺失进程与监听端口。首帧：AirBridge32 33 MB 工作集 / 75 MB 私有 / 423 句柄；radio 7 MB；awdld 4 MB；receiver 25 MB；端口 49876/49877/8771 在听。
 - 样本里 15353 不在列表是因为它只开 UDP，端口检查只看 TCP——不是缺失。
 - 下一步：常驻采样跑满一段后看趋势；速度基线（A）等你方便时发 3 次 29 MB 视频。
+
+## 2026-10-28：整理交接文档 docs/STATUS.md
+
+- 新增 `docs/STATUS.md`：给接手人看的一份现状说明——交付形态与目录布局、六个进程与许可证、数据路径、关键配置（149/20、主控 metric/counter、社交时隙、固件快切、实例 ID 持久化、低速检测）、全部速度实测、今天修掉的八个问题（带提交号）、五个未解决项（射频退化、蓝牙 Error、稳定性未验收、固件授权、签名/干净 VM）、1 小时常驻采样、构建与验证命令、下一步建议、证据索引。
+- README 阅读入口加入该文档；`tools/check_project.py` 的必需清单同步。
+- 当前实测：最好 1121 KB/s（29.46 MB / 26.26 s）；社交时隙 + 快切后起步 930 帧/s，随后因射频退化中断；1 小时常驻采样无泄漏（AirBridge32 33–37 MB 工作集 / ~421 句柄）。
+- 蓝牙接口仍是 Error（软件 USB 复位造成），需重启系统恢复，不影响 AirDrop。
