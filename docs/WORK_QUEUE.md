@@ -55,6 +55,7 @@
 | Q27 | 关闭 TCP 合并实测 | ✅ 实验记录完成，非验收通过：fixed 149/20、相同原后端、`-j 0`，29.46 MB 两次完整 258.107/284.562 s（0.114/0.104 MB/s），接收哈希一致；回程数据帧更多，非纯 ACK 计数。默认仍开启，原始日志已冻结，链路停止 | `docs/TCP_MERGE_TEST.md`、`evidence/tcp-merge-off-2026-10-28.json` |
 | Q28 | 无需手机的 netd IPC 修复与回归 | ✅ 发送失败返回 ERR_IF，建立后断链退出 2，分配/投递丢弃计数，5 s socket 发送无进展超时。真实池/回环及五种进程情形 CTest 2/2；同一 EOF 在旧版复现 >3 s 假活。仅本机构建未替换原包，未声称真机提速/断流修复 | `docs/NETD_OFFLINE_FIX.md`、`evidence/netd-offline-2026-10-28.log` |
 | Q29 | TCP 代理回压/复位异常清理 | ✅ 本地 send 5 s 无进展超时、两侧 recv 1 s 轮询检查退出标记、join 后关闭；正常空闲/FIN 响应保留。真实回压+RST、远端 RST、本地 RST 和往返回归最终 CTest 5/5；334 后端文件对照仅换 netd，两个 --check 通过，未启动真机 | `docs/TCP_PROXY_CLEANUP.md`、`evidence/tcp-proxy-cleanup-2026-10-28.log` |
+| Q30 | 最新状态交接快照 | ✅ 2026-10-28：整合至 240f88c，现场只读复查 MI_02 OK/WinUSB、MI_00 Error/31，项目进程与指定监听为空；复核新旧版本/334 文件清单，明确首次真机沿用 Q27 fixed/-j 0，仅换 netd。文档/证据整理，无新无线实验 | `docs/HANDOFF_2026-10-28.md`、`evidence/handoff-check-2026-10-28.json` |
 
 ## 3. 每项的具体做法
 

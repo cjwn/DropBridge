@@ -1,0 +1,48 @@
+{
+  "document": "docs/HANDOFF_2026-10-28.md",
+  "document_sha256": "7858a46157c5b4b93f470672ebf27dab3ce280732fd3d5d7ab942887ff9b129c",
+  "technical_head": "240f88c7bcf928a99c7232dc42ad0b735f5512a3",
+  "branch": "main",
+  "scope": "documentation and read-only PnP/process/listener/hash verification only; no CTest rerun, radio/AWDL/iPhone operation, reset, driver/network change, package replacement or push",
+  "live_state": {
+    "checked_at_hong_kong": "2026-10-28T21:38:15+08:00",
+    "scope": "read-only PnP/process/listener check; no initialization, reset, driver or network change",
+    "interfaces": [
+      {
+        "interface": "MI_02",
+        "present": true,
+        "status": "OK",
+        "problem_code": 0,
+        "service": "WinUSB",
+        "driver_inf": "oem155.inf",
+        "driver_version": "6.1.7600.16385"
+      },
+      {
+        "interface": "MI_00",
+        "present": true,
+        "status": "Error",
+        "problem_code": 31,
+        "service": "BTHUSB",
+        "driver_inf": "oem154.inf",
+        "driver_version": "1.5.1012.3"
+      }
+    ],
+    "project_processes": [],
+    "tcp_listeners": []
+  },
+  "source_and_evidence_hashes_verified": 12,
+  "package_files_verified": 334,
+  "package_changed_files": [
+    "awdl_netd.exe"
+  ],
+  "new_netd_sha256": "06264244435625bb24ce9e613e99fdc87264b54c1ab05234fc6da08d8acd4a3b",
+  "baseline_netd_sha256": "6c3f4465578c552f007abec946f7cebcd1e2738b0be3737e21a1cb07314012b3",
+  "supervisor_sha256": "3ec4d28b2045b1bf619bd7829c8e8c22f1ff9838d81798a20b8fa70a62963c9d",
+  "pre_cleanup_binary_sha256": "7ecaff77338952d8af5dc8b4d686f51e501622a16b6e9f84e99203dfce994ae1",
+  "manual_launcher_sha256": "578deb204e7df5b97757ad0d373cef2c574d5490bf8bf4e22b14604b6e735941",
+  "package_manifest_sha256": "4a594c67f149d838e8175c3356c4af4772118380f979e405ab439877a04f0591",
+  "nested_owl_head_verified": "da255a70f221784c836d943dd3f243bc798f223b",
+  "handoff_links_checked": 23,
+  "prior_ctest_evidence": "evidence/tcp-proxy-cleanup-2026-10-28.log",
+  "prior_ctest_result": "5/5 passed; not rerun for this documentation task"
+}

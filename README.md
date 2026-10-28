@@ -16,6 +16,7 @@ Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirB
 
 ## 阅读入口
 
+- [当前交接快照（2026-10-28，含最新 netd 与测试入口）](docs/HANDOFF_2026-10-28.md)
 - [给下一位 AI 的完整交接（最新汇总）](HANDOFF.md)
 - [当前状态与交接（给人看的一份）](docs/STATUS.md)
 - [工作队列：下一步做什么（跨会话）](docs/WORK_QUEUE.md)

@@ -1,5 +1,9 @@
 # DropBridge / AirBridge32：给下一位 AI 的完整交接
 
+> **最新可直接交接的版本：[2026-10-28 交接快照](docs/HANDOFF_2026-10-28.md)**。
+> 已整合到 `240f88c`，含 21:38 现场只读状态、Q28/Q25/Q29、测试目录/哈希、
+> 单变量真机入口与停止条件。本页继续保留较完整的历史时间线和源码背景。
+
 更新：2026-10-28，Asia/Hong_Kong（UTC+8）。
 后续 Q25/Q29：逐连接 TCP/四个代理边界观测已实现；本机复现并修复代理
 回压/复位异常清理，最终 CTest 5/5。独立测试目录已准备，334 后端文件仅
@@ -56,10 +60,10 @@ netd。见 [TCP 诊断](docs/TCP_DIAGNOSTICS.md)、[代理修复](docs/TCP_PROXY
   `cut=4 (UMC), 1T1R, rfe_type=0x22`。不能只靠商品型号确认芯片。
 - MI_02 已从厂商 `netrtwlanu.inf / RtlWlanu` 绑定为
   `WinUSB / oem155.inf / libwdi 6.1.7600.16385`。
-- 本次交接只读复查：MI_02 `OK / problem 0 / WinUSB`；MI_00 `Error`。
+- 2026-10-28 21:38 只读复查：MI_02 `OK / problem 0 / WinUSB`；MI_00
+  `Error / problem 31 / BTHUSB`。见 `evidence/handoff-check-2026-10-28.json`。
   **蓝牙 Error 与用户正常关闭蓝牙开关不是同一件事。**
-- 原蓝牙异常记录为 Problem 31 / `CM_PROB_FAILED_ADD`；最新检查脚本
-  只再次显示 Error，没有在本轮重新读取并证明仍是同一 problem code。
+- 蓝牙问题码 31 / `CM_PROB_FAILED_ADD` 本次重新读取确认；未尝试恢复。
 - 项目 supervisor/radio/bridge/netd/awdld 进程目前没有残留；两组实验的
   receiver 也已停止。不要把没有发现接收端误认为后台目前仍应在运行。
 - WinUSB 回滚演练、蓝牙成功恢复、完整 24 h 验收均没有完成。
@@ -256,28 +260,26 @@ CRC 比例相近证明手机主动少发；起步帧率高证明换台和 ACK �
 
 ## 7. 下一位 AI 建议的排查顺序
 
-### 第一步：先做正常与异常的源码/状态对比，避免再同时改多个变量
+### 第一步：核对已完成修复与本机测试目录，不重复开发
 
-- 对照正常时间段、13:43 断流、13:47 蓝牙异常、`3037619`、`1db868f`、
-  `d007eee` 的变化，明确哪些现象在蓝牙异常前已经存在。
-- 只读核查 MI_00/MI_02 状态、现有初始化/共存/天线授权路径。优先确认
-  状态恢复是否有缺口，不要为验证猜测就再换驱动或复位。
-- 若安排蓝牙正常/异常对照，先写清如何安全恢复到正常状态；整机重启、
-  USB 复位会改变的不止蓝牙，不能把恢复后的变化全归给蓝牙开关。
+- 先读 [最新交接快照](docs/HANDOFF_2026-10-28.md)。Q28 IPC 修复、Q25
+  逐连接 TCP/代理观测、Q29 异常清理均已完成本机验证，最终 CTest 5/5。
+- 核对 `240f88c`、新 netd 与监管哈希、334 后端文件清单；独立测试目录为
+  `build/diagnostics/proxy-cleanup/test-package`，仅 netd 不同，尚未启动真机。
+- 只读确认绑定、进程和端口；保留原冻结包、证书/实例 ID、失败日志。
+  用户当前希望减少手机配合；不方便真机时先用已保存证据，不反复催发视频。
 
-### 第二步：Q25 被动 TCP 诊断
+### 第二步：Q25 使用现有观测做一次真实文件对照
 
-- 在 awdld→netd IPC 输入、lwIP 输入/输出、本地 receiver 代理三个边界
-  记录同一连接的载荷字节、TCP seq/ACK、通告窗口、重传/乱序迹象、
-  pbuf/input 分配或投递失败；保留时间标记，不记录明文文件内容/身份令牌。
-- 要区分“文件载荷停了但探测/ACK 还在”与“整个 RX/USB 没有活动”。
-  也要区分 netd 已投递/已读与手机真的收到空口 ACK。
-- 保持日志低频/计数式，先离线回放验证，不用逐包海量日志改变时序。
-- `-j 0` 是现成关闭 TCP 合并的开关，可做单变量对照；当前监管参数
-  默认 `-j 400`；后续 Q27 已新增 `--no-tcp-merge` 入口，离线验证
-  `-j 0` 旁路，真机进度以队列/证据为准，不要把入口完成写成实验成功。
-- 一次只变一个因素，同一文件、位置、手机状态，记录启动重试和初始
-  状态；失败保留，不连续叠加恢复。链路 ready 后再提示用户操作 iPhone。
+- 用户方便时，手动用 `test-package/Start-Q29-Test.cmd`，沿用最近 Q27
+  fixed 149/20、`-j 0`，同文件/位置/手机状态/证书，只换 netd。
+  不同时切回默认 `-j 400`、social 或更改无线/窗口/池参数。
+- ready 后再让用户发送，先一次。保留实际参数/哈希、初态、启动重试、
+  操作时间、文件字节/耗时/哈希，以及同一 flow 的 TCP 和 proxy 读写计数。
+- 发现失败不能记作上传失败；中断时先保存/冻结日志，不连续叠加恢复。
+  不把 IPC accepted、send 接受、TCP ACK 或重叠迹象当作空口 ACK/确证重传。
+- 若后续仍需蓝牙/共存对照，再对照 13:43 断流与约 13:47 蓝牙异常和
+  初始化路径；恢复必须协调，不能自动复位/换驱动后把变化全归给蓝牙。
 
 ### 后续而非当前优先项
 
@@ -340,6 +342,12 @@ lwIP/IPC/空口，不能用来排除整个接收链路。
 
 ### 随 Git 提交的材料
 
+- `docs/HANDOFF_2026-10-28.md`、`evidence/handoff-check-2026-10-28.json`：
+  最新交接快照、现场与哈希复核。
+- `evidence/tcp-proxy-cleanup-2026-10-28.json`、同名 `.log`、
+  `evidence/tcp-proxy-cleanup-cases-2026-10-28.log`：Q29 最终 5/5 与故障输出。
+- `evidence/tcp-diag-offline-2026-10-28.json`、
+  `evidence/tcp-proxy-pre-fix-2026-10-28.log`：Q25 与修复前负对照。
 - `evidence/transfer-970kbs.log`：历史 251/363/952/970/1121 KB/s。
 - `evidence/awdl-sequence-and-fastretune.log`：13:43 断流与旧快切计时。
 - `evidence/software-usb-reset.log`：蓝牙异常历史；只看记录，不复制执行。
@@ -410,7 +418,14 @@ python tools/analyze_session.py build/diagnostics/social-20261028/20261028-15165
 
 ### 仅在准备好记录新实验并提示用户后启动
 
-保留原后端的最新监管入口（**会初始化并发 AWDL 帧**）：
+当前下一步的单组件测试入口（**会初始化并发 AWDL 帧，本次文档任务未运行**）：
+
+```powershell
+& '.\build\diagnostics\proxy-cleanup\test-package\Start-Q29-Test.cmd'
+```
+
+此入口沿用 Q27 fixed/-j 0，只换 netd，详见最新交接快照。
+以下命令是**保留原后端、合并开启的历史参考入口**，不用于测试本次新 netd：
 
 ```powershell
 .\build\supervisor\Release\AirBridge32.exe --root "J:\New soft project\DropBridge\dist\app\20261028-143130" --data "J:\New soft project\DropBridge\dist\data" --chanseq fixed
@@ -434,6 +449,9 @@ radio/awdld/netd/bridge/receiver 的相对路径哈希在 B 组 evidence JSON。
 
 最近关键提交：
 
+- `240f88c`：Q29 代理异常清理，最终本机 5/5，334 文件只换 netd 的测试目录。
+- `58ffe00`：Q25 TCP/代理观测与真实回压/RST 负对照。
+- `e4e34dc`：Q28 IPC 错误回报/假活修复；`e14259a`：Q27 两轮低速完成记录。
 - `3037619`：social + 固件快切；`271faf4`：软件 USB 复位/蓝牙副作用。
 - `1db868f`：统计/监测修复；`d007eee`：真实换台确认与跨频段补偿。
 - `0c2f028`：三次真实传输未达标；`cf3bbb3`：失败会话分层诊断。
@@ -462,7 +480,8 @@ Q20 仍进行中且未达标；Q22–Q24、Q27 是诊断/实验记录完成；Q2
 
 给下一位 AI 的第一条工作指令：
 
-> 请先核对本地提交和这份交接，对照正常/异常时间段，审查蓝牙异常与
-> 共存状态的关系，并设计最小的 TCP 载荷/ACK/窗口观测。明确哪些只是
-> 假设，再决定一个单变量实验。保留历史日志与后端基线；不自动复位、
-> 换驱动、改网络或推送。每项独立改动验证后更新工作队列并本地中文提交。
+> 请先读 2026-10-28 交接快照与队列，核对 240f88c、新 netd/监管哈希和
+> 334 文件清单。Q28/Q25 本机部分/Q29 已完成；用户方便时沿用 Q27
+> fixed 149/20、-j 0，仅换 netd，先一次真实文件对照，使用现有 TCP/代理
+> 观测定位。保留历史日志与后端基线，不重复开发，不自动复位、换驱动、
+> 改网络或推送。每项独立改动验证后更新队列并本地中文提交。
