@@ -45,14 +45,14 @@
 | --- | --- | --- | --- |
 | Q18 | 链路统计与监测线程异常 | ✅ radio/监管编译、离线回归通过：上传数据分类、有效 RSSI、并发窗口计数；未据此声称实机提速 | `evidence/radio-telemetry-fix.log` |
 | Q19 | 换台完成确认与跨频段补偿同步 | ✅ 实现与离线验证：C2H 有界等待后回读真实信道，失败断开链路；跨频段恢复功率表/天线配置并更新补偿上下文；实机效果独立记 Q20 | `evidence/channel-confirmation-offline.log`、`patches/devourer-airbridge.patch` |
-| Q20 | 修复版连续传输验收 | 🔜 未通过。最新 Q24：fixed 首次 0.323 MB/s 成功，第二次约 15.98 MB 传输体后 408；social 未发现接收端，未进入上传。停止追加发送，链路已退出；下一步采集 TCP 载荷/ACK/窗口证据 | `docs/RESEARCH_2026-10-28.md`、`docs/STALL_DIAGNOSIS.md` |
+| Q20 | 修复版连续传输验收 | 🔜 未通过。Q24 fixed 第二次 408、social 未发现；最新 Q27 关闭合并两次完整但仅 0.114/0.104 MB/s，不据此认定断流已修复。链路已退出，仍需 Q25 TCP 载荷/ACK/窗口证据 | `docs/STALL_DIAGNOSIS.md`、`docs/TCP_MERGE_TEST.md` |
 | Q21 | 修正真实传输分析工具 | ✅ 识别监管时间前缀，区分成功/失败/进行中，区分落盘与传输体字节；三项离线回归通过 | `tools/test_analyze_session.py` |
 | Q22 | 失败会话分层时间线复盘 | ✅ 2026-10-28：离线确认控制面仍活动、上传数据停顿；本次上传最大换台 2175 us，温度 29/+3；后续补齐接收空窗仍有少量数据帧的诊断，六项分析回归通过 | `docs/STALL_DIAGNOSIS.md`、`evidence/stall-context-2026-10-28.json` |
 | Q23 | 固定信道 / 社交时隙单变量入口 | ✅ 2026-10-28：监管 `--chanseq` / 脚本 `-ChannelSequence`；固定模式真实移除 presence 开关，两模式禁用继承的跟随。真实子进程离线测试、两组 `--check`、非法参数拒绝通过；真机结果见 Q24 | `evidence/chanseq-offline-2026-10-28.log`、`src/supervisor/channel_sequence_test.cs` |
 | Q24 | 固定 149 / social 真机排障 | ✅ 实验与负结果记录完成，非验收通过：fixed 1/2 完成，第二次 408 后停止第三次；social 用户两次报告不可见，零 Discover/Upload。仅关闭跳频不足以解决，不能排除历史射频状态；原始日志已冻结备份 | `evidence/fixed-channel-transfer-2026-10-28.json`、`evidence/social-discovery-2026-10-28.json` |
 | Q25 | TCP 数据面被动诊断 | ⬜ 记录 IPC→lwIP→receiver 的载荷字节、TCP seq/ACK/窗口和输入丢弃；先离线验证再配合一次真机复现，禁止据 USB TX 成功判定空口 ACK 正常 | — |
 | Q26 | 汇总给下一位 AI 的完整交接 | ✅ 2026-10-28：集中记录架构、当前状态、三组结果、蓝牙/共存线索、正常与异常时间线、源码版本/证据/命令和授权边界；强调 13:43 断流早于约 13:47 蓝牙 Error，下一步先做状态对比再开展 Q25 | `HANDOFF.md`；仅文档整理、无新硬件实验 |
-| Q27 | 关闭 TCP 合并实测 | 🔜 用户明确要求先测关闭合并：fixed 149/20、主控、相同原后端，仅 `-j 400→0`。监管 `--no-tcp-merge` / 脚本 `-NoTcpMerge` 已编译及离线验证；准备真机发送，结果尚未产生 | `evidence/tcp-merge-off-offline-2026-10-28.log` |
+| Q27 | 关闭 TCP 合并实测 | ✅ 实验记录完成，非验收通过：fixed 149/20、相同原后端、`-j 0`，29.46 MB 两次完整 258.107/284.562 s（0.114/0.104 MB/s），接收哈希一致；回程数据帧更多，非纯 ACK 计数。默认仍开启，原始日志已冻结，链路停止 | `docs/TCP_MERGE_TEST.md`、`evidence/tcp-merge-off-2026-10-28.json` |
 
 ## 3. 每项的具体做法
 

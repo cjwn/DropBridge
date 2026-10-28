@@ -1,0 +1,176 @@
+{
+  "code_commit": "3e03fc6ddf874aafd58c45d77b70003db2e34884",
+  "session": "20261028-194820",
+  "config": {
+    "channel": 149,
+    "width_mhz": 20,
+    "chanseq": "fixed",
+    "join_us": 0,
+    "metric": 200,
+    "counter": 100000
+  },
+  "actual_awdld_arguments": "-c 149 -s 2 -j 0 -v",
+  "supervisor_sha256": "3EC4D28B2045B1BF619BD7829C8E8C22F1FF9838D81798A20B8FA70A62963C9D",
+  "backend_package": "20261028-143130",
+  "backend_sha256": [
+    {
+      "file": "backend\\airbridge_radio.exe",
+      "sha256": "6D27F091BE099842CCCEA6E089C4D9ED45346ABAC65C1F8FA0665BEAE8A821B0"
+    },
+    {
+      "file": "backend\\awdld.exe",
+      "sha256": "4750FCDA7C9A0DC973B557F6D4788AEA5225C91B3863968C4488B7C7AB82D807"
+    },
+    {
+      "file": "backend\\awdl_netd.exe",
+      "sha256": "6C3F4465578C552F007ABEC946F7CEBCD1E2738B0BE3737E21A1CB07314012B3"
+    },
+    {
+      "file": "backend\\radio_pipe_bridge.exe",
+      "sha256": "2A00C5CE2351E838DDACF530E636DD7B2E7B015532E0CF4DA29C88752A922B5B"
+    },
+    {
+      "file": "backend\\airdrop\\receiver.py",
+      "sha256": "3AF9C952B544BB9C9E35D6D9B5AFAD030F8C9A9458DD387BE04EE64FAA43070E"
+    }
+  ],
+  "source_sha256": {
+    "radio.log": "3b2b7f546865906ee38f2bf4d195c0ba0b508c6281cf530e85edfddf6dfc99db",
+    "awdld.log": "2c565e0f4e972f2c36c4462b920e545641e6bbf66e609287107721133b1cbd16",
+    "receiver.log": "2000e97f69080e7fac433ba8d9c85ac8dc94490f988d8a5be3ad28727f4d669c",
+    "netd.log": "d4ac0486de64b3907d96fd5597fbc317f90617e034cba131a53745834e87e30a",
+    "supervisor.log": "e0cb8147900eb59f813095093a613e27c27567caea4a7f3fcba95934b1f57b95"
+  },
+  "transfers": [
+    {
+      "status": "complete",
+      "start": "2026-10-28T19:52:09.924000",
+      "end": "2026-10-28T19:56:28.031000",
+      "seconds": 258.107,
+      "file_bytes": 29456959,
+      "wire_bytes": 29434838,
+      "MB_per_s": 0.11412692797948136,
+      "file_sha256": "5d057f9c5bad719872cf316a9b6935fc965b6ff80ecc65ec5fe82ef768c73c54",
+      "awdl_window": {
+        "start": "2026-10-28T19:52:10.662000",
+        "end": "2026-10-28T19:56:26.663000",
+        "peers_range": [
+          1,
+          2
+        ],
+        "delta": {
+          "rx_action": 1905,
+          "rx_data": 22377,
+          "joined": 0,
+          "tx_action": 6180,
+          "tx_data": 14128
+        },
+        "tx_data_per_rx_data": 0.6313625597711936,
+        "limits": "All observed AWDL peers; data is not a count of TCP ACK-only packets."
+      },
+      "radio_context": {
+        "last_positive_radio_sample": {
+          "time": "2026-10-28T19:56:26.061000",
+          "frames": 377,
+          "fps": 69.1003,
+          "rssi": 68.0,
+          "rssi_n": 377.0,
+          "thermal_raw": 28,
+          "thermal_delta": 2
+        },
+        "first_zero_radio_sample": null,
+        "zero_tail_samples": 0,
+        "confirmed_retunes": 0,
+        "max_retune_us": null,
+        "thermal_raw_range": [
+          28,
+          28
+        ],
+        "thermal_delta_range": [
+          2,
+          2
+        ]
+      }
+    },
+    {
+      "status": "complete",
+      "start": "2026-10-28T19:57:53.352000",
+      "end": "2026-10-28T20:02:37.914000",
+      "seconds": 284.562,
+      "file_bytes": 29456959,
+      "wire_bytes": 29419846,
+      "MB_per_s": 0.10351683991537872,
+      "file_sha256": "5d057f9c5bad719872cf316a9b6935fc965b6ff80ecc65ec5fe82ef768c73c54",
+      "awdl_window": {
+        "start": "2026-10-28T19:57:54.662000",
+        "end": "2026-10-28T20:02:36.662000",
+        "peers_range": [
+          1,
+          3
+        ],
+        "delta": {
+          "rx_action": 2585,
+          "rx_data": 22336,
+          "joined": 0,
+          "tx_action": 6807,
+          "tx_data": 14234
+        },
+        "tx_data_per_rx_data": 0.6372671919770774,
+        "limits": "All observed AWDL peers; data is not a count of TCP ACK-only packets."
+      },
+      "radio_context": {
+        "last_positive_radio_sample": {
+          "time": "2026-10-28T20:02:36.450000",
+          "frames": 424,
+          "fps": 77.5258,
+          "rssi": 68.0,
+          "rssi_n": 424.0,
+          "thermal_raw": 28,
+          "thermal_delta": 2
+        },
+        "first_zero_radio_sample": null,
+        "zero_tail_samples": 0,
+        "confirmed_retunes": 0,
+        "max_retune_us": null,
+        "thermal_raw_range": [
+          28,
+          28
+        ],
+        "thermal_delta_range": [
+          2,
+          2
+        ]
+      }
+    }
+  ],
+  "user_observation": "User reported both perceived slowness and slower speed than merge-on.",
+  "limits": [
+    "No contemporaneous merge-on control run; comparison to the afternoon is historical.",
+    "Peer count/channel sequences changed; RF state, airtime conditions and phone state are not proven identical.",
+    "Two completed files do not prove stability fixed. No phone-side source SHA256."
+  ],
+  "after_test": "Owned chain stopped; MI_02 WinUSB OK and MI_00 pre-existing Error. Default merge-on retained. No extra device reset/driver/network change.",
+  "historical_merge_on_reference": {
+    "session": "20261028-150311",
+    "seconds": 91.136,
+    "MB_per_s": 0.32321979239817417,
+    "next_attempt": "failed HTTP 408 after 15,982,835 wire bytes",
+    "awdl_window": {
+      "start": "2026-10-28T15:07:19.270000",
+      "end": "2026-10-28T15:08:49.271000",
+      "peers_range": [
+        1,
+        1
+      ],
+      "delta": {
+        "rx_action": 166,
+        "rx_data": 21769,
+        "joined": 20570,
+        "tx_action": 2172,
+        "tx_data": 2166
+      },
+      "tx_data_per_rx_data": 0.0994992879783178,
+      "limits": "All observed AWDL peers; data is not a count of TCP ACK-only packets."
+    }
+  }
+}

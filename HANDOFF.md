@@ -1,9 +1,10 @@
 # DropBridge / AirBridge32：给下一位 AI 的完整交接
 
 更新：2026-10-28，Asia/Hong_Kong（UTC+8）。
-后续 Q27 更新：用户要求先测禁用 TCP 合并；新监管已支持 `--no-tcp-merge`，
-脚本支持 `-NoTcpMerge`，默认仍为 -j 400。入口已离线验证，真机结果见工作队列。
-代码与实验基线：本地 `main`，`991d2f4`。本交接自身的文档提交在其后。
+后续 Q27 更新：关闭合并两次完整接收，但仅 0.114/0.104 MB/s，未提速，
+不据此认定稳定性修复。新监管支持 `--no-tcp-merge`，脚本支持 `-NoTcpMerge`，
+默认仍为 -j 400。结果与限制见 [TCP_MERGE_TEST.md](docs/TCP_MERGE_TEST.md)。
+最新功能/实验基线：本地 `main`，`3e03fc6`；此前基线 `991d2f4`。
 工作目录：`J:\New soft project\DropBridge`。
 
 **先读结论：已经实现 Windows 原生接收 iPhone 隔空投送的真实文件闭环，
@@ -94,7 +95,7 @@ iPhone 原生 AirDrop
   data/awdl_netd.addr
 ```
 
-外层 exe 目前**不转发 `--chanseq` 诊断参数**。最新实验使用新监管配合
+外层 exe 目前**不转发 `--chanseq`、`--no-tcp-merge` 诊断参数**。最新实验使用新监管配合
 原后端，不是重新打包后双击外层 exe。不要误以为现存外层包包含最新监管。
 
 ## 4. 当前配置与容易踩的坑
@@ -199,7 +200,17 @@ MB 使用 10^6 字节；传输体字节与最终文件字节不同。
 - 两组启动重试/射频初态不同，且 B 没有上传，**未完成有效三次对三次 A/B**。
 - 已保存现场并停止链路，没有通过自动复位或反复发文件强行凑成功结果。
 
-### 文件完整性边界
+### 19:48–20:02：Q27 关闭 TCP 合并
+
+会话 `20261028-194820`，fixed 149/20 主控，原后端不变，实际 `-j 0`。
+同一文件两轮 258.107 s / 0.11413 MB/s、284.562 s / 0.10352 MB/s，均完整
+且接收哈希一致；用户报告明显慢，不追加第三次。回程 AWDL data 数更多，
+但不能直接当 TCP ACK 数。没有同时段开启对照，邻居数/序列也变化，不是
+严格因果 A/B；无 408 也不能证明原断流已解决。默认保持开启，链路已停止。
+新增冻结目录 `build/diagnostics/no-merge-20261028/20261028-194820/`，
+脱敏证据 `evidence/tcp-merge-off-2026-10-28.json`。
+
+### 文件完整性边界（含 Q27）
 
 上述多次成功接收文件 SHA-256 相同：
 
@@ -395,13 +406,15 @@ python tools/analyze_session.py build/diagnostics/social-20261028/20261028-15165
 
 改 social 只改变最后的模式。启动前确认无旧链路/端口占用；不要同时启动
 外层 exe。可先加 `--check --out <本地文件>` 校验路径，`--check` 不启动。
-新监管曾验证 SHA-256：
+Q23 旧监管曾验证 SHA-256（历史值，已在 Q27 重编译）：
 
 ```text
 A610FFA4A283ADBD9E2C04DBE90F4110D0BAB8216E444127033345D8159AEEBE
 ```
 
-它在 `build/supervisor/Release/AirBridge32.exe`；重新编译后应重新记录哈希。
+Q27 新监管 SHA-256 为
+`3EC4D28B2045B1BF619BD7829C8E8C22F1FF9838D81798A20B8FA70A62963C9D`，
+位于 `build/supervisor/Release/AirBridge32.exe`；重新编译后应重新记录哈希。
 原 14:32 实验外层包 SHA 在 `evidence/research-transfer-2026-10-28.log`，
 radio/awdld/netd/bridge/receiver 的相对路径哈希在 B 组 evidence JSON。
 
@@ -414,13 +427,14 @@ radio/awdld/netd/bridge/receiver 的相对路径哈希在 B 组 evidence JSON。
 - `0c2f028`：三次真实传输未达标；`cf3bbb3`：失败会话分层诊断。
 - `0741be7`：fixed/social 模式和继承环境隔离。
 - `991d2f4`：A 组断流、B 组发现失败、接收空窗诊断与证据归档。
+- `3e03fc6`：显式关闭 TCP 合并的入口；两轮低速完成结果见 Q27 文档及其后提交。
 
 已验证：六项 Python 日志分析回归；监管编译、真实 PowerShell 子进程
 环境继承检查、两种模式 `--check`、非法模式启动前退出；早前 radio 两项
 C++ 离线回归、干净副本补丁复现。文档检查、diff 检查、三份冻结日志
 清单哈希核对通过。不要把这些通过写成 Q20/真机稳定性通过。
 
-Q20 仍进行中且未达标；Q22–Q24 是诊断/实验记录完成；Q25 被动 TCP
+Q20 仍进行中且未达标；Q22–Q24、Q27 是诊断/实验记录完成；Q25 被动 TCP
 观测未实现。当前只需接手排障，无需重建整个项目。
 
 最终目标仍是稳定手机体验优先于速度：连续 20 次零人工干预、24 h 常驻、

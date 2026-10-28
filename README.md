@@ -2,6 +2,8 @@
 
 > 最新排障（2026-10-28）：固定 149 仍复现断流（首个 29.46 MB 视频 0.323 MB/s 成功，第二个 408）；社交时隙组未发现接收端，尚无有效性能 A/B。下述 1 MB/s 是历史最好结果，稳定性验收未通过。详情见 [失败会话复盘与真机结果](docs/STALL_DIAGNOSIS.md)。
 
+> 后续关闭 TCP 合并测试：同一视频两次完整接收，约 114/104 KB/s，明显低速；默认仍开启合并，不能认定断流已修复。见 [Q27 实测](docs/TCP_MERGE_TEST.md)。
+
 Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirBridge32 为任务书暂定产品名；没有 ESP32 固件要求。
 
 **当前：单文件 exe + 原生托盘，已达 1 MB/s 量级。** 用户侧只有一个 `AirBridge32.exe`：解压到同目录的 `app\`，数据（证书、实例 ID、接收文件、日志）全部留在同目录的 `data\`，不写 `%LOCALAPPDATA%`。后端是 radio（devourer/RTL8821CU）+ awdld（OWL）+ awdld 用户态网络栈 + Python 接收端，托盘负责启动、监控、低速告警与自恢复。**实测吞吐 1121 KB/s（29.46 MB / 26.3 s）**，配置为 149 / 20 MHz 且让 Windows 当 AWDL 同步主控；40 MHz 已实测更慢且会退化，不再使用。Dart/Flutter 壳已删除。固件再分发授权、代码签名与干净机器验收仍未完成。
