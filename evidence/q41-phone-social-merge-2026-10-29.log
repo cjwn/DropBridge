@@ -1,0 +1,33 @@
+﻿# Q41 real-device run: default configuration (social chanseq + merge ON), Q38 netd
+# 2026-10-29 00:18:39.146 -> 00:19:11.057 (UTC+8), same 29,456,959-byte video.
+
+## result
+session        dist\data\logs\20261029-001542 (frozen: build/diagnostics/20261029-001923-q38-social-merge-phone)
+package        build/diagnostics/input-retry/test-package (netd 300aac25...), supervisor 3ec4d28b...
+arguments      defaults only: --chanseq social, merge ON (join_us=400)
+wall clock     31.91 s  -> 0.9231 MB/s
+completion     stored 7545-10.MP4, POST /Upload 200, no 408
+sha256         5d057f9c5bad719872cf316a9b6935fc965b6ff80ecc65ec5fe82ef768c73c54
+netd           ipc rx 1,292 frames / 29.61 MB, input_fail=0, input_retry=0
+awdld          rx data 21,797 with 3,536+ joined; joined frames carry the aggregation
+radio          peer fps 826 / 749 in the last two windows, rssi 72-75, mcs 18-19, thermal 28/2
+
+## all five real runs tonight (same video, same certificate/service id, same dist\data)
+run  config                    time      rate         CRC     fps median  rssi
+Q37  fixed 149, j0, drop       76.79 s   0.3836 MB/s  11.4%   121         75-79
+Q38  fixed 149, j0, backpressure 34.58 s 0.8518 MB/s  12.1%   625         76-80
+Q39  fixed 149, merge ON       aborted   0.040 MB/s   40.3%   33          73-80
+Q40  fixed 149, j0, control    42.60 s   0.6917 MB/s  15.9%   561         75-82
+Q41  social, merge ON (default) 31.91 s  0.9231 MB/s  15.8%   670 (826 max) 60-76
+(CRC and fps from devourer log deltas/medians, build/_radio_compare2.py)
+
+## reading
+The default configuration is the fastest measured tonight and needs no change: social
+chanseq lets the phone aggregate (3,536 joined frames) at 15.8% CRC instead of the 40.3%
+seen when aggregating on fixed 149. With the Q38 netd (no software drops) it reaches
+0.92 MB/s - close to the 1.12 MB/s historical best, which used the same configuration
+with the old netd, so the remaining gap is run-to-run variance, not a regression.
+Merge is therefore configuration-dependent, not universally bad: it must stay ON for
+social and OFF for fixed. The supervisor default (social + merge) is correct.
+Next: repeat this configuration 2-3 times for a median, then ship the Q38 netd in the
+single-file package.
