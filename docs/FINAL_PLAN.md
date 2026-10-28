@@ -131,12 +131,12 @@ iPhone ──AWDL──> RTL8821CU ──USB──> airbridge_radio.exe
 
 ## 7. 分发
 
-- 单文件自解压到 `%LOCALAPPDATA%\AirBridge32\<版本>\`，`data\` 跨版本保留；第二次启动不再解压；
-- 自解压 stub 用系统自带 `csc.exe` 编 C#（.NET Framework 4.8 为 Windows 10 1903+/11 内置），stub 只有 7 KB，16 MB 全在载荷；不引入打包器、不需要额外运行时；
+- **所有写入都在 exe 所在文件夹内**（2026-10-28 决定）：`app\<构建>\` 放解压的载荷（只留最近 2 个），`data\` 放全部固化数据（`keys\` 含证书与 AirDrop 实例 ID、`received\`、`logs\`、`awdl_netd.addr`），跨构建共享；不写 `%LOCALAPPDATA%` 或任何其他机器目录；
+- 自解压 stub 用系统自带 `csc.exe` 编 C#（.NET Framework 4.8 为 Windows 10 1903+/11 内置），stub 只有 8 KB，16 MB 全在载荷；不引入打包器、不需要额外运行时；
 - 无管理员权限；唯一需要管理员的是 MI_02 绑 WinUSB（Zadig，一次性），后续可选引导式绑定，但**必须先完成回滚演练**；
 - 代码签名暂缺：未签名 exe 会触发 SmartScreen，README 如实说明；
 - 许可证义务：随包提供 `radio`（含 devourer）与 `awdld` 的对应源码获取方式；Realtek 固件再分发三选一（取得许可 / 运行时加载 / 只发源码），**发布前必须由用户拍板**；
-- 卸载：退出 → 删除版本目录；`data\` 询问是否保留。
+- 卸载：退出 → 删除整个文件夹（`data\` 里是接收文件与密钥，删前提示）；文件夹必须可写，放 Program Files 这类只读位置会直接报错而不是偷偷写别处；
 
 ## 8. 工作包
 

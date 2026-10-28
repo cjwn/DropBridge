@@ -5,13 +5,15 @@
 // so the result needs no installer, no Python, no Flutter and no extra runtime
 // on Windows 10/11.
 //
-//   AirBridge32.exe            unpack (once per build) and start Start.cmd
+//   AirBridge32.exe            unpack (once per build) and start the supervisor
 //   AirBridge32.exe --extract  unpack only, print the directory
 //   AirBridge32.exe --where    print the directory without unpacking
 //
-// The directory is versioned by the exe's own timestamp, so a new build never
-// overwrites the data of the previous one.
+// Everything stays inside the folder the exe lives in: the payload under
+// app\<build> and the data (keys, instance id, received files, logs) under
+// data\. Nothing is written to %LOCALAPPDATA% or any other machine directory.
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
@@ -27,10 +29,51 @@ internal static class Program
             .ToString("yyyyMMdd-HHmmss");
     }
 
+    private static string ExeDir()
+    {
+        return Path.GetDirectoryName(Path.GetFullPath(Assembly.GetExecutingAssembly().Location));
+    }
+
+    /* Everything the app writes stays under the folder the user put the exe in:
+     * the payload goes to <folder>\app\<build> and the persistent data (keys,
+     * received files, logs, instance id) to <folder>\data, shared by every
+     * build so an upgrade does not change the AirDrop identity. */
     private static string InstallDir()
     {
-        string local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        return Path.Combine(Path.Combine(local, "AirBridge32"), VersionTag());
+        return Path.Combine(ExeDir(), "app", VersionTag());
+    }
+
+    private static string DataDir()
+    {
+        return Path.Combine(ExeDir(), "data");
+    }
+
+    private static void PruneOldBuilds(string current)
+    {
+        try
+        {
+            string appRoot = Path.Combine(ExeDir(), "app");
+            var builds = new List<DirectoryInfo>(new DirectoryInfo(appRoot).GetDirectories());
+            builds.Sort((left, right) => right.CreationTimeUtc.CompareTo(left.CreationTimeUtc));
+            int seen = 0;
+            foreach (DirectoryInfo build in builds)
+            {
+                if (string.Equals(build.FullName.TrimEnd('\\'), current.TrimEnd('\\'),
+                                  StringComparison.OrdinalIgnoreCase))
+                {
+                    seen++;
+                    continue;
+                }
+                seen++;
+                if (seen > 2)
+                {
+                    try { build.Delete(true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
+                }
+            }
+        }
+        catch (DirectoryNotFoundException)
+        {
+        }
     }
 
     private static void Extract(string target)
@@ -105,8 +148,10 @@ internal static class Program
             {
                 WorkingDirectory = target,
                 UseShellExecute = true,
+                Arguments = "--root \"" + target + "\" --data \"" + DataDir() + "\"",
             };
             Process.Start(start);
+            PruneOldBuilds(target);
             return 0;
         }
         catch (Exception error)

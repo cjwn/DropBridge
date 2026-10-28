@@ -192,13 +192,18 @@ internal sealed class Supervisor
     public string LastError = "";
 
     public Supervisor(string root, string sessionStamp, bool prepareDirectories,
-                      int channel = 149, int width = 20)
+                      int channel = 149, int width = 20, string dataDirectory = null)
     {
         _root = root;
         _channel = channel;
         _width = width;
         _backend = Path.Combine(root, "backend");
-        _data = Path.Combine(root, "data");
+        // Portable layout: the payload lives in <folder>\app\<build>, but the
+        // data belongs to the folder itself (<folder>\data) so upgrades and
+        // restarts keep the keys, the AirDrop instance id and received files.
+        _data = string.IsNullOrEmpty(dataDirectory)
+            ? Path.Combine(root, "data")
+            : Path.GetFullPath(dataDirectory);
         _log = new LogSink(Path.Combine(_data, "logs", sessionStamp), prepareDirectories);
         if (prepareDirectories)
         {
@@ -821,8 +826,23 @@ internal sealed class TrayApp : ApplicationContext
         }
     }
 
+    /* Autostart points at the stub in the folder root, not at this build's
+     * supervisor: the build directory changes on every upgrade while the stub
+     * path stays valid and re-launches the newest payload. */
     private static string AutostartValue()
     {
+        try
+        {
+            string backend = Path.GetDirectoryName(Application.ExecutablePath);
+            string build = Path.GetDirectoryName(backend);
+            string appRoot = Path.GetDirectoryName(build);
+            string folder = Path.GetDirectoryName(appRoot);
+            string stub = Path.Combine(folder, "AirBridge32.exe");
+            if (File.Exists(stub)) return "\"" + stub + "\"";
+        }
+        catch (ArgumentException)
+        {
+        }
         return "\"" + Application.ExecutablePath + "\"";
     }
 
@@ -897,12 +917,16 @@ internal static class Program
         int autostart = 0;
         int channel = 149;
         int width = 20;
+        string dataArgument = null;
         for (int index = 0; index < args.Length; index++)
         {
             switch (args[index])
             {
                 case "--root":
                     if (index + 1 < args.Length) rootArgument = args[++index];
+                    break;
+                case "--data":
+                    if (index + 1 < args.Length) dataArgument = args[++index];
                     break;
                 case "--check":
                     check = true;
@@ -947,7 +971,7 @@ internal static class Program
 
         if (check)
         {
-            var supervisor = new Supervisor(root, stamp, false, channel, width);
+            var supervisor = new Supervisor(root, stamp, false, channel, width, dataArgument);
             string plan = supervisor.Plan();
             if (string.IsNullOrEmpty(output))
             {
@@ -960,7 +984,7 @@ internal static class Program
 
         if (smokeSeconds > 0)
         {
-            var supervisor = new Supervisor(root, stamp, true, channel, width);
+            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument);
             string error;
             bool started = supervisor.StartAll(180, out error);
             var report = new StringBuilder();
@@ -981,7 +1005,7 @@ internal static class Program
         {
             if (!created) return 0;
             Application.EnableVisualStyles();
-            var supervisor = new Supervisor(root, stamp, true, channel, width);
+            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument);
             using (var context = new TrayApp(supervisor, autoExitSeconds))
             {
                 Application.Run(context);

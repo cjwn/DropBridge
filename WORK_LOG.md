@@ -537,3 +537,12 @@
 - 阈值依据：昨天四次实测（970/363/251/952 KB/s）对应 750–860 与 190–280 帧/s 两档，丢包率都在 15% 左右。
 - 已起链路验证：149/20、主控、warn 级别下只有两条 5 秒统计，没有每帧噪声；`sync master is now` 是我们自己。
 - 下一步：抓一次慢速传输，用新采样确认是“手机降 MCS”还是“手机少发帧”，据此决定 Q7 的恢复动作是重置射频还是别的。
+
+## 2026-10-28：选举 counter 修正（1121 KB/s）与全部数据留在程序文件夹内
+
+- **慢速根因**：托盘报“链路速度偏低”那次，日志显示 12:35:48 手机把同步主控抢走（`new election tree: 66:b9… -> 8e:b4… (met 65, ctr 1514)`）。OWL 选举先比 counter 再比 metric，只在对方更小时拒绝；OWL 自己从不递增 counter（恒 0），而 iPhone 的 counter 每 3.14 秒 +1，于是开机几分钟后必然反超、序列回到 36/6/149、速度掉回 200 KB/s 档。给 election.c 加 `AWDL_ELECTION_COUNTER` 覆盖，监管固定传 100000；重启两分钟后仍是主控（`met 200, ctr 100000`）。
+- **新纪录**：12:52 传 29.46 MB 视频 **26.26 s = 1121 KB/s**，是目前最高；counter 修正后没有再被抢主控。
+- **AirDrop 列表重复**：实例 ID 从 AWDL IPv6 地址派生，而 awdld 每次启动随机 AWDL MAC，ID 每启动变一次（`b011eefffed7` → `18c2c6fffe5a`）。`stable_service_id` 改为先读 `<keys>/airdrop-service-id`；重启验证 ID 不变。
+- **全部数据留在程序文件夹内**（用户新要求）：stub 解压到 `exe 目录\app\<构建>`（只留最近 2 个），`data\` 放 `keys\`（证书、实例 ID）、`received\`、`logs\`、`awdl_netd.addr`，通过 `--data` 传给监管、跨构建共享；开机自启改指向文件夹里的 stub。验证后 `%LOCALAPPDATA%\AirBridge32` 下不再生成新目录，并清掉了开发期留下的 13 个旧目录。
+- 提交：`1cedcdf`（counter）、`cc3b026`（实例 ID + 1121 KB/s）、本条（便携布局）。
+- 证据：`evidence/transfer-970kbs.log`、`evidence/service-id-persist.log`、`evidence/portable-layout.log`。

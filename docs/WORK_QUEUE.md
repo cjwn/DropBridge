@@ -36,7 +36,8 @@
 | Q13 | 分发验收（干净 VM + 许可清单） | Q5 | FINAL_PLAN 的验收指标全绿 | ⬜ | — |
 | Q14 | 移除 Flutter 壳与旧便携打包 | Q5 真机传文件通过 | `app/` 删除、`Package-Portable.ps1` 标 legacy、README 更新 | ⬜ | — |
 | Q15 | awdld 跟随/协商信道序列（同信道） | 硬件授权 | 149 时隙占空比提升；20 MB ≥ 500 KB/s | ✅ 2026-10-28：改为**我们当同步主控**（metric 200 + counter 100000）。20 MHz 实测 **1121 KB/s**（29.46 MB / 26.3 s），另一次 970；counter 修正前会被手机抢主控掉到 200 KB/s 档 | `evidence/transfer-970kbs.log`、`evidence/q15-master-mode.log` |
-| Q16 | AirDrop 实例 ID 跨重启稳定 | 无 | 重启后 iPhone 不再多出一个 AirBridge32 | ✅ 2026-10-28：ID 持久化到 `<keys>/airdrop-service-id`；重启验证 ID 不变。跨版本共享 data 目录未做 | `evidence/service-id-persist.log` |
+| Q16 | AirDrop 实例 ID 跨重启稳定 | 无 | 重启后 iPhone 不再多出一个 AirBridge32 | ✅ 2026-10-28：ID 持久化到 `<keys>/airdrop-service-id`，跨重启与跨构建都复用 | `evidence/service-id-persist.log` |
+| Q17 | 全部数据留在程序文件夹内 | 无 | 不在 `%LOCALAPPDATA%` 或别处留下文件 | ✅ 2026-10-28：`app\<构建>` + `data\`（跨构建共享），旧的本机目录已清理 | `evidence/portable-layout.log` |
 
 ## 3. 每项的具体做法
 
