@@ -67,6 +67,7 @@
 | Q39 | 合并开启（fixed）真机负结果 | ✅ 负结果记录：同包同 fixed 149/20 只开合并（`join_us=400`），118 s 只到 4.69 MB（约 40 KB/s），操作者中止；fps 33、RSSI 73、`overlap=211`、`repeat_ack=189`，netd `input_fail=0/retry=0`（不是软件丢帧） | `evidence/q38-phone-fixed-merge-on-2026-10-29.log` |
 | Q40 | 合并开关真机 A/B（射频计数器归因） | ✅ 真机：合并关 0.8518 / 0.6917 MB/s（两轮），合并开约 40 KB/s。devourer 计数器：CRC 11.4%/12.1% vs **40.3%**，手机帧率中位数 121/625 vs **33**，RSSI 区间重叠（73–80）。对照轮在合并轮之后仍 0.69 MB/s、500–561 fps、零丢帧 → 射频未退化，是合并让手机发聚合帧、同 MCS（中位数 19）下 CRC 升到 3.4 倍。结论：fixed 149/20 保持 `-j 0` | `evidence/q40-phone-merge-ab-2026-10-29.log` |
 | Q41 | 默认配置（social + 合并）真机 | ✅ 真机：**31.91 s = 0.9231 MB/s**、落盘哈希一致、无 408、`input_fail=0`、670 帧/s（峰值 826）、CRC 15.8%。当晚五轮里最快。合并不是普遍有害而是与信道序列耦合（social 开、fixed 关），监管默认值正确；仍与历史最好 1.12 MB/s 差一轮噪声的量级。需要 3 次取中位数才算验收 | `evidence/q41-phone-social-merge-2026-10-29.log`、`docs/LWIP_INPUT_QUEUE.md` §15 |
+| Q42 | 单文件包带上 Q38 netd | ✅ 离线重打包：`dist\AirBridge32.exe` 从 build 重新生成（16,824,320 B，`bf20e9f2…`），payload 内 netd 为 `300aac25…`、监管 `3ec4d28b…`；旧 exe 备份为 `dist\AirBridge32-pre-q38.exe`；`--extract` 到 `dist\app\20261029-002027` 后 `--check` exit 0、无 MISSING，计划为 social + 合并（即 Q41 实测 0.9231 MB/s 的配置）。未做干净 VM/签名/真机双击验证 | `evidence/sfx-q38-package-2026-10-29.log` |
 
 ## 3. 每项的具体做法
 

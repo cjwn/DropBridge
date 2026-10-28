@@ -1,5 +1,11 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-29 00:20：Q42 单文件包带上 Q38 netd
+
+- `dist\AirBridge32.exe` 之前仍含 pre-Q28 的 netd（`6c3f4465…`），Q28/Q29/Q31/Q38 都没进日常双击路径。现从 build 重新打包：16,824,320 B、`bf20e9f2…`；payload 内 netd `300aac25…`、监管 `3ec4d28b…`；旧 exe 备份为 `dist\AirBridge32-pre-q38.exe`。
+- 验证：`AirBridge32.exe --extract` 解到 `dist\app\20261029-002027`，其中 netd 哈希一致；对该目录跑 `--check` exit 0、无 MISSING，计划为 social + 合并（Q41 实测 0.9231 MB/s 的同一配置）。
+- 未做：干净 VM、代码签名、固件再分发、真机双击验证（只验了离线解包与计划）。
+
 ## 2026-10-29 00:19：Q41 默认配置真机 —— 31.91 s / 0.9231 MB/s
 
 - 同一 Q38 包，不加任何覆盖参数（`social` + 合并开，即监管默认）：00:18:39.146 → 00:19:11.057 = **31.91 s / 0.9231 MB/s**，落盘 29,456,959 B、SHA-256 一致、无 408、`input_fail=0`、`input_retry=0`。

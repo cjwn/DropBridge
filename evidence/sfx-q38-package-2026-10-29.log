@@ -1,0 +1,38 @@
+﻿# Q42: rebuild the single-file package with the Q38 netd (default = social + merge)
+# Offline packaging only. No radio/AWDL/USB/air interface/iPhone. 2026-10-29 00:20 (UTC+8).
+
+## what changed
+The shipped dist\AirBridge32.exe still carried the pre-Q28 netd (6c3f4465...): none of
+Q28/Q29/Q31/Q38 were in the double-click path. It is now rebuilt from build\ outputs.
+
+## backup
+old exe kept as dist\AirBridge32-pre-q38.exe (16,817,152 B, 2026-10-28 14:31)
+payload.zip and AirBridge32-headless.zip were regenerated in place
+
+## new artifacts
+dist\AirBridge32.exe          16,824,320 B  bf20e9f27e4d1f8887b3f93b6478a52290dec00e7654367824ad22e44035c28d
+dist\payload.zip              16,816,236 B  bec86b2d78e4cbf4dd8ceeff1ae0c59e42af717e2dd7a09c60025cb9f398d0d2
+dist\AirBridge32-headless.zip 16,816,236 B  3555e704f8ae10fac24054ba11ad1f302b7665a6518ea360bcf86ecd18f051ab
+
+## payload contents (backend exe hashes)
+300aac2531dcdf68be450682604097fe03ca528479cfb00846f29374af357d1a  awdl_netd.exe  (Q38, backpressure)
+3ec4d28b2045b1bf619bd7829c8e8c22f1ff9838d81798a20b8fa70a62963c9d  AirBridge32.exe (supervisor)
+4750fcda7c9a0dc973b557f6d4788aea5225c91b3863968c4488b7c7ab82d807  awdld.exe
+6d27f091be099842cccea6e089c4d9ed45346abac65c1f8fa0665beae8a821b0  airbridge_radio.exe
+
+## extraction check (stub --extract, nothing started)
+extracted to  dist\app\20261029-002027
+netd there    300aac2531dcdf68be450682604097fe03ca528479cfb00846f29374af357d1a
+supervisor --check on the extracted tree: exit 0, no MISSING lines
+plan: chanseq social [slot 8=6], AWDL_CHANSEQ=social, awdld -c 149 -s 2 -j 400 -v, merge on (join_us=400)
+
+## why this default
+Q41 measured the default configuration (social + merge) at 31.91 s / 0.9231 MB/s with this
+netd, the fastest of five runs tonight. Merged frames are only harmful at fixed 149
+(CRC 40.3%); at social they are 15.8% and the phone reaches 826 frames/s. So the
+supervisor default stays unchanged and the rebuilt package simply ships it.
+
+## limits
+Not run: clean-VM test, code signature, firmware redistribution decision, 24 h soak.
+The exe was not launched against the phone here; the double-click path is verified only
+by extracting it and validating the plan.
