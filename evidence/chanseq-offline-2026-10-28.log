@@ -1,0 +1,25 @@
+Q23 / offline only / 2026-10-28 +08:00
+Build: tools/Build-Supervisor.ps1 -Test
+Supervisor SHA256: A610FFA4A283ADBD9E2C04DBE90F4110D0BAB8216E444127033345D8159AEEBE
+
+PASS: fixed child environment, inherited follow removed
+PASS: social child environment, inherited follow removed
+PASS: invalid mode rejected; no radio process started
+
+Actual child probes: only Windows PowerShell. Parent deliberately contained
+AWDL_CHANSEQ=social and AWDL_FOLLOW_MASTER_SEQ=1.
+fixed child observed: seq=;follow=
+social child observed: seq=social;follow=
+
+Supervisor --check against original backend package:
+dist/app/20261028-143130
+fixed: slot 8=149, AWDL_CHANSEQ=<unset>, AWDL_FOLLOW_MASTER_SEQ=<unset>
+social: slot 8=6, AWDL_CHANSEQ=social, AWDL_FOLLOW_MASTER_SEQ=<unset>
+Both kept ch149/20, election metric 200 / counter 100000. Both exit 0.
+Invalid CLI: --chanseq bogus --smoke 1 => exit 2 before starting anything.
+Start-Chain.ps1 PowerShell AST: no parse errors.
+
+No new radio process, device reset, driver/network change or phone transfer
+was performed for these checks. Existing chain was left running.
+Q20 remains unpassed. The outer SFX does not forward --chanseq; use the
+supervisor directly, as documented in docs/STALL_DIAGNOSIS.md.

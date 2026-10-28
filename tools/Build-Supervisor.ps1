@@ -6,7 +6,7 @@
 # Package-Headless.ps1 copies it to backend\AirBridge32.exe, where the
 # self-extracting stub starts it.
 [CmdletBinding()]
-param()
+param([switch]$Test)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
@@ -24,3 +24,13 @@ New-Item -ItemType Directory -Force $outDir | Out-Null
 if ($LASTEXITCODE -ne 0) { throw "csc failed with $LASTEXITCODE" }
 
 Write-Host ("supervisor: {0} ({1:N0} KB)" -f $out, ((Get-Item $out).Length / 1KB))
+
+if ($Test) {
+    $testExe = Join-Path $outDir 'channel_sequence_test.exe'
+    & $csc /nologo /target:exe /main:ChannelSequenceTest "/out:$testExe" `
+        /r:System.Windows.Forms.dll /r:System.Drawing.dll $source `
+        (Join-Path $root 'src\supervisor\channel_sequence_test.cs')
+    if ($LASTEXITCODE -ne 0) { throw "test compile failed: $LASTEXITCODE" }
+    & $testExe
+    if ($LASTEXITCODE -ne 0) { throw "offline test failed: $LASTEXITCODE" }
+}

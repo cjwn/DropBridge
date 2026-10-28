@@ -45,9 +45,10 @@
 | --- | --- | --- | --- |
 | Q18 | 链路统计与监测线程异常 | ✅ radio/监管编译、离线回归通过：上传数据分类、有效 RSSI、并发窗口计数；未据此声称实机提速 | `evidence/radio-telemetry-fix.log` |
 | Q19 | 换台完成确认与跨频段补偿同步 | ✅ 实现与离线验证：C2H 有界等待后回读真实信道，失败断开链路；跨频段恢复功率表/天线配置并更新补偿上下文；实机效果独立记 Q20 | `evidence/channel-confirmation-offline.log`、`patches/devourer-airbridge.patch` |
-| Q20 | 修复版连续传输验收 | 🔜 验收未通过，用户要求暂停：两次成功 0.39/0.38 MB/s，接收文件哈希一致；第三次约 10.2 MB 后 408。后续不追加实验，先交付简报 | `docs/RESEARCH_2026-10-28.md`、`evidence/research-transfer-2026-10-28.log` |
+| Q20 | 修复版连续传输验收 | 🔜 上轮 2/3 成功、0.39/0.38 MB/s，第三次约 10.2 MB 后 408。用户现已要求继续排障：Q22 复盘、Q23 单变量模式入口完成；待 iPhone 配合固定 149 / social 对照，未据离线测试宣称真机通过 | `docs/RESEARCH_2026-10-28.md`、`docs/STALL_DIAGNOSIS.md` |
 | Q21 | 修正真实传输分析工具 | ✅ 识别监管时间前缀，区分成功/失败/进行中，区分落盘与传输体字节；三项离线回归通过 | `tools/test_analyze_session.py` |
 | Q22 | 失败会话分层时间线复盘 | ✅ 2026-10-28：离线确认控制面仍活动、上传数据停顿；本次上传最大换台 2175 us，温度 29/+3；五项分析回归通过，不推断热故障或空口 ACK | `docs/STALL_DIAGNOSIS.md`、`evidence/stall-context-2026-10-28.json` |
+| Q23 | 固定信道 / 社交时隙单变量入口 | ✅ 2026-10-28：监管 `--chanseq` / 脚本 `-ChannelSequence`；固定模式真实移除 presence 开关，两模式禁用继承的跟随。真实子进程离线测试、两组 `--check`、非法参数拒绝通过；尚无新传输结果 | `evidence/chanseq-offline-2026-10-28.log`、`src/supervisor/channel_sequence_test.cs` |
 
 ## 3. 每项的具体做法
 

@@ -11,6 +11,8 @@
 param(
     [int]$Channel = 149,
     [int]$Width = 20,
+    [ValidateSet('social', 'fixed')]
+    [string]$ChannelSequence = 'social',
     [string]$Python = '',
     [switch]$Trace,
     [switch]$RadioVerbose,
@@ -91,9 +93,17 @@ $plan = @(
     "awdld    $($binaries.awdld) $($awdlArgs -join ' ')",
     "receiver $Python $($receiverArgs -join ' ')"
 )
+$awdlEnvironment = @{
+    AWDL_ELECTION_METRIC = '200'
+    AWDL_ELECTION_COUNTER = '100000'
+    # OWL tests presence, not truthiness: fixed must REMOVE this variable.
+    AWDL_CHANSEQ = $(if ($ChannelSequence -eq 'social') { 'social' } else { $null })
+    AWDL_FOLLOW_MASTER_SEQ = $null
+}
 
 Write-Host "AirBridge32 chain, channel $Channel width $Width MHz, logs: $runDir"
 $plan | ForEach-Object { Write-Host "  $_" }
+Write-Host "  chanseq=$ChannelSequence (fixed removes AWDL_CHANSEQ; follow-master disabled)"
 
 if (-not $Run) {
     Write-Host ''
@@ -106,7 +116,7 @@ if (-not $Run) {
 New-Item -ItemType Directory -Force $runDir, $dataDir, $received, $keys | Out-Null
 $chainLog = Join-Path $runDir 'chain.log'
 $commit = (& git -C $root rev-parse --short HEAD 2>$null)
-"chain start $(Get-Date -Format o) commit=$commit channel=$Channel width=$Width python=$Python" |
+"chain start $(Get-Date -Format o) commit=$commit channel=$Channel width=$Width chanseq=$ChannelSequence python=$Python" |
     Set-Content -Encoding utf8 $chainLog
 
 $processes = [ordered]@{}
@@ -189,7 +199,7 @@ try {
     Wait-Ready -Name 'netd' -Needle 'waiting for awdld' -TimeoutSeconds 30
 
     Start-Backend -Name 'awdld' -Exe $binaries.awdld -Arguments $awdlArgs `
-        -Environment @{ AWDL_ELECTION_METRIC = '200'; AWDL_ELECTION_COUNTER = '100000'; AWDL_CHANSEQ = 'social' } | Out-Null
+        -Environment $awdlEnvironment | Out-Null
     Wait-Ready -Name 'awdld' -Needle 'host interface' -TimeoutSeconds 60
 
     $deadline = (Get-Date).AddSeconds(60)

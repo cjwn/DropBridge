@@ -1,5 +1,12 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-28：Q23 固定信道对照入口
+
+- 监管支持 `--chanseq fixed|social`，手动脚本支持 `-ChannelSequence`，默认维持 social。启动计划与会话记录模式。
+- 关键：OWL 用 getenv 存在性判断开关，fixed 模式必须移除 `AWDL_CHANSEQ`；两种模式均移除旧 `AWDL_FOLLOW_MASTER_SEQ`。未修改上游、无线补丁或驱动。
+- `Build-Supervisor.ps1 -Test` 编译通过，真实 PowerShell 子进程检查 fixed/social 环境及非法模式拒绝通过；两组 `--check` 与非法 CLI 退出 2 通过，脚本语法解析通过。
+- 原 14:32 链路仍在，尚未启动 A/B，不把离线验证记为 Q20 通过。已询问用户 iPhone 是否方便配合，后续按 `docs/STALL_DIAGNOSIS.md` 操作。
+
 ## 2026-10-28：Q22 复盘失败会话
 
 - 用户要求继续排障并本地提交；本次先离线复盘，不追加无线实验。

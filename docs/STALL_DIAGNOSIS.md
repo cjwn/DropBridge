@@ -67,6 +67,37 @@ USB/RX 进程假死。同步树计数保持 `metric 200 / counter 100000`，本�
 
 ## 复现与证据
 
+### Q23：模式入口（已完成离线验证）
+
+监管新增 `--chanseq fixed|social`，默认仍为 social。固定模式移除
+`AWDL_CHANSEQ`，两种模式都移除继承的 `AWDL_FOLLOW_MASTER_SEQ`，其它参数
+保持一致；启动日志和 `--check` 计划明确记录模式。脚本对应参数为
+`tools/Start-Chain.ps1 -ChannelSequence fixed|social`，不带 `-Run` 不启动。
+
+先停止现有托盘链路，再在仓库根目录执行下面的 **A 组**命令。这里使用
+新的监管配合原来测试的完整后端，不更换 radio/awdld，不换证书与实例 ID：
+
+```powershell
+.\build\supervisor\Release\AirBridge32.exe --root "J:\New soft project\DropBridge\dist\app\20261028-143130" --data "J:\New soft project\DropBridge\dist\data" --chanseq fixed
+```
+
+B 组仅把最后的 `fixed` 改成 `social`。每组在同一会话连续发三次约 29 MB
+视频，组间退出并确认无残留后再启动。**外层自解压 exe 当前不转发诊断
+参数**，不要把 `--chanseq` 传给 `dist/AirBridge32.exe`；使用以上监管入口。
+不执行设备重置、驱动变更或网络配置变更。该命令会初始化网卡并发 AWDL
+帧，属于工作队列已经授权的实验；实际启动与传输仍需单独记证据。
+
+离线构建与环境继承检查：
+
+```powershell
+.\tools\Build-Supervisor.ps1 -Test
+```
+
+该检查故意在父进程设置 social 与 follow，再用真正的子进程验证它们
+在 fixed 模式确实不存在。探针仅启动 PowerShell，不运行无线后端。
+`--check` 两种模式以及非法模式提前返回 2 均已验证。见
+`evidence/chanseq-offline-2026-10-28.log`。
+
 ```powershell
 python tools/analyze_session.py dist/data/logs/20261028-143206 --diagnose --json
 python -m unittest discover -s tools -p test_analyze_session.py -v

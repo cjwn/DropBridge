@@ -11,6 +11,7 @@
 //   --smoke <seconds>  start, wait, stop, write data\logs\<session>\smoke.txt
 //   --auto-exit <s>    tray test hook: quit cleanly after <s> seconds
 //   --autostart-on | --autostart-off
+//   --chanseq social|fixed  diagnostic A/B; default remains social
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -114,7 +115,9 @@ internal sealed class Child
         };
         foreach (KeyValuePair<string, string> pair in _environment)
         {
-            start.EnvironmentVariables[pair.Key] = pair.Value;
+            // OWL's opt-ins test getenv != NULL, so empty/"0" is not off.
+            if (pair.Value == null) start.EnvironmentVariables.Remove(pair.Key);
+            else start.EnvironmentVariables[pair.Key] = pair.Value;
         }
         try
         {
@@ -179,6 +182,7 @@ internal sealed class Supervisor
 {
     private readonly int _channel;
     private readonly int _width;
+    public readonly string ChannelSequence;
     public string RadioArguments { get { return _channel + " " + _width; } }
     public string AwdldArguments { get { return "-c " + _channel + " -s 2 -j 400 -v"; } }
     // 20 MHz is the default: measured 202 KB/s against 40 MHz's 190 KB/s after a
@@ -193,9 +197,13 @@ internal sealed class Supervisor
     public string LastError = "";
 
     public Supervisor(string root, string sessionStamp, bool prepareDirectories,
-                      int channel = 149, int width = 20, string dataDirectory = null)
+                      int channel = 149, int width = 20, string dataDirectory = null,
+                      string channelSequence = "social")
     {
+        if (channelSequence != "social" && channelSequence != "fixed")
+            throw new ArgumentException("chanseq must be social or fixed");
         _root = root;
+        ChannelSequence = channelSequence;
         _channel = channel;
         _width = width;
         _backend = Path.Combine(root, "backend");
@@ -217,6 +225,17 @@ internal sealed class Supervisor
     public string ReceivedDirectory { get { return Path.Combine(_data, "received"); } }
     public string LogDirectory { get { return _log.DirectoryPath; } }
     public string Root { get { return _root; } }
+
+    public Dictionary<string, string> AwdldEnvironment()
+    {
+        return new Dictionary<string, string>
+        {
+            { "AWDL_ELECTION_METRIC", "200" },
+            { "AWDL_ELECTION_COUNTER", "100000" },
+            { "AWDL_CHANSEQ", ChannelSequence == "social" ? "social" : null },
+            { "AWDL_FOLLOW_MASTER_SEQ", null },
+        };
+    }
 
     /* Latest peer frame rate, parsed from the radio's 5 s "peer frames=N"
      * sample. A transfer at ~800 frames/s is the ~1 MB/s case; the 250-360
@@ -359,6 +378,10 @@ internal sealed class Supervisor
         text.AppendLine("bridge: " + BridgePath());
         text.AppendLine("netd: " + NetdPath() + "  [AWDL_NETD_MDNS_PROXY=1]");
         text.AppendLine("awdld: " + AwdldPath() + " " + AwdldArguments);
+        text.AppendLine("chanseq: " + ChannelSequence + " [slot 8=" +
+            (ChannelSequence == "social" ? "6" : _channel.ToString()) + "]");
+        foreach (var pair in AwdldEnvironment())
+            text.AppendLine("  " + pair.Key + "=" + (pair.Value ?? "<unset>"));
         text.AppendLine("receiver: " + PythonPath() + " -u " + ReceiverPath());
         foreach (string problem in Validate()) text.AppendLine("MISSING: " + problem);
         return text.ToString();
@@ -439,7 +462,8 @@ internal sealed class Supervisor
             return false;
         }
         if (File.Exists(AddressFile())) File.Delete(AddressFile());
-        _log.Write("supervisor", "start chain root=" + _root + " args=" + RadioArguments);
+        _log.Write("supervisor", "start chain root=" + _root + " args=" + RadioArguments +
+            " chanseq=" + ChannelSequence);
 
         // warn keeps the radio log quiet; AIRBRIDGE_RADIO_LOG=info turns on the
         // per-5-s link counters (rx cb/crc) used when diagnosing a transfer.
@@ -471,16 +495,7 @@ internal sealed class Supervisor
         // The counter decides the election before the metric (OWL never raises
         // its own counter, an iPhone's grows every 3.14 s of mastership), so a
         // fixed high value keeps us master for the whole session.
-        var awdld = new Child("awdld", AwdldPath(), AwdldArguments,
-            new Dictionary<string, string>
-            {
-                { "AWDL_ELECTION_METRIC", "200" },
-                { "AWDL_ELECTION_COUNTER", "100000" },
-                // 149 in every slot except slot 8 (social channel 6), the shape
-                // Apple's own sequences use; without it an iPhone keeps its
-                // sparse sequence for minutes before switching.
-                { "AWDL_CHANSEQ", "social" },
-            },
+        var awdld = new Child("awdld", AwdldPath(), AwdldArguments, AwdldEnvironment(),
             _root, "host interface", _log, OnChildLine);
         var receiver = NewReceiver();
 
@@ -998,6 +1013,7 @@ internal static class Program
         int autostart = 0;
         int channel = 149;
         int width = 20;
+        string channelSequence = "social";
         string dataArgument = null;
         for (int index = 0; index < args.Length; index++)
         {
@@ -1027,6 +1043,11 @@ internal static class Program
                 case "--width":
                     if (index + 1 < args.Length) int.TryParse(args[++index], out width);
                     break;
+                case "--chanseq":
+                    if (index + 1 >= args.Length) return 2;
+                    channelSequence = args[++index];
+                    if (channelSequence != "social" && channelSequence != "fixed") return 2;
+                    break;
                 case "--autostart-on":
                     autostart = 1;
                     break;
@@ -1052,7 +1073,7 @@ internal static class Program
 
         if (check)
         {
-            var supervisor = new Supervisor(root, stamp, false, channel, width, dataArgument);
+            var supervisor = new Supervisor(root, stamp, false, channel, width, dataArgument, channelSequence);
             string plan = supervisor.Plan();
             if (string.IsNullOrEmpty(output))
             {
@@ -1065,7 +1086,7 @@ internal static class Program
 
         if (smokeSeconds > 0)
         {
-            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument);
+            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence);
             string error;
             bool started = supervisor.StartAll(180, out error);
             var report = new StringBuilder();
@@ -1086,7 +1107,7 @@ internal static class Program
         {
             if (!created) return 0;
             Application.EnableVisualStyles();
-            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument);
+            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence);
             using (var context = new TrayApp(supervisor, autoExitSeconds))
             {
                 Application.Run(context);
