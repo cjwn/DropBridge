@@ -1,0 +1,38 @@
+# 服务实例 ID 持久化（修复 AirDrop 列表里出现两个 AirBridge32）
+
+2026-10-28 12:52。用户在 iPhone 的隔空投送列表里看到**两个 AirBridge32**。
+
+## 原因
+
+`stable_service_id()` 是从 AWDL IPv6 地址的 interface identifier 派生的：
+
+```python
+packed = ipaddress.IPv6Address(address).packed
+return packed[8:14].hex()
+```
+
+但 **awdld 每次启动都生成随机 AWDL MAC**（实测：`02:33:63…`、`66:b9:48…`、`b2:11:ee…`、`fe:f6:69…`），地址每启动一次就变，实例 ID 也跟着变：
+
+| 启动 | AWDL 地址 | 实例 ID |
+| --- | --- | --- |
+| 12:38 | b2:11:ee:d7:e5:96 | b011eefffed7 |
+| 12:54 | （新随机地址） | 18c2c6fffe5a |
+
+iPhone 按实例名缓存设备，于是每次重启都会多一个“AirBridge32”，旧的要等它自己过期才消失。
+
+进程侧确认过只有一份：一个 supervisor、一个 radio、一个 awdld、一个 receiver。
+
+## 改法
+
+`stable_service_id(address, store_dir=None)`：先读 `<keys>/airdrop-service-id`，存在且是 12 位十六进制就直接用；否则派生一次并写入。两个调用点都传入 `settings.keys`。
+
+## 验证
+
+- 单元级：同一目录下用两个不同地址调用，返回同一个值，文件内容为 `b011eefffed7`。
+- 实机：12:54 首次启动写入 `18c2c6fffe5a`；12:55 重启（AWDL 地址变为 `fe:f6:69:21:ec:8c`）后仍是 `18c2c6fffe5a`。
+- 补丁可复现：`patches/awdl-ipc-host.patch` 在锁定提交的干净 worktree 上应用成功，`receiver.py` 哈希与活树一致。
+
+## 遗留
+
+- 本次修复后 iPhone 上仍可能残留**旧实例**的缓存条目，等它超时消失；之后每次重启只会复用同一个 ID。
+- 跨版本：实例 ID 存在该版本目录的 `data\keys` 下，重新打包（exe 时间戳变化）会换新目录、换新 ID。要彻底稳定，应把 `data\`（密钥与实例 ID）移到 `%LOCALAPPDATA%\AirBridge32\data`，跨版本共享——列入后续。

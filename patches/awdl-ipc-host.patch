@@ -1,3 +1,74 @@
+diff --git a/airdrop/identity.py b/airdrop/identity.py
+index 14750a9..a0848b0 100644
+--- a/airdrop/identity.py
++++ b/airdrop/identity.py
+@@ -1,6 +1,7 @@
+ # SPDX-License-Identifier: MIT
+ """The TLS identity this receiver presents: a self-signed certificate, which
+ is all a sender needs when the receiver is visible to everyone."""
++import datetime
+ import os
+ import shutil
+ import subprocess
+@@ -43,6 +44,49 @@ def find_openssl():
+     raise IdentityError('OpenSSL not found: put openssl on PATH or install Git for Windows')
+ 
+ 
++def _write_with_cryptography(certificate, key):
++    """Create the pair in-process, so a clean Windows machine needs no
++    openssl.exe (or Git for Windows) to start the receiver. Returns False when
++    the module is not installed, so the caller can fall back to the CLI."""
++    try:
++        from cryptography import x509
++        from cryptography.hazmat.primitives import hashes, serialization
++        from cryptography.hazmat.primitives.asymmetric import rsa
++        from cryptography.x509.oid import NameOID
++    except ImportError:
++        return False
++    private = rsa.generate_private_key(public_exponent=65537, key_size=2048)
++    name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, 'AirDrop receiver')])
++    now = datetime.datetime.now(datetime.timezone.utc)
++    certificate_object = (
++        x509.CertificateBuilder()
++        .subject_name(name)
++        .issuer_name(name)
++        .public_key(private.public_key())
++        .serial_number(x509.random_serial_number())
++        .not_valid_before(now - datetime.timedelta(days=1))
++        .not_valid_after(now + datetime.timedelta(days=int(VALID_DAYS)))
++        .add_extension(x509.BasicConstraints(ca=True, path_length=None),
++                       critical=True)
++        .sign(private, hashes.SHA256()))
++    # Write both halves through temporary names so a crash cannot leave a
++    # certificate without its key (or the reverse) next to each other.
++    for path, data in (
++            (key, private.private_bytes(
++                serialization.Encoding.PEM,
++                serialization.PrivateFormat.PKCS8,
++                serialization.NoEncryption())),
++            (certificate, certificate_object.public_bytes(
++                serialization.Encoding.PEM))):
++        temporary = path + '.tmp'
++        with open(temporary, 'wb') as out:
++            out.write(data)
++            out.flush()
++            os.fsync(out.fileno())
++        os.replace(temporary, path)
++    return True
++
++
+ def ensure_self_signed(keys_dir):
+     """Return the certificate and key paths, creating the pair on first use."""
+     certificate = os.path.join(keys_dir, CERTIFICATE)
+@@ -50,6 +94,8 @@ def ensure_self_signed(keys_dir):
+     if os.path.isfile(certificate) and os.path.isfile(key):
+         return certificate, key
+     os.makedirs(keys_dir, exist_ok=True)
++    if _write_with_cryptography(certificate, key):
++        return certificate, key
+     config = os.path.join(keys_dir, 'request.cnf')
+     with open(config, 'w', encoding='ascii') as out:
+         out.write(REQUEST_CONFIG)
 diff --git a/airdrop/mdns.py b/airdrop/mdns.py
 index bae0caf..036a077 100644
 --- a/airdrop/mdns.py
@@ -15,7 +86,7 @@ index bae0caf..036a077 100644
  # More labels and pointers than any valid name has.
  MAX_NAME_STEPS = 128
 diff --git a/airdrop/receiver.py b/airdrop/receiver.py
-index 622a21f..b3c6cc5 100644
+index 622a21f..6237ea2 100644
 --- a/airdrop/receiver.py
 +++ b/airdrop/receiver.py
 @@ -4,6 +4,7 @@
@@ -34,7 +105,7 @@ index 622a21f..b3c6cc5 100644
  import time
  from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
  
-@@ -41,6 +43,24 @@ DEFAULT_MAX_RECEIVE_PERCENT = 30
+@@ -41,6 +43,47 @@ DEFAULT_MAX_RECEIVE_PERCENT = 30
  MODEL_RE = re.compile(r'^[A-Za-z]+[0-9]+,[0-9]+$')
  MAX_NAME_CHARS = 63
  PATH_SEPARATOR = re.compile(r'[\\/]')
@@ -43,23 +114,46 @@ index 622a21f..b3c6cc5 100644
 +TRANSFER_BUSY = threading.Event()
 +
 +
-+def stable_service_id(address):
-+    """A stable 12-hex AirDrop instance ID derived from the AWDL IPv6 IID.
++def stable_service_id(address, store_dir=None):
++    """A 12-hex AirDrop instance ID that survives restarts.
 +
 +    The upstream implementation used a fresh secrets.token_hex(6) on every
 +    start, so iPhone treated each launch as a new receiver and had to
-+    rediscover it. The AWDL address is stable for this adapter, so derive the
-+    ID from its interface identifier instead.
++    rediscover it. Deriving it from the AWDL IPv6 IID is still not stable:
++    awdld picks a new random AWDL MAC every start, so the address (and the ID)
++    changes (observed: 8e2c9afffe41, b011eefffed7, ...) and the iPhone lists
++    every past ID as another "AirBridge32". Persist the first value under the
++    keys directory and reuse it.
 +    """
++    saved = None
++    path = os.path.join(store_dir, 'airdrop-service-id') if store_dir else None
++    if path:
++        try:
++            with open(path, encoding='ascii') as handle:
++                candidate = handle.read().strip().lower()
++            if re.fullmatch('[0-9a-f]{12}', candidate):
++                saved = candidate
++        except OSError:
++            saved = None
++    if saved:
++        return saved
 +    try:
 +        packed = ipaddress.IPv6Address(str(address).split('%')[0]).packed
-+        return packed[8:14].hex()
++        value = packed[8:14].hex()
 +    except (ipaddress.AddressValueError, ValueError):
-+        return secrets.token_hex(6)
++        value = secrets.token_hex(6)
++    if path:
++        try:
++            os.makedirs(store_dir, exist_ok=True)
++            with open(path, 'w', encoding='ascii') as handle:
++                handle.write(value + '\n')
++        except OSError:
++            pass
++    return value
  INTERFACE_WAIT_SECONDS = 20
  BIND_ATTEMPTS = 5
  BIND_PAUSE_SECONDS = 2
-@@ -89,14 +109,22 @@ class Receiver(ThreadingHTTPServer):
+@@ -89,14 +132,22 @@ class Receiver(ThreadingHTTPServer):
      daemon_threads = True
      allow_reuse_address = False
  
@@ -84,7 +178,7 @@ index 622a21f..b3c6cc5 100644
          return client_address[3] == self.settings.interface_index
  
      def process_request(self, request, client_address):
-@@ -311,6 +339,7 @@ class Handler(BaseHTTPRequestHandler):
+@@ -311,6 +362,7 @@ class Handler(BaseHTTPRequestHandler):
          deadline = transfer.ReadDeadline()
          plan = None
          refused = None
@@ -92,7 +186,7 @@ index 622a21f..b3c6cc5 100644
          try:
              budget = transfer.ReceiveBudget(settings.dest, settings.max_receive_percent)
              plan = transfer.body_plan(self.headers, budget.byte_limit)
-@@ -338,6 +367,7 @@ class Handler(BaseHTTPRequestHandler):
+@@ -338,6 +390,7 @@ class Handler(BaseHTTPRequestHandler):
          except Exception as error:
              refused = 422, f'upload is not a valid bounded DVZip archive: {error}'
          finally:
@@ -100,7 +194,7 @@ index 622a21f..b3c6cc5 100644
              transfer.UPLOAD_SLOTS.release()
              self.request.settimeout(transfer.READ_IDLE_TIMEOUT_SECONDS)
          if refused:
-@@ -408,6 +438,14 @@ def parse_args(argv):
+@@ -408,6 +461,14 @@ def parse_args(argv):
                          default=DEFAULT_MAX_RECEIVE_PERCENT,
                          help='largest transfer, as a percentage of free disk space')
      parser.add_argument('--iface', default=DEFAULT_INTERFACE)
@@ -115,7 +209,7 @@ index 622a21f..b3c6cc5 100644
      parser.add_argument('--port', type=int, default=DEFAULT_PORT)
      parser.add_argument('--flags', type=lambda text: int(text, 0), default=DEFAULT_FLAGS,
                          help='receiver capability bits to advertise')
-@@ -436,12 +474,12 @@ def wait_for_interface(alias):
+@@ -436,12 +497,12 @@ def wait_for_interface(alias):
      return found
  
  
@@ -130,7 +224,7 @@ index 622a21f..b3c6cc5 100644
          except OSError as error:
              if error.errno != errno.EADDRINUSE:
                  raise
-@@ -459,6 +497,60 @@ def tls_context(keys_dir):
+@@ -459,6 +520,60 @@ def tls_context(keys_dir):
      return context
  
  
@@ -191,7 +285,7 @@ index 622a21f..b3c6cc5 100644
  def main(argv=None):
      settings = parse_args(argv)
      redactor = redact.Redactor(redact.local_words())
-@@ -473,13 +565,60 @@ def main(argv=None):
+@@ -473,13 +588,60 @@ def main(argv=None):
          context = tls_context(settings.keys)
      except identity.IdentityError as error:
          raise SystemExit(str(error)) from None
@@ -216,7 +310,7 @@ index 622a21f..b3c6cc5 100644
 +                logging.warning('mdns address file not readable: %s', error)
 +        announcer = None
 +        if mdns_address:
-+            service_id = stable_service_id(mdns_address)
++            service_id = stable_service_id(mdns_address, settings.keys)
 +            logging.info('AirDrop service id %s (stable)', service_id)
 +            announcer = ProxyAnnouncer(
 +                mdns.Service(SERVICE_TYPE, service_id, f'{service_id}.local',
@@ -249,7 +343,7 @@ index 622a21f..b3c6cc5 100644
      server.socket = context.wrap_socket(server.socket, server_side=True,
                                          do_handshake_on_connect=False)
 -    service_id = secrets.token_hex(6)
-+    service_id = stable_service_id(address)
++    service_id = stable_service_id(address, settings.keys)
 +    logging.info('AirDrop service id %s (stable)', service_id)
      announcer = mdns.Announcer(
          mdns.Service(SERVICE_TYPE, service_id, f'{service_id}.local', address,
@@ -467,3 +561,9 @@ index 0000000..81979a1
 +    if (send_all(host->sock, packet, len) != 0) return -1;
 +    return 0;
 +}
+diff --git a/upstream/owl b/upstream/owl
+--- a/upstream/owl
++++ b/upstream/owl
+@@ -1 +1 @@
+-Subproject commit da255a70f221784c836d943dd3f243bc798f223b
++Subproject commit da255a70f221784c836d943dd3f243bc798f223b-dirty
