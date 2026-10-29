@@ -1,5 +1,13 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-30 01:00：PC → iPhone 发送：发现与传输打通，卡在 iPhone 拒绝自签证书
+
+- 用户要求做“电脑发给手机”，并要求复用仓库已有实现。新增 netd 的 opt-in 出站 TCP 代理（`--allow-send` 才起，本地 8772，先 `CONNECT <ipv6> <port>` 再原样转发，TLS 端到端）；`tools/airdrop_send.py` 复用上游 `sender.py`/`transfer.py`/`identity.py`（MIT），只替换“发现”（走 netd 的 mDNS 代理）与“连接”（走 8772 代理）两处传输假设，并支持 `--address` 直连。
+- 修掉一个真 bug：netd 开了 `LWIP_IPV6_MLD` 却从未加入 `ff02::fb`，lwIP 在 `ip6_input` 丢弃手机全部 mDNS 组播（表现为 `rx_seen` 涨、代理零包）。加入组播组后能收到手机的查询与应答；应答改为优先回给最后一个提问者；新增 `AWDL_NETD_MDNS_DEBUG`（含前 96 字节十六进制）。
+- 用上游 `airdrop-beacon.ps1`（走 Intel 蓝牙，与坏的 Realtek MI_00 无关）把手机叫进 AWDL：收到 180 条 mDNS 应答、解析出地址 `fe80::64e2:eff:feb5:8e78` 与 SRV 端口，出站 TCP 与 TLS 握手都到达手机——但 iPhone 以 TLS alert 拒绝本项目自签证书（上游 `Unwilling`）。用户确认 AirDrop 一直是「所有人」，所以不只是“仅联系人”问题。
+- 离线回归：`tools/test_netd_tcp.py --case outbound` 通过（CONNECT 解析 + lwIP 发出 SYN）。真机结论见 `docs/SEND_PATH.md` §7；队列 Q47（基础，完成）/Q48（阻塞）。
+- 硬件：用户报告的重启实际未发生（uptime 11 h 36 min），`pnputil /restart-device` 对 MI_00 无效，仍为 `CM_PROB_FAILED_ADD`；要真正恢复需 `shutdown /r /t 0` 或完整重启。接收方向不受影响。
+
 ## 2026-10-29 01:02：Q46 成品文件夹真机验证（29 MB）—— 1.0975 MB/s，当晚最好
 
 - 同一成品（`dist\AirBridge32\AirBridge32.exe`）、默认配置（social + 合并），29,456,959 B 于 01:01:59.934 → 01:02:26.772 = **26.84 s / 1.0975 MB/s**；落盘 SHA-256 `5d057f9c…` 一致、无 408。

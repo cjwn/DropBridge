@@ -72,6 +72,8 @@
 | Q44 | 一文件夹 + 压缩包的托盘完整版 | ✅ 本机：`tools/Package-Distributable.ps1` 产出 `dist\AirBridge32\`（333 文件 36.5 MB，根目录 `AirBridge32.exe` 即托盘程序）+ `dist\AirBridge32-portable.zip`（16.1 MB）。默认根解析、开机自启、托盘图标已适配文件夹形态。干净解压后 `--check` exit 0 无 MISSING；`--auto-exit 150` 43 s 就绪、单实例、退出无残留、四端口全空、`%LOCALAPPDATA%` 未创建、数据全在文件夹内 | `docs/DISTRIBUTION.md`、`evidence/distributable-folder-2026-10-29.log` |
 | Q45 | 成品文件夹真机验证（小文件） | ✅ 真机：用 `dist\AirBridge32\AirBridge32.exe`（即将发出的同一个文件夹）跑默认配置，`IMG_0333.PNG` 1,207,111 B **1.23 s = 0.98 MB/s**、落盘哈希一致、无 408、`input_fail=0`；满足 FINAL_PLAN「<1 MB 小文件端到端 ≤2 s」。**29 MB 视频尚未对这份成品跑过**（接收侧二进制与 Q41 逐字节相同，只换了 supervisor） | `evidence/shipped-folder-smallfile-2026-10-29.log` |
 | Q46 | 成品文件夹真机验证（29 MB 视频） | ✅ 真机：同一成品文件夹、默认配置，29,456,959 B **26.84 s = 1.0975 MB/s**（当晚最好、与历史最好 1.12 MB/s 差 2% 内）、哈希一致、无 408、`input_fail=0/retry=0`、手机 787 帧/s（峰值 891）、CRC 15.1%、约 23 KB/帧聚合。默认配置现有两轮 0.9231 / 1.0975，**还差一次取 3 次中位数** | `evidence/shipped-folder-video-2026-10-29.log`、`docs/LWIP_INPUT_QUEUE.md` §16 |
+| Q47 | 发送通道基础（netd 出站代理 + mDNS 组播修复） | ✅ 本机 + 真机部分：netd 新增 opt-in 出站 TCP 代理（`--allow-send` 才起，本地 8772，`CONNECT <ipv6> <port>` 后原样转发，TLS 端到端）；修掉「开了 MLD 却从未 join `ff02::fb`」导致手机 mDNS 组播全被丢的真 bug；mDNS 应答改为优先回给最后一个提问者；新增 `AWDL_NETD_MDNS_DEBUG`（含十六进制）。离线回归 `--case outbound` 通过；真机实测能收到手机 180 条 mDNS 应答并解析出地址与端口 | `docs/SEND_PATH.md`、`tools/airdrop_send.py`、`tools/test_netd_tcp.py` |
+| Q48 | PC → iPhone 发送（AirDrop /Ask + /Upload） | 🔜 **阻塞**：发现、地址/端口、出站 TCP、TLS 握手全部走通，但 iPhone 以 TLS alert **拒绝本项目自签证书**（上游 `Unwilling`）；用户确认 AirDrop 一直是「所有人」，所以不只是“仅联系人”。下一步要么抓确切 alert 判断能否改证书参数，要么确认 iOS 要求 Apple 签名的发送方验证记录（`SenderRecordData`）→ 无解则终止该需求。beacon 走 Intel 蓝牙已可用，与 MI_00 无关 | `docs/SEND_PATH.md` §7、`build/diagnostics/send/tls_probe.py` |
 
 ## 3. 每项的具体做法
 
