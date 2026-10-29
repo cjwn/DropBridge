@@ -1,17 +1,24 @@
 #include "local_io.h"
 #include "tcp_diag.h"
 
-extern "C" {
-#include "lwip/sockets.h"
-}
-
+/* The C++ headers come first: lwIP's compat layer defines read/write/close as
+ * function-like macros, which breaks the MSVC stream headers if they are
+ * included afterwards. */
 #include <atomic>
 #include <cstdint>
 #include <cerrno>
+#include <chrono>
 #include <cstdio>
 #include <cstring>
 #include <mutex>
 #include <thread>
+
+extern "C" {
+#include "lwip/sockets.h"
+}
+
+// lwIP needs the netif index as the scope for a link-local destination.
+extern "C" int awdl_netd_netif_index();
 
 namespace {
 
@@ -117,6 +124,23 @@ std::mutex g_peer_mu;
 uint32_t g_peer_ip = 0;
 uint16_t g_peer_port = 0;
 bool g_have_peer = false;
+// The local endpoint that last asked a question. Answers go there instead of to
+// whoever spoke last, so a browser and the announcer can share the proxy.
+uint32_t g_querier_ip = 0;
+uint16_t g_querier_port = 0;
+bool g_have_querier = false;
+
+bool mdns_is_query(const uint8_t *data, int len) {
+    if (len < 12) return false;
+    const uint16_t flags = static_cast<uint16_t>((data[2] << 8) | data[3]);
+    const uint16_t questions = static_cast<uint16_t>((data[4] << 8) | data[5]);
+    return (flags & 0x8000u) == 0 && questions > 0;
+}
+
+bool mdns_debug() {
+    static const bool on = std::getenv("AWDL_NETD_MDNS_DEBUG") != nullptr;
+    return on;
+}
 
 void mdns_from_local() {
     uint8_t buffer[4096];
@@ -125,18 +149,31 @@ void mdns_from_local() {
         uint16_t port = 0;
         int n = local_udp_recv(g_mdns_local, buffer, sizeof(buffer), &ip, &port);
         if (n <= 0) return;
+        const bool query = mdns_is_query(buffer, n);
         {
             std::lock_guard<std::mutex> lock(g_peer_mu);
             g_peer_ip = ip;
             g_peer_port = port;
             g_have_peer = true;
+            if (query) {
+                g_querier_ip = ip;
+                g_querier_port = port;
+                g_have_querier = true;
+            }
+        }
+        if (mdns_debug()) {
+            std::fprintf(stderr, "awdl_netd: mdns local->awdl %d bytes from port %u (%s)\n",
+                         n, static_cast<unsigned>(port), query ? "query" : "announce");
         }
         sockaddr_in6 dst{};
         dst.sin6_family = AF_INET6;
         dst.sin6_port = htons(5353);
         inet_pton(AF_INET6, "ff02::fb", &dst.sin6_addr);
-        lwip_sendto(g_mdns_fd, buffer, static_cast<size_t>(n), 0,
-                    reinterpret_cast<sockaddr *>(&dst), sizeof(dst));
+        const int sent = lwip_sendto(g_mdns_fd, buffer, static_cast<size_t>(n), 0,
+                                     reinterpret_cast<sockaddr *>(&dst), sizeof(dst));
+        if (mdns_debug() && sent < 0) {
+            std::fprintf(stderr, "awdl_netd: mdns sendto failed errno=%d\n", errno);
+        }
     }
 }
 
@@ -148,19 +185,186 @@ void mdns_from_awdl() {
         int n = lwip_recvfrom(g_mdns_fd, buffer, sizeof(buffer), 0,
                               reinterpret_cast<sockaddr *>(&from), &from_len);
         if (n <= 0) continue;
+        const bool answer = n >= 4 && (buffer[2] & 0x80u) != 0;
         uint32_t ip = 0;
         uint16_t port = 0;
+        bool routed = false;
         {
             std::lock_guard<std::mutex> lock(g_peer_mu);
-            if (!g_have_peer) continue;
-            ip = g_peer_ip;
-            port = g_peer_port;
+            if (answer && g_have_querier) {
+                ip = g_querier_ip;
+                port = g_querier_port;
+                routed = true;
+            } else if (g_have_peer) {
+                ip = g_peer_ip;
+                port = g_peer_port;
+                routed = true;
+            }
         }
+        if (mdns_debug()) {
+            char source[64] = {0};
+            inet_ntop(AF_INET6, &from.sin6_addr, source, sizeof(source));
+            std::fprintf(stderr,
+                         "awdl_netd: mdns awdl->local %d bytes (%s) from %s routed=%d port=%u\n",
+                         n, answer ? "answer" : "query", source, routed ? 1 : 0,
+                         static_cast<unsigned>(port));
+        }
+        if (!routed) continue;
         local_udp_send(g_mdns_local, buffer, n, ip, port);
     }
 }
 
+/* Outbound proxy (PC -> phone). A local client sends one text line
+ *     CONNECT <ipv6> <port>\n
+ * and everything after it is pumped verbatim to a new lwIP connection, so the
+ * protocol above (TLS, HTTP) stays end to end. The header never reaches the
+ * peer. Kept in this file because it needs both socket families at once. */
+constexpr int kConnectHeaderLimit = 256;
+constexpr int kConnectHeaderMs = 5000;
+
+bool parse_connect_line(const char *line, size_t len, uint8_t address[16],
+                        uint16_t *port) {
+    if (len == 0 || len > kConnectHeaderLimit) return false;
+    char text[kConnectHeaderLimit + 1] = {0};
+    std::memcpy(text, line, len);
+    char address_text[64] = {0};
+    unsigned value = 0;
+    if (std::sscanf(text, "CONNECT %63s %u", address_text, &value) != 2) return false;
+    if (value == 0 || value > 65535) return false;
+    // A zone suffix belongs to the Windows API, not to lwIP: the netif is
+    // already fixed for this stack.
+    if (char *zone = std::strchr(address_text, '%')) *zone = 0;
+    if (inet_pton(AF_INET6, address_text, address) != 1) return false;
+    *port = static_cast<uint16_t>(value);
+    return true;
+}
+
+void outbound_connection(intptr_t local) {
+    char line[kConnectHeaderLimit + 1] = {0};
+    size_t used = 0;
+    bool complete = false;
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::milliseconds(kConnectHeaderMs);
+    while (used < kConnectHeaderLimit && std::chrono::steady_clock::now() < deadline) {
+        int n = local_tcp_recv(local, line + used, 1);
+        if (n == -2) continue; // idle wait, not a failure
+        if (n <= 0) break;
+        ++used;
+        if (line[used - 1] == '\n') {
+            complete = true;
+            break;
+        }
+    }
+    uint8_t address[16] = {0};
+    uint16_t port = 0;
+    const size_t text_length = complete ? used - 1 : used;
+    if (!complete || !parse_connect_line(line, text_length, address, &port)) {
+        std::fprintf(stderr, "awdl_netd: outbound request rejected (no CONNECT line)\n");
+        local_tcp_close(local);
+        return;
+    }
+
+    int fd = lwip_socket(AF_INET6, SOCK_STREAM, 0);
+    if (fd < 0) {
+        std::fprintf(stderr, "awdl_netd: outbound lwip_socket failed\n");
+        local_tcp_close(local);
+        return;
+    }
+    sockaddr_in6 target{};
+    target.sin6_family = AF_INET6;
+    target.sin6_port = htons(port);
+    std::memcpy(&target.sin6_addr, address, 16);
+    target.sin6_scope_id = static_cast<uint32_t>(awdl_netd_netif_index());
+    if (lwip_connect(fd, reinterpret_cast<sockaddr *>(&target), sizeof(target)) != 0) {
+        std::fprintf(stderr, "awdl_netd: outbound connect failed (port %u)\n",
+                     static_cast<unsigned>(port));
+        lwip_close(fd);
+        local_tcp_close(local);
+        return;
+    }
+    timeval poll{1, 0};
+    lwip_setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &poll, sizeof(poll));
+
+    std::atomic<bool> stop{false};
+    std::thread up([&] { // local bytes -> lwIP
+        uint8_t buffer[16384];
+        for (;;) {
+            if (stop.load()) break;
+            int n = local_tcp_recv(local, buffer, sizeof(buffer));
+            if (n == -2) continue;
+            if (n <= 0) {
+                stop = true;
+                lwip_shutdown(fd, SHUT_RDWR);
+                break;
+            }
+            size_t sent = 0;
+            while (sent < static_cast<size_t>(n)) {
+                int written = lwip_send(fd, buffer + sent, n - sent, 0);
+                if (written <= 0) {
+                    stop = true;
+                    local_tcp_shutdown_both(local);
+                    return;
+                }
+                sent += static_cast<size_t>(written);
+            }
+        }
+    });
+
+    uint8_t buffer[16384];
+    for (;;) { // lwIP bytes -> local
+        if (stop.load()) break;
+        int n = lwip_recv(fd, buffer, sizeof(buffer), 0);
+        if (n < 0 && (errno == EWOULDBLOCK || errno == EAGAIN)) continue;
+        if (n <= 0) break;
+        size_t sent = 0;
+        while (sent < static_cast<size_t>(n)) {
+            int written = local_tcp_send_some(local, buffer + sent,
+                                              static_cast<int>(n - sent));
+            if (written <= 0) {
+                stop = true;
+                break;
+            }
+            sent += static_cast<size_t>(written);
+        }
+        if (stop.load()) break;
+    }
+
+    stop = true;
+    local_tcp_shutdown_both(local);
+    up.join();
+    lwip_shutdown(fd, SHUT_RDWR);
+    lwip_close(fd);
+    local_tcp_close(local);
+}
+
 }  // namespace
+
+/* PC -> phone. The local side names its target with one text line before any
+ * bytes of its own protocol:
+ *     CONNECT <ipv6> <port>\n
+ * The proxy then opens a fresh lwIP connection to that address and pumps both
+ * directions verbatim, so TLS above it is end to end. Only started when the
+ * supervisor asks for it (AWDL_NETD_OUTBOUND), so the receive-only product
+ * path keeps no extra listener. */
+extern "C" void awdl_netd_start_outbound_proxy(int port) {
+    std::thread([port] {
+        intptr_t listener = local_tcp_listen(port);
+        if (listener < 0) {
+            std::fprintf(stderr, "awdl_netd: outbound proxy cannot listen on %d\n", port);
+            return;
+        }
+        std::fprintf(stderr,
+                     "awdl_netd: outbound proxy on 127.0.0.1:%d "
+                     "(CONNECT <ipv6> <port> then raw bytes)\n",
+                     port);
+        for (;;) {
+            intptr_t local = local_tcp_accept(listener);
+            if (local == -2) continue;
+            if (local < 0) continue;
+            std::thread(outbound_connection, local).detach();
+        }
+    }).detach();
+}
 
 extern "C" void awdl_netd_start_tcp_proxy() {
     std::thread([] {

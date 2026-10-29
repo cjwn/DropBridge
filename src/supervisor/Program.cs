@@ -185,6 +185,8 @@ internal sealed class Supervisor
     private readonly int _width;
     public readonly string ChannelSequence;
     public readonly bool TcpMerge;
+    // Opt-in PC -> phone: netd then also listens on 127.0.0.1:8772.
+    public static bool AllowSend;
     public string RadioArguments { get { return _channel + " " + _width; } }
     public string AwdldArguments { get { return "-c " + _channel + " -s 2 -j " + (TcpMerge ? "400" : "0") + " -v"; } }
     // 20 MHz is the default: measured 202 KB/s against 40 MHz's 190 KB/s after a
@@ -379,7 +381,8 @@ internal sealed class Supervisor
         text.AppendLine("logs: " + LogDirectory);
         text.AppendLine("radio: " + RadioPath() + " " + RadioArguments);
         text.AppendLine("bridge: " + BridgePath());
-        text.AppendLine("netd: " + NetdPath() + "  [AWDL_NETD_MDNS_PROXY=1]");
+        text.AppendLine("netd: " + NetdPath() + "  [AWDL_NETD_MDNS_PROXY=1]" +
+                        (AllowSend ? "  [AWDL_NETD_OUTBOUND=8772: PC -> phone]" : ""));
         text.AppendLine("awdld: " + AwdldPath() + " " + AwdldArguments);
         text.AppendLine("tcp_merge: " + (TcpMerge ? "on (join_us=400)" : "off (join_us=0)"));
         text.AppendLine("chanseq: " + ChannelSequence + " [slot 8=" +
@@ -493,6 +496,7 @@ internal sealed class Supervisor
             {
                 { "AWDL_NETD_MDNS_PROXY", "1" },
                 { "AWDL_NETD_ADDR_FILE", AddressFile() },
+                { "AWDL_NETD_OUTBOUND", AllowSend ? "8772" : null },
             }, _root, "waiting for awdld", _log);
         // As the AWDL sync master the phone keeps its data in our 149 MHz slots
         // and throughput roughly doubles; as a slave it only uses ~2/16 slots.
@@ -1048,6 +1052,7 @@ internal static class Program
         int width = 20;
         string channelSequence = "social";
         bool tcpMerge = true;
+        bool allowSend = false;
         string dataArgument = null;
         for (int index = 0; index < args.Length; index++)
         {
@@ -1085,6 +1090,9 @@ internal static class Program
                 case "--no-tcp-merge":
                     tcpMerge = false;
                     break;
+                case "--allow-send":
+                    allowSend = true;
+                    break;
                 case "--autostart-on":
                     autostart = 1;
                     break;
@@ -1093,6 +1101,8 @@ internal static class Program
                     break;
             }
         }
+
+        Supervisor.AllowSend = allowSend;
 
         if (autostart != 0)
         {

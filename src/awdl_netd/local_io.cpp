@@ -45,6 +45,36 @@ int local_tcp_send_some(intptr_t handle, const void *data, int len) {
     return send(to_socket(handle), static_cast<const char *>(data), len, 0);
 }
 
+intptr_t local_tcp_listen(int port) {
+    SOCKET s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (s == INVALID_SOCKET) return -1;
+    BOOL exclusive = TRUE;
+    setsockopt(s, SOL_SOCKET, SO_EXCLUSIVEADDRUSE,
+               reinterpret_cast<const char *>(&exclusive), sizeof(exclusive));
+    sockaddr_in addr{};
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    addr.sin_port = htons(static_cast<u_short>(port));
+    if (bind(s, reinterpret_cast<sockaddr *>(&addr), sizeof(addr)) != 0 ||
+        listen(s, 4) != 0) {
+        closesocket(s);
+        return -1;
+    }
+    return static_cast<intptr_t>(s);
+}
+
+intptr_t local_tcp_accept(intptr_t listener) {
+    // Poll first so the accept loop can notice shutdown instead of blocking.
+    fd_set set;
+    FD_ZERO(&set);
+    FD_SET(to_socket(listener), &set);
+    timeval poll{1, 0};
+    int ready = select(0, &set, nullptr, nullptr, &poll);
+    if (ready <= 0) return ready == 0 ? -2 : -1;
+    SOCKET client = accept(to_socket(listener), nullptr, nullptr);
+    return client == INVALID_SOCKET ? -1 : static_cast<intptr_t>(client);
+}
+
 int local_tcp_recv(intptr_t handle, void *data, int len) {
     int n = recv(to_socket(handle), static_cast<char *>(data), len, 0);
     return n < 0 && WSAGetLastError() == WSAETIMEDOUT ? -2 : n;

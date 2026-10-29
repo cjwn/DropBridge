@@ -8,6 +8,10 @@ extern "C" {
 /* Local (Windows) sockets used by the proxy. Kept in a separate translation
  * unit because lwIP's sockets.h and winsock2.h define conflicting types. */
 intptr_t local_tcp_connect(int port);
+/* Loopback listener for the outbound proxy (PC -> phone). */
+intptr_t local_tcp_listen(int port);
+// -2 is a periodic accept timeout, not an error.
+intptr_t local_tcp_accept(intptr_t listener);
 int local_tcp_send_some(intptr_t handle, const void *data, int len);
 // -2 is a periodic receive timeout, not EOF/error; idle connections may wait.
 int local_tcp_recv(intptr_t handle, void *data, int len);

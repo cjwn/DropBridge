@@ -11,6 +11,7 @@
 extern "C" {
 #include "lwip/ip6.h"
 #include "lwip/ip6_addr.h"
+#include "lwip/mld6.h"
 #include "lwip/netif.h"
 #include "lwip/pbuf.h"
 #include "lwip/tcpip.h"
@@ -27,6 +28,7 @@ extern "C" {
 #include "tcp_diag.h"
 
 extern "C" void awdl_netd_start_tcp_proxy();
+extern "C" void awdl_netd_start_outbound_proxy(int port);
 extern "C" bool awdl_netd_start_mdns_proxy();
 extern "C" void awdl_netd_start_native_mdns(const uint8_t address[16],
                                              uint8_t ifindex);
@@ -34,6 +36,7 @@ extern "C" void awdl_netd_start_native_mdns(const uint8_t address[16],
 namespace {
 
 constexpr uint16_t kIpcPort = 49877;
+constexpr int kOutboundDefaultPort = 8772;
 constexpr size_t kMaxFrame = 2048;
 constexpr DWORD kIpcSendTimeoutMs = 5000;
 // How long the IPC reader waits for lwIP to accept one frame before treating
@@ -245,6 +248,10 @@ bool accept_awdld() {
 
 }  // namespace
 
+/* The outbound proxy needs lwIP's netif index as the scope for a link-local
+ * destination. */
+extern "C" int awdl_netd_netif_index() { return static_cast<int>(g_netif.num); }
+
 #ifndef AIRBRIDGE_NETD_TEST
 int main() {
     WSADATA wsa{};
@@ -285,9 +292,26 @@ int main() {
     }
 
     if (std::getenv("AWDL_NETD_MDNS_PROXY")) {
+        // lwIP drops multicast that no joined group matches (ip6_input with
+        // LWIP_IPV6_MLD), so the phone's mDNS answers and announcements never
+        // reached the UDP proxy until this join.
+        ip6_addr_t mdns_group;
+        if (ip6addr_aton("ff02::fb", &mdns_group) != 0) {
+            if (mld6_joingroup_netif(&g_netif, &mdns_group) != ERR_OK) {
+                std::fprintf(stderr, "awdl_netd: cannot join ff02::fb\n");
+            }
+        }
         if (!awdl_netd_start_mdns_proxy()) return 1;
     }
     awdl_netd_start_tcp_proxy();
+    // Sending to the phone is opt-in: only the supervisor flag turns it on, so
+    // the shipping receive-only path keeps no extra local listener.
+    if (const char *outbound = std::getenv("AWDL_NETD_OUTBOUND")) {
+        int port = kOutboundDefaultPort;
+        const int requested = std::atoi(outbound);
+        if (requested > 0 && requested < 65536) port = requested;
+        awdl_netd_start_outbound_proxy(port);
+    }
     std::fprintf(stderr, "awdl_netd: AWDL data plane up\n");
     auto next_stats = GetTickCount64() + 5000;
     while (!g_ipc_failed.load()) {

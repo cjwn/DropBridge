@@ -27,6 +27,7 @@ from pathlib import Path
 REMOTE = ipaddress.IPv6Address('fe80::2').packed
 LOCAL = ipaddress.IPv6Address('fe80::200:ff:fe00:1').packed
 MSS = 1360  # == lwIP TCP_MSS / netif MTU 1450 minus IPv6+TCP headers
+OUTBOUND_PORT = 8772  # netd's opt-in PC -> phone proxy
 
 
 def checksum(data):
@@ -296,7 +297,7 @@ class Peer:
 
 
 class Run:
-    def __init__(self, exe, name, rcvbuf=1024, mdns=False):
+    def __init__(self, exe, name, rcvbuf=1024, mdns=False, outbound=False, connect=True):
         self.work = Path('build/diagnostics/tcp-diag') / f'{name}-{time.time_ns()}'
         self.work.mkdir(parents=True)
         self.lines, self.events = [], queue.Queue()
@@ -310,12 +311,16 @@ class Run:
         self.server.listen(4)
         self.server.settimeout(5)
         env = os.environ.copy()
-        for key in ('AWDL_NETD_MDNS_PROXY', 'AWDL_NETD_NATIVE_MDNS'):
+        for key in ('AWDL_NETD_MDNS_PROXY', 'AWDL_NETD_NATIVE_MDNS', 'AWDL_NETD_OUTBOUND'):
             env.pop(key, None)
         if mdns:
             # Production sets this in the supervisor; the UDP sockets it adds
             # also consume lwIP netconns, so a TCP-only test is not equivalent.
             env['AWDL_NETD_MDNS_PROXY'] = '1'
+        if outbound:
+            # PC -> phone path: a local listener that names its target in a
+            # CONNECT line. Off by default in the shipping receive-only build.
+            env['AWDL_NETD_OUTBOUND'] = str(OUTBOUND_PORT)
         env['AWDL_NETD_ADDR_FILE'] = str((self.work / 'mock.addr').resolve())
         self.process = subprocess.Popen([str(exe)], cwd=self.work, env=env,
                                         stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -324,14 +329,19 @@ class Run:
         self.reader.start()
         self.pid = self.process.pid
         self.peer = None
+        self.sock = None
         try:
             self.wait_line(lambda line: 'waiting for awdld on 127.0.0.1:49877' in line)
             sock = socket.create_connection(('127.0.0.1', 49877), timeout=2)
             sock.sendall(b'AWDL' + LOCAL)
+            self.sock = sock
             self.wait_line(lambda line: 'TCP 8771 -> 127.0.0.1:8771 ready' in line)
-            self.peer = Peer(sock)
-            self.local, _ = self.server.accept()
-            self.local.settimeout(12)
+            if outbound:
+                self.wait_line(lambda line: f'outbound proxy on 127.0.0.1:{OUTBOUND_PORT}' in line)
+            if connect:
+                self.peer = Peer(sock)
+                self.local, _ = self.server.accept()
+                self.local.settimeout(12)
         except BaseException:
             self.close()
             raise
@@ -478,6 +488,53 @@ def reset_case(exe, local_reset):
         run.wait_line(lambda s: 'proxy flow=' in s and 'active=0' in s)
         assert run.process.poll() is None, 'a per-connection reset killed netd'
         print(f'PASS: {name}: both proxy workers released, netd remains alive')
+    finally:
+        run.close()
+
+
+def outbound_roundtrip(exe):
+    """PC -> phone path: a local client names the far end in a CONNECT line.
+
+    Offline we cannot answer the SYN (the fake AWDL peer is not a TCP stack),
+    so this proves the parts that do not need the phone: the header is parsed,
+    lwIP opens a connection to that link-local address and netd emits the SYN
+    towards it. The data path is exercised on the real device.
+    """
+    run = Run(exe, 'outbound', rcvbuf=None, outbound=True, connect=False)
+    try:
+        client = socket.create_connection(('127.0.0.1', OUTBOUND_PORT), timeout=5)
+        client.settimeout(5)
+        client.sendall(b'CONNECT ' + ipaddress.IPv6Address('fe80::2').exploded.encode() + b' 8771\n')
+        run.sock.settimeout(0.25)
+        saw_syn = False
+        deadline = time.monotonic() + 8
+        buffered = bytearray()
+        while time.monotonic() < deadline and not saw_syn:
+            try:
+                chunk = run.sock.recv(4096)
+            except socket.timeout:
+                continue
+            if not chunk:
+                break
+            buffered.extend(chunk)
+            while len(buffered) >= 2:
+                size = struct.unpack_from('<H', buffered, 0)[0]
+                if len(buffered) < 2 + size:
+                    break
+                packet = bytes(buffered[2:2 + size])
+                del buffered[:2 + size]
+                if len(packet) < 60 or packet[6] != 6:
+                    continue
+                tcp = packet[40:]
+                src_port, dst_port = struct.unpack_from('!HH', tcp)
+                flags = tcp[13]
+                if dst_port == 8771 and flags & 2 and packet[24:40] == ipaddress.IPv6Address('fe80::2').packed:
+                    saw_syn = True
+                    break
+        assert saw_syn, 'no SYN towards the CONNECT target'
+        client.close()
+        print('PASS: outbound proxy accepted CONNECT, lwIP emitted the SYN to the named '
+              'link-local address (data path needs the real phone)')
     finally:
         run.close()
 
@@ -672,7 +729,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('exe', type=Path)
     parser.add_argument('--expect-stuck', action='store_true', help='record the pre-fix cleanup defect')
-    parser.add_argument('--case', choices=('all', 'roundtrip', 'pressure', 'faults', 'soak'),
+    parser.add_argument('--case', choices=('all', 'roundtrip', 'pressure', 'faults', 'soak', 'outbound'),
                         default='roundtrip')
     parser.add_argument('--mb', type=float, default=64.0, help='soak: payload size per connection')
     parser.add_argument('--cycles', type=int, default=1, help='soak: sequential connections')
@@ -702,6 +759,8 @@ def main():
              inflight=int(args.inflight_kb * 1024), batch=args.batch,
              rate=args.rate, stall=args.stall, allow_drops=args.allow_drops,
              mdns=args.mdns)
+    if args.case == 'outbound':
+        outbound_roundtrip(exe)
 
 
 if __name__ == '__main__':
