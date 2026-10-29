@@ -74,7 +74,42 @@ tools\airdrop_send.py  ──(127.0.0.1:8772, "CONNECT <ipv6> <port>\n")──�
 3. 真正的产品化（不是本次试验）要：把发送入口放进托盘（选择文件/手机）、
    服务端 SRV 端口解析、超时与取消、以及许可与签名问题。
 
-## 6. 复现命令
+## 7. 2026-10-30 01:00 追加：蓝牙 beacon 打通了发现，卡在证书
+
+用户提示“不是有蓝牙唤醒吗”，于是启用上游 `upstream/winawdl/scripts/airdrop-beacon.ps1`
+（Apple 的 AirDrop BLE 广播，`-DryRun` 输出 `would advertise 20 bytes`，实跑输出
+`advertising`）。**注意：它用的是机器上的 Intel AX211 蓝牙（状态 OK），不是
+Realtek 复合设备的 MI_00。**
+
+结果：
+
+| 环节 | 结果 |
+| --- | --- |
+| beacon 叫醒手机 | ✅ 手机进入 AWDL（`peers 1`） |
+| 手机公告 | ✅ **180 条 mDNS 应答**（297 B，带 SRV 地址与端口） |
+| 发现 + 地址/端口 | ✅ `fe80::64e2:eff:feb5:8e78`（与 peer MAC 的 EUI-64 一致） |
+| 出站 TCP + TLS | ✅ 握手到达手机，手机主动回 alert |
+| iPhone 接受证书 | ❌ `Unwilling`：上游把 TLS alert 里的 `CERTIFICATE`/`UNKNOWN_CA` 解释为“对方不收这台电脑的证书” |
+
+上游 `sender.py` 自己的注释就记录过这个现象：*"An iPhone has been seen to, with
+'certificate unknown'; it is probably what one visible to its contacts only does,
+since nothing vouches for a certificate made here."* 用户确认 AirDrop **一直**是
+「所有人」，所以不只是“仅联系人”的问题：**iOS 对发送方证书的校验比 macOS 严，
+自签证书在「所有人」下也可能被拒**。这正是最初判断的唯一未知数，现在有了第一次实测证据。
+
+下一步（若还要继续）：
+1. 抓**确切的 TLS alert**（`build/diagnostics/send/tls_probe.py`：浏览→直连→打印异常
+   与证书信息）。`unknown ca` 与 `certificate unknown` 指向不同结论；
+2. 若 alert 指向“证书结构不被接受”，可试换证书参数（CN/keyUsage/有效期）——但
+   iOS 大概率还要求发送方的 Apple 签名验证记录（`SenderRecordData`），那就无解；
+3. 若 alert 指向“没找到发送方的 mDNS 记录”，则要保证 `/Ask` 之前手机已看到我们的
+   公告（把 `pk` 与证书绑定关系核对一遍）。
+
+MI_00（Realtek 蓝牙）在“重启”之后仍是 `CM_PROB_FAILED_ADD`——本轮用户报告的重启
+实际没有发生（系统 uptime 显示 11 h 36 min）；`pnputil /restart-device` 也无效。
+这不影响 beacon（走 Intel 蓝牙）。
+
+## 8. 复现命令
 
 ```powershell
 # 带发送能力的测试包（只换 netd，334 文件集合不变）

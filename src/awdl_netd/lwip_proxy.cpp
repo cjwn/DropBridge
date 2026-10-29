@@ -208,6 +208,14 @@ void mdns_from_awdl() {
                          "awdl_netd: mdns awdl->local %d bytes (%s) from %s routed=%d port=%u\n",
                          n, answer ? "answer" : "query", source, routed ? 1 : 0,
                          static_cast<unsigned>(port));
+            // The first 96 bytes are enough to read every question and most
+            // answers; hex keeps the log greppable without parsing here.
+            char hex[3 * 96 + 1] = {0};
+            const int shown = n < 96 ? n : 96;
+            for (int index = 0; index < shown; ++index) {
+                std::snprintf(hex + index * 3, 4, "%02x ", buffer[index]);
+            }
+            std::fprintf(stderr, "awdl_netd: mdns hex %s\n", hex);
         }
         if (!routed) continue;
         local_udp_send(g_mdns_local, buffer, n, ip, port);
