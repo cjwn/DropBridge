@@ -6,7 +6,7 @@
 ## 1. 产物
 
 ```text
-dist\DropBridge\                 ← 解压后就是这个文件夹（333 个文件，36.5 MB）
+dist\DropBridge\                 ← 解压后就是这个文件夹（339 个文件，41.6 MB）
   DropBridge.exe                 ← 唯一入口：托盘监管（winexe，无控制台窗口）
   backend\
     airbridge_radio.exe           RTL8821CU 驱动进程（GPL-2.0）
@@ -16,11 +16,18 @@ dist\DropBridge\                 ← 解压后就是这个文件夹（333 个文
     python\                       embeddable Python + cryptography
     airdrop\                      receiver.py 等
     libusb-1.0.dll、msvcp140 等
+  setup\                          一次性驱动绑定（新用户第一步）
+    Bind-WinUSB.cmd               自提升；先查是否已绑，未绑则开 Zadig，再复查
+    Check-Binding.ps1             只读检查 MI_02 的 Service 是否 WinUSB（0/1/3）
+    zadig-2.9.exe                 第三方 GPLv3 工具（Pete Batard）
+    licenses\zadig-GPL-3.0.txt    许可证全文
+    licenses\ZADIG.txt            版本、SHA-256、上游地址、源码书面要约
+    README.txt                    逐步中文说明 + 怎么恢复原驱动
   tools\Start-Chain.ps1           控制台调试入口（默认 dry-run）
   licenses\                       上游许可证原文
   README.txt                      给用户看的说明（中文）
   VERSION.txt                     构建时间、提交、各后端哈希
-dist\DropBridge-portable.zip     压缩包（16.1 MB）
+dist\DropBridge-portable.zip     压缩包（21.2 MB）
 ```
 
 运行后**在同一个文件夹里**生成 `data\`：

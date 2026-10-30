@@ -1,4 +1,4 @@
-﻿# Q44: build the distributable folder + zip (tray app, everything inside one folder).
+# Q44: build the distributable folder + zip (tray app, everything inside one folder).
 #
 #   powershell -ExecutionPolicy Bypass -File tools\Package-Distributable.ps1
 #   powershell -ExecutionPolicy Bypass -File tools\Package-Distributable.ps1 -SkipZip
@@ -54,7 +54,7 @@ if (Test-Path (Join-Path $stage 'data')) {
 }
 if (Test-Path $stage) { Remove-Item -LiteralPath $stageFull -Recurse -Force }
 
-foreach ($dir in 'backend', 'backend\airdrop', 'backend\python', 'tools', 'licenses') {
+foreach ($dir in 'backend', 'backend\airdrop', 'backend\python', 'tools', 'licenses', 'setup', 'setup\licenses') {
     New-Item -ItemType Directory -Force (Join-Path $stage $dir) | Out-Null
 }
 
@@ -99,6 +99,11 @@ foreach ($license in @(
 
 Copy-Item (Join-Path $root 'packaging\README.txt') (Join-Path $stage 'README.txt') -Force
 
+# One-time driver binding helper: Zadig (GPLv3) + a script that only ever looks at
+# USB\VID_0BDA&PID_C820&MI_02, plus its licence and written source offer.
+robocopy (Join-Path $root 'packaging\setup') (Join-Path $stage 'setup') /E /NJH /NJS /NFL /NDL /NP | Out-Null
+if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE while staging setup" }
+
 $commit = (& git rev-parse --short HEAD 2>$null)
 if (-not $commit) { $commit = 'unknown' }
 $version = @(
@@ -110,6 +115,7 @@ $version = @(
     ('radio      ' + (Get-FileHash $radio -Algorithm SHA256).Hash.ToLowerInvariant())
     ('awdld      ' + (Get-FileHash $awdld -Algorithm SHA256).Hash.ToLowerInvariant())
     ('bridge     ' + (Get-FileHash $bridge -Algorithm SHA256).Hash.ToLowerInvariant())
+    ('setup      setup\Bind-WinUSB.cmd + zadig-2.9.exe (GPLv3, setup\licenses\ZADIG.txt)')
     'layout     one folder; data\ is created next to DropBridge.exe on first run'
 )
 Set-Content -LiteralPath (Join-Path $stage 'VERSION.txt') -Value $version -Encoding utf8

@@ -1,0 +1,37 @@
+﻿# One-time driver binding is now part of the package (2026-10-31 00:20, UTC+8)
+
+## why
+Every new machine must bind USB\VID_0BDA&PID_C820&MI_02 (the Wi-Fi interface of the
+RTL8821CU) to WinUSB before DropBridge can open it. Until now the README told the
+user to "use Zadig", leaving them to find, download and aim a device-replacing tool
+themselves - the first thing that breaks on a fresh machine.
+
+## what ships (setup\)
+Bind-WinUSB.cmd      self-elevates, runs the read-only check first, opens Zadig only
+                    when binding is actually needed, re-checks in a 10 x 3 s loop,
+                    writes setup.log; the only device it ever names is MI_02
+Check-Binding.ps1    read-only: 0 = already WinUSB, 1 = on the Realtek driver, 3 = card
+                    absent. Uses DEVPKEY_Device_Service of that one instance id.
+zadig-2.9.exe        GPLv3, Pete Batard, 5,334,088 B
+                     sha256 4ecaa95df3da3621486a043aef8b3050b8bafe7c901402871e816229ef82039b
+licenses\zadig-GPL-3.0.txt   full GPLv3 text (same COPYING already shipped for owl)
+licenses\ZADIG.txt           version, sha256, upstream URLs, written source offer
+README.txt           Chinese step-by-step, the MI_00/MI_01/MI_02 distinction, and how to
+                     roll back to the Realtek driver
+
+## verified offline
+Check-Binding.ps1 on this machine (already bound): OK, exit 0; -Quiet: exit 0.
+Same script with the VID/PID swapped for a nonexistent one: NOT PRESENT, exit 3.
+Zip extracted fresh: setup\ present with 6 files; the shipped check run from that tree
+returns 0; DropBridge.exe --check in the same tree exit 0, no MISSING.
+
+## package
+dropbridge zip 22,196,026 B (was 16,858,026 B; +5.3 MB is Zadig)  ae661e3b6a2df2966bec851cb5db2b557b7b33ddd9b2df6967920dc05094bbf4
+stage 339 files, 41.6 MB; VERSION.txt gained a "setup" line.
+
+## licence obligations this adds
+Zadig is GPLv3 and is conveyed unmodified: the package carries the licence text and a
+written offer pointing at the upstream source (zadig.akeo.ie, github.com/pbatard/libwdi).
+This is the same posture already used for GPLv3 owl. If that obligation is unwanted,
+delete packaging\setup\zadig-2.9.exe and have the script point at the download page
+instead - the code path already degrades to "open the page, then re-check".

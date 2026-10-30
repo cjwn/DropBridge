@@ -28,6 +28,8 @@ DropBridge（原名 AirBridge32）现在是一个**单文件 exe + 原生托盘*
 DropBridge\                 ← 解压后就是这个文件夹，压缩包里也是它
   DropBridge.exe            唯一入口：托盘监管（无控制台窗口）
   backend\                   radio / bridge / awdl_netd / awdld / python / airdrop
+  setup\                     一次性驱动绑定：Bind-WinUSB.cmd + Check-Binding.ps1
+                             + zadig-2.9.exe（GPLv3，含许可证与源码要约）
   tools\Start-Chain.ps1      控制台调试入口（dry-run 默认）
   licenses\
   README.txt、VERSION.txt

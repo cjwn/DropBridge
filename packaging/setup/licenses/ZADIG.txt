@@ -1,0 +1,25 @@
+Zadig 2.9 - third-party tool bundled for the one-time driver binding
+====================================================================
+
+  file      zadig-2.9.exe
+  sha256    4ecaa95df3da3621486a043aef8b3050b8bafe7c901402871e816229ef82039b
+  version   2.9.788
+  author    Pete Batard (akeo.ie), 2010-2023
+  licence   GNU General Public License v3 (full text: zadig-GPL-3.0.txt)
+
+Upstream:
+  https://zadig.akeo.ie/
+  https://github.com/pbatard/libwdi   (libwdi, the driver-install library Zadig uses)
+
+Why it is here: Windows ships a Realtek network driver for the RTL8821CU Wi-Fi
+interface (USB\VID_0BDA&PID_C820&MI_02). DropBridge talks to that interface
+through libusb, which needs the interface bound to WinUSB instead. Zadig does
+that binding once per machine, from `Bind-WinUSB.cmd`.
+
+Written offer for source code (GPLv3 section 6): the complete corresponding
+source for Zadig 2.9 and libwdi is available from the upstream locations above,
+and on request from the distributor of this package for three years from the
+date it was conveyed. This package does not modify Zadig.
+
+The rest of this folder is part of DropBridge and is covered by the licence in
+the package's `licenses\` folder.

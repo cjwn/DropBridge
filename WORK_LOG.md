@@ -1,5 +1,22 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-31 00:20：Q52 分发包内置一次性驱动绑定（Zadig）
+
+- 用户问“需要把 Zadig 带进去吗”。结论：**要带**，因为每台新机器都必须把
+  `USB\VID_0BDA&PID_C820&MI_02` 绑到 WinUSB，否则 libusb 打不开网卡；不带的话第一次上手就卡在
+  “自己去找 Zadig + 选对设备”。
+- 做法（`packaging\setup\`，进包即 `setup\`）：`Bind-WinUSB.cmd` 自提升 → 先跑只读的
+  `Check-Binding.ps1`（0=已绑 / 1=需绑 / 3=网卡不在）→ 确实需要时才打开 `zadig-2.9.exe` →
+  10×3 s 复查 → 写 `setup.log`；脚本里只出现 `MI_02` 一个设备 ID，避免误绑 MI_00/复合设备。
+  配中文 `README.txt`（三个接口的区别、逐步操作、恢复原驱动的方法）与
+  `licenses\ZADIG.txt`（版本 2.9.788、SHA-256 `4ecaa95d…`、上游地址、GPLv3 源码书面要约）。
+- 离线验证：本机已绑 → exit 0；把 VID/PID 换成不存在的 → exit 3；zip 解压后 6 个文件齐全、
+  从解压树里跑 shipped 检查脚本 exit 0、同树 `--check` exit 0 无 MISSING。
+- 代价：`dist\DropBridge-portable.zip` 16,858,026 → **22,196,026 B**（+5.3 MB 就是 Zadig）。
+  许可证义务沿用 owl 的 GPLv3 处理方式（全文 + 源码要约）；若不想承担，删掉 `zadig-2.9.exe`
+  改成给下载页即可，脚本路径已按“打不开就人工下载再复查”设计。
+- 新的分发形态：解压 → `setup\Bind-WinUSB.cmd`（一次性）→ `DropBridge.exe`（托盘）。
+
 ## 2026-10-30 23:56：Q50/Q51 devourer 升到 34a9e6f + 固件启动超时处理
 
 - 用户要求“拉取上游最新并说明”，实际只有 devourer 动了：`f7e0731` → `34a9e6f`（7 个提交，全是 jaguar2）。
