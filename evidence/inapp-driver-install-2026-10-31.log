@@ -1,0 +1,43 @@
+﻿# One-click first run: the app installs the WinUSB binding itself (2026-10-31 00:30-00:47)
+
+## what changed for the user
+Before: unzip -> find setup\ -> run a .cmd -> read a page -> aim Zadig at MI_02 -> Replace
+        Driver -> come back -> double-click DropBridge.exe.
+Now:    unzip -> double-click DropBridge.exe -> one "yes" -> one UAC -> it starts receiving.
+Zadig stays in setup\ as the fallback, not the primary path.
+
+## how the application path works
+RadioBinding (supervisor): WMI Win32_PnPEntity where DeviceID like the MI_02 instance;
+Service == WinUSB means done. When it is not, Install() re-launches itself with
+ShellExecute runas (one UAC), then in the elevated copy:
+  certutil -addstore -f Root           dropbridge-driver.cer
+  certutil -addstore -f TrustedPublisher dropbridge-driver.cer
+  pnputil /add-driver airbridge-winusb.inf /install
+and re-reads the service. Every step is appended to data\logs\driver-install.txt.
+Tray menu gained 安装驱动（首次使用） for the case the prompt was dismissed.
+
+## the driver package (built here, not downloaded)
+packaging\driver\airbridge-winusb.inf   narrow WinUSB INF: one hardware id
+                                        (USB\VID_0BDA&PID_C820&MI_02), winusb.sys
+packaging\driver\airbridge-winusb.cat   catalog over the INF, 7,744 B
+packaging\driver\dropbridge-driver.cer   self-signed code-signing cert, 794 B
+tools\Build-DriverPackage.ps1           makecat + signtool (Windows SDK), no WDK/inf2cat
+Built with cert thumbprint 349454D4A4BC3590A33755B46A22EAB4486C931D (RSA-2048, SHA-256,
+15 years, private key stays in the build machine store and is not shipped).
+signtool verify /pa: "Successfully verified", 0 errors (checked against the exported .cer
+as a temporary trust anchor, removed afterwards).
+
+## verified
+exe --install-driver on this machine (already WinUSB): exit 0, log "already bound",
+  and it did NOT call pnputil (idempotent, no driver churn).
+same call from the extracted zip: exit 0, same log line.
+exe --bogus: exit 2 and a supervisor.log line, instead of silently starting the tray.
+zip -> tray run: registered HKCU Run -> the packaged exe path, wrote data\autostart-offered,
+  balloon shown; the Run value was removed again after the test.
+zip still checks out: --check exit 0, no MISSING.
+
+## still unproven
+The real unbound -> bound transition has NOT been exercised on this machine: doing it means
+unbinding the only working dongle first. Recovery is known (re-run Zadig, or this installer),
+but it needs a deliberate decision and a UAC click. Until then the driver install is
+"built and signature-verified", not "on-air proven".

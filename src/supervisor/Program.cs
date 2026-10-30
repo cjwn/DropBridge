@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.Management;
 using System.Globalization;
 using System.Text;
 using System.Threading;
@@ -565,6 +566,183 @@ internal sealed class Supervisor
     }
 }
 
+internal static class RadioBinding
+{
+    // One interface only: the Wi-Fi half of the RTL8821CU. MI_00 (Bluetooth) and
+    // the composite parent are never named here. WQL treats a backslash as an
+    // escape, so the runtime string needs doubled backslashes.
+    private const string Pattern = "USB\\\\VID_0BDA&PID_C820&MI_02";
+
+    internal static bool IsAdmin()
+    {
+        try
+        {
+            var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
+            var principal = new System.Security.Principal.WindowsPrincipal(identity);
+            return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>Service of the MI_02 interface, "" when present without one, null when absent.</summary>
+    internal static string Service()
+    {
+        try
+        {
+            using (var searcher = new ManagementObjectSearcher(
+                       "SELECT DeviceID, Service FROM Win32_PnPEntity WHERE DeviceID LIKE '" + Pattern + "%'"))
+            {
+                foreach (ManagementObject item in searcher.Get())
+                {
+                    string service = item["Service"] as string;
+                    return service ?? string.Empty;
+                }
+            }
+        }
+        catch
+        {
+        }
+        return null;
+    }
+
+    internal static bool Bound(string service)
+    {
+        return string.Equals(service, "WinUSB", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static string DriverDirectory(string root)
+    {
+        string[] candidates =
+        {
+            Path.Combine(root, "setup", "driver"),
+            Path.Combine(root, "driver"),
+            Path.Combine(root, "backend", "driver"),
+        };
+        foreach (string candidate in candidates)
+        {
+            if (File.Exists(Path.Combine(candidate, "airbridge-winusb.inf"))) return candidate;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Bind MI_02 to WinUSB, elevating once if needed. Idempotent: when the
+    /// interface is already on WinUSB this returns 0 without touching anything.
+    /// </summary>
+    internal static int Install(string root, bool quiet, string logPath)
+    {
+        string service = Service();
+        if (service == null)
+        {
+            Log(logPath, "install: MI_02 not present; plug the card in first");
+            return 3;
+        }
+        if (Bound(service))
+        {
+            Log(logPath, "install: already bound to WinUSB; nothing to do");
+            return 0;
+        }
+        if (!IsAdmin())
+        {
+            try
+            {
+                var start = new ProcessStartInfo(Application.ExecutablePath)
+                {
+                    UseShellExecute = true,
+                    Verb = "runas",
+                    Arguments = "--install-driver" + (quiet ? " --quiet" : string.Empty) +
+                                " --root \"" + root + "\"",
+                };
+                using (Process child = Process.Start(start))
+                {
+                    child.WaitForExit();
+                    Log(logPath, "install: elevated helper exit " + child.ExitCode);
+                    return child.ExitCode;
+                }
+            }
+            catch (Exception error)
+            {
+                Log(logPath, "install: elevation refused: " + error.Message);
+                return 2;
+            }
+        }
+
+        string directory = DriverDirectory(root);
+        if (directory == null)
+        {
+            Log(logPath, "install: driver package missing under " + root);
+            return 1;
+        }
+        string inf = Path.Combine(directory, "airbridge-winusb.inf");
+        string cer = Path.Combine(directory, "dropbridge-driver.cer");
+        if (!File.Exists(cer))
+        {
+            Log(logPath, "install: certificate missing next to the INF");
+            return 1;
+        }
+
+        int code = Run("certutil.exe", "-addstore -f Root \"" + cer + "\"", logPath);
+        if (code != 0) return 1;
+        code = Run("certutil.exe", "-addstore -f TrustedPublisher \"" + cer + "\"", logPath);
+        if (code != 0) return 1;
+        code = Run("pnputil.exe", "/add-driver \"" + inf + "\" /install", logPath);
+        if (code != 0) return 1;
+
+        service = Service();
+        bool bound = Bound(service);
+        Log(logPath, "install: after pnputil, MI_02 service=" + (service ?? "<absent>"));
+        return bound ? 0 : 1;
+    }
+
+    private static int Run(string exe, string arguments, string logPath)
+    {
+        try
+        {
+            var start = new ProcessStartInfo(exe, arguments)
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            using (Process process = Process.Start(start))
+            {
+                string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+                process.WaitForExit(120000);
+                Log(logPath, exe + " " + arguments + " -> exit " + process.ExitCode);
+                foreach (string line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    Log(logPath, "  " + line.Trim());
+                }
+                return process.ExitCode;
+            }
+        }
+        catch (Exception error)
+        {
+            Log(logPath, exe + " failed: " + error.Message);
+            return 1;
+        }
+    }
+
+    private static void Log(string logPath, string message)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(logPath)) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(logPath));
+            File.AppendAllText(logPath,
+                DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " " + message + Environment.NewLine,
+                Encoding.UTF8);
+        }
+        catch
+        {
+        }
+    }
+}
+
 internal sealed class TrayApp : ApplicationContext
 {
     private readonly Supervisor _supervisor;
@@ -599,6 +777,8 @@ internal sealed class TrayApp : ApplicationContext
         _autostart = new ToolStripMenuItem("开机自启", null,
             delegate { ToggleAutostart(); }) { Checked = AutostartEnabled() };
         menu.Items.Add(_autostart);
+        menu.Items.Add(new ToolStripMenuItem("安装驱动（首次使用）", null,
+            delegate { InstallDriver(); }));
         menu.Items.Add(new ToolStripMenuItem("重新启动后端", null, delegate { StartBackends(); }));
         menu.Items.Add(new ToolStripMenuItem("重置链路", null, delegate
         {
@@ -621,6 +801,8 @@ internal sealed class TrayApp : ApplicationContext
         Application.Idle += CaptureContext;
         StartWatcher();
         StartBackends();
+        StartFirstRunCheck();
+        OfferAutostartOnce();
 
         _watchdog = new System.Windows.Forms.Timer { Interval = 5000 };
         _watchdog.Tick += delegate { CheckChildren(); };
@@ -686,6 +868,99 @@ internal sealed class TrayApp : ApplicationContext
     private void StartBackends()
     {
         RequestStart(false);
+    }
+
+    private string DriverLog
+    {
+        get { return Path.Combine(_supervisor.Root, "data", "logs", "driver-install.txt"); }
+    }
+
+    /// <summary>
+    /// A receiver that is not running receives nothing, so the first successful
+    /// start registers it for login once and tells the user (the tray menu can
+    /// turn it back off). The marker file keeps a deliberate "off" from being
+    /// re-offered on every start.
+    /// </summary>
+    private void OfferAutostartOnce()
+    {
+        string marker = Path.Combine(_supervisor.Root, "data", "autostart-offered");
+        if (File.Exists(marker) || AutostartEnabled()) return;
+        try
+        {
+            SetAutostart(true);
+            _autostart.Checked = true;
+            File.WriteAllText(marker, DateTime.Now.ToString("o"), Encoding.UTF8);
+            _icon.ShowBalloonTip(6000, "DropBridge",
+                "已设为开机自启：以后登录就在托盘里等着收文件。想关掉：右键图标 → 开机自启。",
+                ToolTipIcon.Info);
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>
+    /// First run on a fresh machine: the Wi-Fi interface is still on the Realtek
+    /// driver, so libusb cannot open it and the chain would fail with
+    /// "no device". Ask once, install with a single UAC prompt, then restart.
+    /// </summary>
+    private void StartFirstRunCheck()
+    {
+        var timer = new System.Windows.Forms.Timer { Interval = 4000 };
+        timer.Tick += delegate
+        {
+            timer.Stop();
+            timer.Dispose();
+            string service = RadioBinding.Service();
+            if (service == null)
+            {
+                _icon.ShowBalloonTip(6000, "DropBridge",
+                    "没找到 RTL8821CU 网卡：请直插机箱后面板的 USB 口。", ToolTipIcon.Warning);
+                return;
+            }
+            if (RadioBinding.Bound(service)) return;
+
+            DialogResult answer = MessageBox.Show(
+                "首次使用需要一次性安装驱动（把网卡的 Wi-Fi 接口绑定到 WinUSB）。\n\n" +
+                "点「是」后 Windows 会弹出一次管理员确认，安装完成后会自动继续。\n" +
+                "如果不想现在做，可以从托盘菜单选「安装驱动（首次使用）」。",
+                "DropBridge 首次使用", MessageBoxButtons.YesNo, MessageBoxIcon.Information);
+            if (answer == DialogResult.Yes) InstallDriver();
+        };
+        timer.Start();
+    }
+
+    private void InstallDriver()
+    {
+        Cursor.Current = Cursors.WaitCursor;
+        try
+        {
+            int code = RadioBinding.Install(_supervisor.Root, false, DriverLog);
+            if (code == 0)
+            {
+                _icon.ShowBalloonTip(5000, "DropBridge", "驱动已就绪，正在重新启动后端…", ToolTipIcon.Info);
+                RequestStart(false);
+            }
+            else if (code == 2)
+            {
+                MessageBox.Show("需要管理员权限才能安装驱动。\n可以右键 DropBridge.exe → 以管理员身份运行。",
+                    "DropBridge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            else if (code == 3)
+            {
+                MessageBox.Show("没找到 RTL8821CU 网卡。\n请直插机箱后面板的 USB 口后重试。",
+                    "DropBridge", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            else
+            {
+                MessageBox.Show("驱动安装没有完成，详见：\n" + DriverLog,
+                    "DropBridge", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+        finally
+        {
+            Cursor.Current = Cursors.Default;
+        }
     }
 
     private int NextBackoffSeconds()
@@ -1097,6 +1372,19 @@ internal static class Program
                 case "--allow-send":
                     allowSend = true;
                     break;
+                case "--install-driver":
+                    {
+                        bool quiet = false;
+                        string installRoot = null;
+                        for (int extra = index + 1; extra < args.Length; extra++)
+                        {
+                            if (args[extra] == "--quiet") quiet = true;
+                            else if (args[extra] == "--root" && extra + 1 < args.Length) installRoot = args[++extra];
+                        }
+                        string resolved = ResolveRoot(installRoot);
+                        string log = Path.Combine(resolved, "data", "logs", "driver-install.txt");
+                        return RadioBinding.Install(resolved, quiet, log);
+                    }
                 case "--autostart-on":
                     autostart = 1;
                     break;
@@ -1121,6 +1409,30 @@ internal static class Program
 
         string root = ResolveRoot(rootArgument);
         string stamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+
+        // A mistyped switch used to fall through to the tray and start a chain,
+        // which looks like "the argument was ignored". Fail fast instead: the
+        // first argument must be one of the switches below.
+        string[] knownSwitches =
+        {
+            "--root", "--data", "--check", "--out", "--smoke", "--auto-exit",
+            "--channel", "--width", "--chanseq", "--no-tcp-merge", "--allow-send",
+            "--autostart-on", "--autostart-off", "--install-driver",
+        };
+        if (args.Length > 0 && Array.IndexOf(knownSwitches, args[0]) < 0)
+        {
+            try
+            {
+                Directory.CreateDirectory(Path.Combine(root, "data", "logs"));
+                File.AppendAllText(Path.Combine(root, "data", "logs", "supervisor.log"),
+                    DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss.fff") + " unknown arguments: " +
+                    string.Join(" ", args) + Environment.NewLine, Encoding.UTF8);
+            }
+            catch
+            {
+            }
+            return 2;
+        }
 
         if (check)
         {

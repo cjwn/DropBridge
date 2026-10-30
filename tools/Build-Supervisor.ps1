@@ -27,7 +27,7 @@ $iconArgument = @()
 if (Test-Path $icon) { $iconArgument = @("/win32icon:$icon") }
 
 & $csc /nologo /target:winexe /optimize+ "/out:$out" @iconArgument `
-    /r:System.Windows.Forms.dll /r:System.Drawing.dll $source
+    /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source
 if ($LASTEXITCODE -ne 0) { throw "csc failed with $LASTEXITCODE" }
 
 Write-Host ("supervisor: {0} ({1:N0} KB)" -f $out, ((Get-Item $out).Length / 1KB))
@@ -40,7 +40,7 @@ Copy-Item $out $legacy -Force
 if ($Test) {
     $testExe = Join-Path $outDir 'channel_sequence_test.exe'
     & $csc /nologo /target:exe /main:ChannelSequenceTest "/out:$testExe" `
-        /r:System.Windows.Forms.dll /r:System.Drawing.dll $source `
+        /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source `
         (Join-Path $root 'src\supervisor\channel_sequence_test.cs')
     if ($LASTEXITCODE -ne 0) { throw "test compile failed: $LASTEXITCODE" }
     & $testExe

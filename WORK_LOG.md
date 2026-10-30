@@ -1,5 +1,27 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-31 00:47：Q53 首次使用一键完成（程序自己装驱动 + 自动开机自启）
+
+- 用户表态“不用管协议，一切服务于最终使用体验”，所以把驱动安装**缝进程序本身**：
+  `RadioBinding`（supervisor 内）用 WMI 读 `USB\VID_0BDA&PID_C820&MI_02` 的 Service；
+  未绑 WinUSB 时用 ShellExecute `runas` 自提升一次，然后在提权副本里
+  `certutil -addstore Root/TrustedPublisher` + `pnputil /add-driver` 装我们自己的 WinUSB 包，
+  复查后继续启动。托盘菜单加「安装驱动（首次使用）」；日志写 `data\logs\driver-install.txt`。
+- 驱动包不再依赖 Zadig：`tools\Build-DriverPackage.ps1` 用 SDK 自带的 `makecat`+`signtool`
+  现做一个极窄的 INF（只含 `MI_02`）+ 自签证书 + 已签名目录，`signtool verify /pa` 0 错误。
+  Zadig 留在 `setup\` 只作兜底。证书私钥留在构建机上、不进包，指纹记录在
+  `packaging\driver\signing-thumbprint.txt`。
+- 顺手修了两个真实体验问题：
+  1. 未知参数以前会**静默进托盘并启动整条链路**（我拿旧包实测踩到，进程挂住不退出）；
+     现在 exit 2 并写一行 supervisor.log。
+  2. 首次启动自动设开机自启并提示一次（`data\autostart-offered` 标记，菜单可关），
+     避免“装好了但没在跑，所以收不到”。
+- 验证：`--install-driver` 在已绑机器上 exit 0 且不碰 pnputil（幂等）；从 zip 解压出来同样 exit 0；
+  `--bogus` exit 2；zip 启动一次确实把 Run 指向包内 exe 并写标记（测完已清掉 Run）；
+  `--check` 仍 exit 0。
+- **未验证**：真正的未绑→已绑转换。要验证必须先解绑唯一可用网卡，恢复手段明确（Zadig 或本安装器），
+  但需要用户点头并点一次 UAC。在这一步之前，驱动安装只能算“已构建且签名校验通过”。
+
 ## 2026-10-31 00:20：Q52 分发包内置一次性驱动绑定（Zadig）
 
 - 用户问“需要把 Zadig 带进去吗”。结论：**要带**，因为每台新机器都必须把

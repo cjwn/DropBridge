@@ -104,6 +104,17 @@ Copy-Item (Join-Path $root 'packaging\README.txt') (Join-Path $stage 'README.txt
 robocopy (Join-Path $root 'packaging\setup') (Join-Path $stage 'setup') /E /NJH /NJS /NFL /NDL /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE while staging setup" }
 
+# The in-app installer (DropBridge.exe --install-driver) uses this signed package:
+# it imports dropbridge-driver.cer and points pnputil at the INF. Built by
+# tools\Build-DriverPackage.ps1; no Zadig needed when it works.
+$driverSource = Join-Path $root 'packaging\driver'
+if (Test-Path (Join-Path $driverSource 'airbridge-winusb.cat')) {
+    New-Item -ItemType Directory -Force (Join-Path $stage 'setup\driver') | Out-Null
+    Copy-Item (Join-Path $driverSource 'airbridge-winusb.inf') (Join-Path $stage 'setup\driver') -Force
+    Copy-Item (Join-Path $driverSource 'airbridge-winusb.cat') (Join-Path $stage 'setup\driver') -Force
+    Copy-Item (Join-Path $driverSource 'dropbridge-driver.cer') (Join-Path $stage 'setup\driver') -Force
+}
+
 $commit = (& git rev-parse --short HEAD 2>$null)
 if (-not $commit) { $commit = 'unknown' }
 $version = @(
