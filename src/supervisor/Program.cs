@@ -169,7 +169,7 @@ internal sealed class Child
                 // Ask the radio to unwind first (see the radio's stop event):
                 // killing it mid-transfer wedges the chip until a replug.
                 if (Name == "radio") Supervisor.SignalRadioStop();
-                if (Name == "radio") _process.WaitForExit(4000);
+                if (Name == "radio") _process.WaitForExit(15000);
                 if (!_process.HasExited)
                 {
                     _process.Kill();

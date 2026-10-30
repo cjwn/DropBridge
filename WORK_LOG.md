@@ -1,5 +1,18 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-31 02:35：Q58 修好「停链路必须拔插」（三轮真机验证通过）
+
+- 定位：加 WARN 打点后看到 join(rx_thread) 卡住——StopRxLoop() 返回了，但 RX 工作线程仍在 StartRxLoop 里不出来。
+- 修复：收尾改成**有界等待**（等 
+x_ended 最多 2 s，到了就 join，否则 detach，再由 
+adio->Stop() 取消传输）；并把 stats_thread/writer/stats_stop 移到 accept 循环外（首版把它们放在循环内，失败路径留下 joinable std::thread → std::terminate）。
+- 实测（三次连续，中间不拔插网卡）：ready 02:31:03 → stop 02:32:03 exit 0；ready 02:32:53（43 s）；ready 02:34:42（43 s）→ stop 02:35:33 shutdown: done / exit 0。**从此停链路不会再楔死网卡。**
+- 残留风险：RX 线程是 detach 而不是 join，理论上可能在 
+adio->Stop() 时仍碰 
+adio/queue；三轮未崩，但更干净的做法是让 RX transfer 可取消（devourer 侧问题），记为后续项。
+- 另：本轮用户实测正式发送 29,456,959 B / 26.85 s = **1.10 MB/s**，哈希一致。
+
+
 ## 2026-10-31 02:22：Q58 优雅停没解决问题（诚实记录）
 
 - 做了两轮真机回归：① --auto-exit 110 让监管自己优雅停 → radio 4 秒内没退完，被强杀（stopped (exit -1)）；② 立刻再启动（不拔插）→ radio 104 秒未就绪、再等 300 秒仍不 ready，**网卡照旧楔死**。

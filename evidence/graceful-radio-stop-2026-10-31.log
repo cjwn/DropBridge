@@ -1,31 +1,38 @@
-﻿# Clean radio shutdown: no more "wedge until replug" (2026-10-31 02:02)
+﻿# Clean radio shutdown: the "wedge until replug" is fixed (2026-10-31 02:24-02:35)
 
 ## the defect
 The supervisor stopped children with Process.Kill() = TerminateProcess. For the radio that
-means the process dies in the middle of a libusb bulk/control transfer. Observed tonight
-four times: the next bring-up either reports "no device 0bda:c820" or blocks inside
-libusb (airbridge_radio.exe at 0.03 s CPU for 3-5 minutes, not one devourer log line),
-and only a physical replug recovers. Every restart during development cost a replug.
+means dying in the middle of a libusb transfer; the next bring-up then either reported
+"no device 0bda:c820" or blocked inside libusb (0.03 s CPU for minutes, no log output),
+and only a physical replug recovered. Hit four times tonight.
 
-## the fix
-radio (src/radio_usb/main.cpp): after listen() it opens the named event
-  Local\DropBridgeRadioStop and parks a thread on it; when signalled it closes the
-  listener, so accept() fails and the existing clean path runs: StopRxLoop, rx thread
-  join, queue stop, device Stop, libusb_release_interface, libusb_close, libusb_exit.
-supervisor (src/supervisor/Program.cs): Supervisor.EnsureRadioStopEvent() creates the
-  manual-reset event before starting a chain; Child.Stop() signals it for the radio and
-  waits up to 4 s before falling back to Kill.
+## what was tried, in order
+1. Named event Local\DropBridgeRadioStop, opened by the radio after listen(); the wait
+   thread closes the listener so accept() fails and the normal teardown runs. The radio
+   did react, but round 1 still ended "stopped (exit -1)" and round 2 never came up,
+   so the event alone was not enough.
+2. WARN-level trace around every teardown step located the block precisely:
+     shutdown: accept failed; stopping rx loop
+     shutdown: rx loop stopped; joining rx thread   <- never advanced
+   i.e. StopRxLoop() returns but the RX worker stays inside StartRxLoop.
+3. Bounded wait instead of an unbounded join: wait up to 2 s for rx_ended, join if it
+   arrives, otherwise detach (radio->Stop() cancels its transfers anyway) and continue.
+   stats_stop / stats_thread / writer are now declared outside the accept loop, because
+   the failure paths previously left joinable std::thread objects that aborted the
+   process on scope exit.
 
-## why an event and not Ctrl+C
-The supervisor is a winexe with no console, and the children are created with redirected
-stdio, so GenerateConsoleCtrlEvent has no console to attach to. A named event is the
-smallest mechanism that works for a winexe parent and a console child.
+## measured result (three consecutive cycles, no replug between any of them)
+cycle 1  ready 02:31:03  stop 02:32:03  "rx thread did not return in 2 s; detaching"
+                                            "device stopped; releasing radio" -> exit 0
+cycle 2  ready 02:32:53 (43 s)  ...  exit 0
+cycle 3  ready 02:34:42 (43 s)  stop 02:35:33  "shutdown: done" -> exit 0
 
-## verified
-both binaries rebuilt clean (supervisor 65 KB, radio 597,504 B) and the offline
-supervisor tests (fixed/social env split, invalid mode) still pass.
+Before: every stop wedged the chip and cost a replug. After: stop is clean (exit 0) and
+the next start reaches the data plane in 43 s with the cable untouched.
 
-## not verified yet
-The live cycle (start -> graceful stop -> start again without replug) needs a working
-dongle; the current one is wedged from before this fix, so it needs one last replug
-before the test can run.
+## residual risk
+The RX worker is detached rather than joined, so it may still touch radio/queue while the
+main thread calls radio->Stop(). Three clean cycles did not crash, and the process exits
+immediately after, but this is a "good enough under time pressure" shape: the honest fix
+is a cancellable RX transfer so StartRxLoop returns, which is a devourer-side question
+(its RX thread is the one that does not observe the stop). Tracked as a follow-up.

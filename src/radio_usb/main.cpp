@@ -410,13 +410,16 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     if (!no_rx) {
         rx_thread = std::thread([&] {
             std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+            logger->warn("shutdown: rx thread entering StartRxLoop");
             try {
                 radio->StartRxLoop([&](const Packet &packet) {
                     on_rx(packet, queue, state, client_ready);
                 });
+                logger->warn("shutdown: rx thread returned from StartRxLoop");
             } catch (const std::exception &error) {
                 logger->error("radio: RX loop died: {}", error.what());
             }
+            logger->warn("shutdown: rx thread finished");
             rx_ended = true;
         });
     } else {
@@ -428,10 +431,28 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         // Reached when the supervisor signals the stop event (it closes the
         // listener) - or on a real accept error. The common teardown after the
         // loop stops the threads and the device, so just leave the loop here.
-        logger->info("radio: accept failed; shutting down");
+        // WARN on purpose: WARN is the level that reaches radio.log, and the
+        // teardown is exactly where a stuck call must be visible.
+        logger->warn("shutdown: accept failed; stopping rx loop");
         radio->StopRxLoop();
-        if (rx_thread.joinable()) rx_thread.join();
+        logger->warn("shutdown: rx loop stopped; waiting for the rx thread");
+        for (int i = 0; i < 20 && !rx_ended.load(); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        if (rx_thread.joinable()) {
+            if (rx_ended.load()) {
+                rx_thread.join();
+                logger->warn("shutdown: rx thread joined");
+            } else {
+                // Never block the exit path on a thread that will not come back:
+                // radio->Stop() below cancels its transfers anyway.
+                logger->warn("shutdown: rx thread did not return in 2 s; detaching");
+                rx_thread.detach();
+            }
+        }
+        logger->warn("shutdown: stopping queue");
         queue.stop();
+        logger->warn("shutdown: queue stopped; leaving accept loop");
         break;
     }
     const BOOL nodelay = TRUE;
@@ -646,16 +667,23 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     // The accept/HELLO failure paths leave the loop without the per-iteration
     // teardown, so finish it here: a joinable std::thread destroyed at scope
     // exit calls std::terminate, which would abort instead of stopping cleanly.
+    // WARN around every step so a stuck call is visible in radio.log.
+    logger->warn("shutdown: stopping stats thread");
     stats_stop = true;
     if (stats_thread.joinable()) stats_thread.join();
+    logger->warn("shutdown: joining writer");
     if (writer.joinable()) writer.join();
+    logger->warn("shutdown: stopping the device");
     radio->Stop();
+    logger->warn("shutdown: device stopped; releasing radio");
     radio.reset();
     closesocket(listener);
+    logger->warn("shutdown: releasing the USB interface");
     libusb_release_interface(handle, iface);
     libusb_close(handle);
     libusb_exit(ctx);
     WSACleanup();
+    logger->warn("shutdown: done");
     return 0;
 }
 
