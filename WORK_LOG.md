@@ -1,5 +1,18 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-31 02:03：Q58 停链路不再楔死网卡（命名事件优雅停）
+
+- 现象：今晚每次停链路后再起，radio 要么 `no device 0bda:c820`、要么卡在 libusb
+  （0.03 s CPU 持续几分钟、radio.log 一行没有），**只能拔插网卡**。根因是监管用
+  `Process.Kill()`（TerminateProcess）停子进程，radio 死在半个 USB 传输里。
+- 修法：radio 在 `listen()` 后打开命名事件 `Local\DropBridgeRadioStop` 并挂线程等待，
+  被唤醒就 `closesocket(listener)`，让 `accept()` 失败、走原有干净收尾（StopRxLoop → 等
+  RX 线程 → 队列停 → 设备 Stop → libusb release/close/exit）。监管在建链前
+  `EnsureRadioStopEvent()` 创建手动复位事件，`Child.Stop()` 对 radio 先 signal 再等 4 s，
+  超时才 Kill。没用 Ctrl+C：监管是 winexe 无控制台、子进程 stdio 被重定向。
+- 已验证：两处重编通过（supervisor 65 KB / radio 597,504 B），离线测试全过。
+- 未验：start → 优雅停 → 再 start（不拔插）。当前网卡是修前楔死的，需要你最后拔插一次。
+
 ## 2026-10-31 01:51：Q56 托盘自动开蓝牙 beacon（+ 发现 Q57 卡死检测缺失）
 
 - 依据 Q54：带 beacon 时 1.09–1.10 MB/s / 867–970 fps / CRC 3–4%，不带时 0.32–0.88 MB/s /

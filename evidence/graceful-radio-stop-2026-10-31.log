@@ -1,0 +1,31 @@
+﻿# Clean radio shutdown: no more "wedge until replug" (2026-10-31 02:02)
+
+## the defect
+The supervisor stopped children with Process.Kill() = TerminateProcess. For the radio that
+means the process dies in the middle of a libusb bulk/control transfer. Observed tonight
+four times: the next bring-up either reports "no device 0bda:c820" or blocks inside
+libusb (airbridge_radio.exe at 0.03 s CPU for 3-5 minutes, not one devourer log line),
+and only a physical replug recovers. Every restart during development cost a replug.
+
+## the fix
+radio (src/radio_usb/main.cpp): after listen() it opens the named event
+  Local\DropBridgeRadioStop and parks a thread on it; when signalled it closes the
+  listener, so accept() fails and the existing clean path runs: StopRxLoop, rx thread
+  join, queue stop, device Stop, libusb_release_interface, libusb_close, libusb_exit.
+supervisor (src/supervisor/Program.cs): Supervisor.EnsureRadioStopEvent() creates the
+  manual-reset event before starting a chain; Child.Stop() signals it for the radio and
+  waits up to 4 s before falling back to Kill.
+
+## why an event and not Ctrl+C
+The supervisor is a winexe with no console, and the children are created with redirected
+stdio, so GenerateConsoleCtrlEvent has no console to attach to. A named event is the
+smallest mechanism that works for a winexe parent and a console child.
+
+## verified
+both binaries rebuilt clean (supervisor 65 KB, radio 597,504 B) and the offline
+supervisor tests (fixed/social env split, invalid mode) still pass.
+
+## not verified yet
+The live cycle (start -> graceful stop -> start again without replug) needs a working
+dongle; the current one is wedged from before this fix, so it needs one last replug
+before the test can run.

@@ -166,8 +166,15 @@ internal sealed class Child
         {
             if (!_process.HasExited)
             {
-                _process.Kill();
-                _process.WaitForExit(waitMilliseconds);
+                // Ask the radio to unwind first (see the radio's stop event):
+                // killing it mid-transfer wedges the chip until a replug.
+                if (Name == "radio") Supervisor.SignalRadioStop();
+                if (Name == "radio") _process.WaitForExit(4000);
+                if (!_process.HasExited)
+                {
+                    _process.Kill();
+                    _process.WaitForExit(waitMilliseconds);
+                }
             }
             _log.Write(Name, "stopped (exit " + _process.ExitCode + ")");
         }
@@ -182,6 +189,32 @@ internal sealed class Child
 
 internal sealed class Supervisor
 {
+    // Shared with airbridge_radio.exe: signalling it closes the radio's listener,
+    // which makes it take the normal teardown path instead of being killed.
+    private static EventWaitHandle _radioStop;
+
+    public static void EnsureRadioStopEvent()
+    {
+        if (_radioStop == null)
+        {
+            _radioStop = new EventWaitHandle(false, EventResetMode.ManualReset,
+                @"Local\DropBridgeRadioStop");
+        }
+    }
+
+    public static void SignalRadioStop()
+    {
+        try
+        {
+            EnsureRadioStopEvent();
+            _radioStop.Reset();
+            _radioStop.Set();
+        }
+        catch
+        {
+        }
+    }
+
     private readonly int _channel;
     private readonly int _width;
     public readonly string ChannelSequence;
@@ -463,6 +496,7 @@ internal sealed class Supervisor
     public bool StartAll(int readyTimeoutSeconds, out string error)
     {
         error = null;
+        EnsureRadioStopEvent();
         string busy = PortProblem();
         if (busy != null)
         {
@@ -977,7 +1011,17 @@ internal sealed class TrayApp : ApplicationContext
     private void CheckBeacon()
     {
         if (!_beaconWanted) return;
-        if (_beacon == null || _beacon.HasExited) StartBeacon();
+        if (_beacon != null && !_beacon.HasExited) return;
+        if (_beacon != null)
+        {
+            // A dead child must not block the restart: StartBeacon refuses while
+            // the field is set, so clear it and record why we are here.
+            int code = -1;
+            try { code = _beacon.ExitCode; } catch { }
+            _supervisor.Log("beacon: exited (code " + code + "), restarting");
+            _beacon = null;
+        }
+        StartBeacon();
     }
 
     private void ToggleBeacon()

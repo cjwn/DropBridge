@@ -364,6 +364,21 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         return 6;
     }
     logger->info("radio: listening on 127.0.0.1:{}", port);
+
+    // The supervisor stops children with TerminateProcess, which leaves the
+    // RTL8821CU in the middle of a USB transfer and wedges the chip until it is
+    // physically replugged (measured repeatedly tonight: 0.03 s CPU for minutes,
+    // then "no device" or a hung init). A named event lets it ask for a clean
+    // stop instead: closing the listener makes accept() fail, which takes the
+    // ordinary teardown path (StopRxLoop, device Stop, libusb release), so the
+    // next start works without touching the cable.
+    HANDLE stop_event = OpenEventW(SYNCHRONIZE, FALSE, L"Local\\DropBridgeRadioStop");
+    if (stop_event != nullptr) {
+        std::thread([listener, stop_event]() {
+            WaitForSingleObject(stop_event, INFINITE);
+            closesocket(listener);
+        }).detach();
+    }
     /* Always on stderr so the GUI can detect readiness even in quiet mode. */
     std::fprintf(stderr, "radio: listening on 127.0.0.1:%u\n", port);
 
