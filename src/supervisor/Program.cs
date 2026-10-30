@@ -188,7 +188,8 @@ internal sealed class Supervisor
     // Opt-in PC -> phone: netd then also listens on 127.0.0.1:8772.
     public static bool AllowSend;
     public string RadioArguments { get { return _channel + " " + _width; } }
-    public string AwdldArguments { get { return "-c " + _channel + " -s 2 -j " + (TcpMerge ? "400" : "0") + " -v"; } }
+    // RTL8821CU is 1T1R; announcing a second receive stream exceeds the hardware.
+    public string AwdldArguments { get { return "-c " + _channel + " -s 1 -j " + (TcpMerge ? "400" : "0") + " -v"; } }
     // 20 MHz is the default: measured 202 KB/s against 40 MHz's 190 KB/s after a
     // cold start, and 40 MHz has a degraded mode that needs a USB replug to clear.
     public string BandText { get { return "ch" + _channel + " / " + _width + " MHz"; } }

@@ -1,0 +1,14 @@
+2026-10-30 Q51：修正 RTL8821CU 的空间流宣告
+发现：src/supervisor/Program.cs 与 tools/Start-Chain.ps1 都硬编码 awdld -s 2。
+硬件依据：evidence/init-first.log 记录 RTL8821C cut=4 1T1R；本项目目标不是双流网卡。
+语义依据：WinAWDL awdl/win/main.c 将 -s 映射到 frame_fixup_announce(streams == 2, ...)；frame_fixup.c 在双流模式将 HT 第二空间流 MCS 字节设为 0xff。OWL tx.c 原始 rx_mcs=0xff，仅一条流。
+改动：两条本项目启动入口均改 -s 1，修正宣告高于实际硬件能力的问题。未修改第三方源码。
+此配置不匹配已经由代码与硬件记录确认，但是否是16PM卡顿根因仍待真机结果；不能用配置错误替代空口/性能证据。
+离线：Build-Supervisor -Test 三项通过；Start-Chain 默认 dry-run 输出 -s 1；现有 frame_fixup_test 全部通过；隔离成品 --check exit 0。
+候选：build/diagnostics/one-stream-candidate/DropBridge。五个后端二进制哈希与原成品相同，仅监管与手动启动脚本变更；未复制原包 data。
+真机启动：17:23:18停止原监管31588及核对过路径的子进程；17:23:21从候选监管启动，--root指向原dist/DropBridge，沿用原密钥/收到文件/日志。
+17:23:47新会话20261030-172321就绪；实际 awdld 命令行 -c 149 -s 1 -j 400 -v。channel149/20、social、合并400保持。
+故障前会话：build/diagnostics/20261030-172307-before-one-stream-test；启动记录build/one-stream-runtime.log。
+已请用户16PM关闭重开分享页、重发同图；当前结果待反馈。尚未更换原dist成品入口、portable ZIP或SFX，不声称已修复手机卡顿。
+PR检查：gh仍未登录，无法获取开放PR；未读取Git凭据。
+修改不涉及数据保存逻辑，不重复已完成持久化验收。

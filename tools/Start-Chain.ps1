@@ -82,7 +82,8 @@ if ($busy.Count -gt 0) {
 
 $radioArgs = @($Channel, $Width)
 $joinWaitUs = if ($NoTcpMerge) { '0' } else { '400' }
-$awdlArgs = @('-c', $Channel, '-s', '2', '-j', $joinWaitUs, '-v')
+# RTL8821CU is 1T1R: advertise only one receive spatial stream.
+$awdlArgs = @('-c', $Channel, '-s', '1', '-j', $joinWaitUs, '-v')
 $receiverArgs = @('-u', $binaries.receiver, '--name', 'DropBridge',
                   '--listen', '127.0.0.1', '--mdns-address-file', $addrFile,
                   '--outdir', $received, '--keys', $keys)
