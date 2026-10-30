@@ -1,5 +1,21 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-31 01:51：Q56 托盘自动开蓝牙 beacon（+ 发现 Q57 卡死检测缺失）
+
+- 依据 Q54：带 beacon 时 1.09–1.10 MB/s / 867–970 fps / CRC 3–4%，不带时 0.32–0.88 MB/s /
+  313–788 fps / CRC 13–49%。beacon 决定手机 AWDL 是否醒着，是今晚最大的体验变量。
+- 改动：`src\beacon\airdrop-beacon.ps1`（上游 MIT 原样）→ 打包进 `backend\beacon.ps1`；
+  `TrayApp` 启动它、看门狗每 5 s 检查并在它退出时重启、退出时杀掉；日志写
+  `data\logs\<会话>\beacon.log`；托盘加「蓝牙 beacon（帮 iPhone 发现这台电脑）」默认勾选，
+  关掉写 `data\beacon-off` 记住；脚本缺失/无蓝牙只记日志不挡接收。
+- 验证到的：01:42:37 起链路，0.4 s 后 `beacon.log` 就有 `advertising`（早于 radio 自己完成初始化）。
+- **没验证到的**：那两次 radio 在 libusb 里卡死（4 分钟 0.03 s CPU、radio.log 一行都没有），
+  所以端到端要等拔插网卡后重测。卡死是我今晚反复强杀 radio 造成的已知状态，不是 beacon 引起
+  （beacon 只碰蓝牙）。
+- 由此发现两个真缺陷：**Q57** 卡死进程仍被当健康（需要静默检测：radio 空闲也每 5 s 打 stats，
+  >30 s 无输出即判死并重启，连续失败就提示拔插）；**Q55** 强杀留子进程占端口。
+- 按用户要求：每个提交都立刻推送到云端。
+
 ## 2026-10-31 01:40：Q54 `-s 1` vs `-s 2` 真机 A/B（结论：等价；beacon 才是关键）
 
 - 起因：另一台设备（`MCxiaotian`）的 `e1ba5b7` 把 awdld 的 `-s 2` 改成 `-s 1`（RTL8821C 是 1T1R），

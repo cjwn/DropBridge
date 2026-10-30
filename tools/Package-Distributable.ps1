@@ -76,6 +76,11 @@ if (Test-Path $pth) {
 
 Copy-Item (Join-Path $airdrop '*.py') (Join-Path $stage 'backend\airdrop') -Force
 
+# Bluetooth beacon: keeps iPhone AWDL awake so the tray stays discoverable even
+# when the phone's share sheet is closed (MIT, upstream winawdl).
+$beacon = Join-Path $root 'src\beacon\airdrop-beacon.ps1'
+if (Test-Path $beacon) { Copy-Item $beacon (Join-Path $stage 'backend\beacon.ps1') -Force }
+
 foreach ($dll in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
     $src = Join-Path $env:SystemRoot "System32\$dll"
     if (Test-Path $src) {

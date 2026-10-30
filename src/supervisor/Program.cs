@@ -766,6 +766,10 @@ internal sealed class TrayApp : ApplicationContext
     private int _failures;
     private DateTime _windowStart = DateTime.UtcNow;
     private bool _gaveUp;
+    private Process _beacon;
+    private bool _beaconWanted = true;
+    private ToolStripMenuItem _beaconItem;
+    private string _beaconLog;
 
     public TrayApp(Supervisor supervisor, int autoExitSeconds)
     {
@@ -784,6 +788,10 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add(_autostart);
         menu.Items.Add(new ToolStripMenuItem("安装驱动（首次使用）", null,
             delegate { InstallDriver(); }));
+        _beaconWanted = !File.Exists(Path.Combine(supervisor.Root, "data", "beacon-off"));
+        _beaconItem = new ToolStripMenuItem("蓝牙 beacon（帮 iPhone 发现这台电脑）", null,
+            delegate { ToggleBeacon(); }) { Checked = _beaconWanted, ToolTipText = "周期性发送 Apple 的 AirDrop 蓝牙广播，让 iPhone 的 AWDL 保持唤醒；关掉后手机可能看不到本机" };
+        menu.Items.Add(_beaconItem);
         menu.Items.Add(new ToolStripMenuItem("重新启动后端", null, delegate { StartBackends(); }));
         menu.Items.Add(new ToolStripMenuItem("重置链路", null, delegate
         {
@@ -808,9 +816,10 @@ internal sealed class TrayApp : ApplicationContext
         StartBackends();
         StartFirstRunCheck();
         OfferAutostartOnce();
+        StartBeacon();
 
         _watchdog = new System.Windows.Forms.Timer { Interval = 5000 };
-        _watchdog.Tick += delegate { CheckChildren(); };
+        _watchdog.Tick += delegate { CheckChildren(); CheckBeacon(); };
         _watchdog.Start();
 
         if (autoExitSeconds > 0)
@@ -878,6 +887,122 @@ internal sealed class TrayApp : ApplicationContext
     private string DriverLog
     {
         get { return Path.Combine(_supervisor.Root, "data", "logs", "driver-install.txt"); }
+    }
+
+    // --- Bluetooth beacon ---------------------------------------------------
+    // Apple devices only bring AWDL up while their AirDrop UI is active, unless
+    // they hear the AirDrop BLE advertisement. Measured on this rig: with the
+    // beacon the same 29 MB video ran 1.09-1.10 MB/s at ~900 fps and CRC 3-4%,
+    // without it 0.32-0.88 MB/s at 300-800 fps and CRC 13-49%. So the tray keeps
+    // it running by default; a marker file remembers a deliberate "off".
+    private string BeaconScript()
+    {
+        string[] candidates =
+        {
+            Path.Combine(_supervisor.Root, "backend", "beacon.ps1"),
+            Path.Combine(_supervisor.Root, "..", "upstream", "winawdl", "scripts", "airdrop-beacon.ps1"),
+        };
+        foreach (string candidate in candidates)
+        {
+            if (File.Exists(candidate)) return Path.GetFullPath(candidate);
+        }
+        return null;
+    }
+
+    private void StartBeacon()
+    {
+        if (!_beaconWanted || _beacon != null) return;
+        string script = BeaconScript();
+        if (script == null)
+        {
+            _supervisor.Log("beacon: script not found");
+            return;
+        }
+        try
+        {
+            var start = new ProcessStartInfo("powershell.exe")
+            {
+                Arguments = "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            _beacon = Process.Start(start);
+            _beaconLog = Path.Combine(_supervisor.LogDirectory, "beacon.log");
+            StartBeaconReader(_beacon.StandardOutput);
+            StartBeaconReader(_beacon.StandardError);
+            _supervisor.Log("beacon: started pid " + _beacon.Id);
+        }
+        catch (Exception error)
+        {
+            _beacon = null;
+            _supervisor.Log("beacon: start failed: " + error.Message);
+        }
+    }
+
+    private void StartBeaconReader(System.IO.StreamReader reader)
+    {
+        var thread = new Thread(delegate()
+        {
+            try
+            {
+                string line;
+                while ((line = reader.ReadLine()) != null)
+                {
+                    try { File.AppendAllText(_beaconLog, DateTime.Now.ToString("HH:mm:ss.fff") + " " + line + Environment.NewLine); }
+                    catch { }
+                }
+            }
+            catch
+            {
+            }
+        });
+        thread.IsBackground = true;
+        thread.Start();
+    }
+
+    private void StopBeacon()
+    {
+        try
+        {
+            if (_beacon != null && !_beacon.HasExited) _beacon.Kill();
+        }
+        catch
+        {
+        }
+        _beacon = null;
+    }
+
+    private void CheckBeacon()
+    {
+        if (!_beaconWanted) return;
+        if (_beacon == null || _beacon.HasExited) StartBeacon();
+    }
+
+    private void ToggleBeacon()
+    {
+        _beaconWanted = !_beaconWanted;
+        if (_beaconItem != null) _beaconItem.Checked = _beaconWanted;
+        string marker = Path.Combine(_supervisor.Root, "data", "beacon-off");
+        try
+        {
+            if (_beaconWanted)
+            {
+                if (File.Exists(marker)) File.Delete(marker);
+                StartBeacon();
+                _icon.ShowBalloonTip(4000, "DropBridge", "蓝牙 beacon 已开启，iPhone 更容易发现本机。", ToolTipIcon.Info);
+            }
+            else
+            {
+                StopBeacon();
+                File.WriteAllText(marker, DateTime.Now.ToString("o"), Encoding.UTF8);
+                _icon.ShowBalloonTip(4000, "DropBridge", "蓝牙 beacon 已关闭（手机可能看不到本机，直到你打开隔空投送面板）。", ToolTipIcon.Warning);
+            }
+        }
+        catch
+        {
+        }
     }
 
     /// <summary>
@@ -1289,6 +1414,7 @@ internal sealed class TrayApp : ApplicationContext
         _watchdog.Stop();
         if (_watcher != null) _watcher.EnableRaisingEvents = false;
         _icon.Visible = false;
+        StopBeacon();
         var worker = new Thread(delegate()
         {
             _supervisor.StopAll();

@@ -1,0 +1,36 @@
+﻿# Tray runs the AirDrop BLE beacon automatically (2026-10-31 01:42-01:51)
+
+## why
+Measured tonight: with the beacon advertising, the same 29 MB video ran 1.09-1.10 MB/s
+at 867-970 fps and CRC 3.4-4.2%; every run without it sat at 0.32-0.88 MB/s, 313-788 fps,
+CRC 12.8-49.3%. iOS keeps AWDL asleep until its share sheet is open or a device sends the
+AirDrop BLE advertisement, so the beacon is what keeps the phone on our schedule.
+
+## what was added
+src\beacon\airdrop-beacon.ps1   upstream winawdl script (MIT), copied verbatim
+backend\beacon.ps1              what the package ships
+TrayApp: StartBeacon/StopBeacon/CheckBeacon/ToggleBeacon
+  - started with the tray, restarted by the 5 s watchdog if it dies, killed on exit
+  - output appended to data\logs\<session>\beacon.log
+  - menu item "蓝牙 beacon（帮 iPhone 发现这台电脑）", on by default; turning it off
+    writes data\beacon-off so a deliberate choice survives restarts
+  - missing script or no usable Bluetooth adapter only logs, never blocks receiving
+
+## verified
+tray start at 01:42:37: beacon.log shows "advertising" 0.4 s after the chain started,
+so the publisher is up before the radio finishes its own bring-up.
+
+## NOT verified: the radio never came up in these runs
+Both attempts (01:42 and 01:47) left airbridge_radio.exe at 0.03 s CPU for 3-4 minutes
+with not a single devourer line in radio.log: the process is blocked inside a libusb
+call. This is the wedged-USB state the runbook describes, reached by force-killing the
+radio repeatedly tonight. Recovery is a physical replug; it is NOT a defect introduced by
+the beacon (the beacon only talks to Bluetooth, and it printed advertising while the
+radio was already stuck).
+
+Two gaps this exposes, both worth fixing next:
+1. A hung radio looks alive to the supervisor (process exists), so the watchdog never
+   reacts. A silence check is needed: the radio writes a stats line every ~5 s even idle,
+   so >30 s without one means hung -> restart the chain, and if that repeats, tell the
+   user to replug instead of looping.
+2. Forced kills leave children alive holding 49876/49877/8771 (Q55).
