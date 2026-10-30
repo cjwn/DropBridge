@@ -1,0 +1,18 @@
+2026-10-30 发现丢失现场排查（Q51，Asia/Shanghai）
+状态：重启后恢复发现，根因未定；源码未修改。
+初始会话：dist/DropBridge/data/logs/20261030-165235。
+16:53:51 首次上传成功：493588 B JPEG 落盘，/Upload 200；16:54:26 /Discover 仍返回 200。
+16:56 起手机侧新连接多次 SYN/SYN-ACK 重传、TLS EOF，16:57:55 连接在 30 秒后 TLS handshake timeout。
+现场检查：托盘、radio、bridge、netd、awdld、receiver 六进程存在；TCP 49876/49877/8771 与 UDP 15353 正常监听。
+awdld peers 2，同步主控仍为本机 metric=200/counter=100000；radio 接收/提交计数持续增长，不代表对端实际收到回复。
+冻结时 netd 无 alloc/copy/input/tx 丢弃，input_retry=0，不能据此排除空口或协议状态问题。
+16:58:58 本机回环 TLS/HTTP 探测成功：TLSv1.3、HTTP 200、0.031 秒。探测只访问本机接收端，不是手机发现成功证据。
+故障冻结：build/diagnostics/20261030-165851-discovery-lost-after-upload，含六份日志、分析与哈希清单；未提交含个人信息的原始会话。
+17:00:25 核对 supervisor PID 与路径及子进程路径后，停止原进程树；17:00:28 从原成品路径重新启动监管，沿用原配置与 data。
+未变更驱动、网络、防火墙、密钥或收到的文件；本次恢复重新初始化网卡并恢复已有 AWDL 发射链路。
+17:00:54 radio 重新监听。用户确认手机重新出现 DropBridge。
+17:01:04 重启后又收到 1542983 B PNG，/Upload 200；手机原始文件哈希不可得，未做端到端哈希比对。
+结论：进程存活与本地服务健康不足以说明手机能够发现。重启能恢复，尚未定位是哪一组件/状态导致；不能认定修复或稳定性验收通过。
+下一步：保留故障与恢复会话，在复现时逐层对照无线回程/TCP 确认及 mDNS/Discover，避免仅凭 TLS EOF 推断证书错误或射频假死。
+PR 预检：gh 未登录，无法列出开放 PR；本次只追加排障记录。
+17:01:26 第二次恢复后传输也完成：1606289 B PNG 落盘，/Upload 200；已再次冻结恢复会话（见 build/discovery-restored-collect.log）。上传完成 30 秒后的 keep-alive read timeout 与上传失败不同。

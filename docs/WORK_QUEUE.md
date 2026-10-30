@@ -78,6 +78,8 @@
 
 | Q50 | 迁移环境后完整本机编译与打包 | ✅ 2026-10-30：恢复锁定上游与依赖，MSVC 2026 构建 radio/netd/托盘，MinGW 构建 IPC awdld；生成 portable ZIP、headless ZIP 与单文件 EXE，两种布局 `--check` exit 0。radio 2/2、AWDL 5 个测试程序、托盘 3 项、分析器 10/10 通过；netd 6/7，IPC 测试 15 秒及独立 90 秒均超时，未解决。lwIP 使用 2.2.1，区别于历史文档中的 2.2.2；不是旧包逐字节重建。未启动无线或测试手机 | `evidence/compile-windows-2026-10-30.log`、`build/*-build*.log` |
 
+| Q51 | 首次传输后发现丢失与恢复 | 🔜 2026-10-30 真机复现：493588 B 照片成功后，后续手机 TCP/TLS 连接反复失败；六进程/端口仍在、本机 TLS/HTTP 正常、netd 无丢弃。冻结故障会话后重启原成品链路，用户确认重新出现，随后收到 1542983 B PNG。根因未定、未修改源码，不算稳定性修复 | `evidence/discovery-recovery-2026-10-30.log`、`build/diagnostics/20261030-165851-discovery-lost-after-upload` |
+
 ## 3. 每项的具体做法
 
 ### Q1 receiver 离线吞吐台
