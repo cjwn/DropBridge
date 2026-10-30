@@ -1,0 +1,46 @@
+﻿# devourer 34a9e6f upgrade: A/B on real hardware, 2026-10-30 23:20-23:56 (UTC+8)
+# One machine, one iPhone, same port (front panel via Genesys hub), same data\ identity.
+
+## lock change
+devourer f7e0731 -> 34a9e6f95c08da6cb7c4e621e070058e2cc5e779 (7 upstream commits, all jaguar2)
+patches\devourer-airbridge.patch regenerated against the new base and verified with
+  git apply --check  -> exit 0 (no conflicts)
+
+## upstream commits taken
+f46c28a jaguar2: AGC table, fc and RF 0xBE for every 5 GHz channel (#501)
+88be325 jaguar2: fast_retune keeps the 0x838 DFS CCA nibble in step, clears an armed notch (#507)
+d0a9e10 jaguar2: re-apply the 0x838 DFS CCA nibble after a firmware hop (#509)
+2c31471 fix: honour a StopRxLoop issued during Init on every backend (#503)
+27f3066 StopRxLoop contract + stop-during-init probe promoted to tests (#505)
+09c2ff3 stop_during_init: MT7612U firmware dir, report a throwing bring-up (#506)
+34a9e6f jaguar2/examples: survive a failed register read under co-channel load (#511)
+
+## A/B: same 29,456,959 B video, minutes apart
+control  (f7e0731, radio 6d27f091)  92.86 s  0.32 MB/s  fps 293-313  CRC(transfer window) 49.3%
+candidate(34a9e6f, radio 743039a3)  36.48 s  0.81 MB/s  fps 323-788  CRC(transfer window) 12.8%
+both: netd input_fail=0 input_retry=0, no 408, files byte-exact
+Q46 reference (shipping build, 2026-10-29 01:02): 26.84 s 1.0975 MB/s, 787 fps, CRC 15.1%
+The candidate reached the Q46 frame rate (788 fps) and better CRC on a night when the
+shipping build was stuck at 313 fps / 49% CRC, so the gain is not a time-of-night artifact.
+
+## startup: FW boot poll
+The cpu-reset retry is NOT new: it appears in both builds (sessions 20261030-001339 and
+-002455 on the old radio, 20261030-230721/-232744 on the new one). A timeout costs a full
+re-download (~78 s): measured start 2 min 01 s vs 43 s clean.
+HalmacJaguar2Fw.cpp is byte-identical between the two bases, so this is pre-existing.
+Our fork now polls up to 1 s instead of 250 ms and logs the real boot time at W level:
+  FW ready (0x80 = 0xC078) after 8290..21927 us / 1..2 polls  (14 clean starts)
+Budget 250 ms was ~30x the observed boot time, so a timeout means the MCU is late or
+stalled; 1 s absorbs "late" without changing the wedged case (still retried).
+
+## shipping package rebuilt
+zip  dist\DropBridge-portable.zip 16,858,027 B 7f8f2f5b94637c7f3fb0a7a5654f5bd4f0232d0f0f1efc7eef8c2ef127b80e5a
+radio backend\airbridge_radio.exe 596,480 B 20efc55cb85849f59ad8f4f541d5d28b695cd410883b7430cb0a0fad7bb9f0ad
+offline verify: extracted fresh, DropBridge.exe --check exit 0 no MISSING; --auto-exit run
+reached the data plane in 44.2 s with "receiving as DropBridge", keys created inside the
+folder, ports freed on exit.
+
+## still open
+Real transfer on this exact zip (not yet run); 3-run median on the new radio; the
+intermittent FW-boot timeout root cause (reproduced 4/10 sessions tonight, 14 starts clean
+after the poll change, so not yet deterministic).

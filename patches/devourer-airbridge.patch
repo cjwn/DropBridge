@@ -1,4 +1,4 @@
-diff --git a/src/ChannelSwitchCompletion.h b/src/ChannelSwitchCompletion.h
+﻿diff --git a/src/ChannelSwitchCompletion.h b/src/ChannelSwitchCompletion.h
 new file mode 100644
 index 0000000..7324c43
 --- /dev/null
@@ -57,10 +57,10 @@ index 1759a60..3fee0a8 100644
       * fwofld.c): batch the whole same-sub-band hop (RF18/0xcf channel set + BB
       * reset + fixed TX power) into ONE FW_OFLD/CMD_OFLD_REG H2C the on-chip fw
 diff --git a/src/jaguar2/HalJaguar2.cpp b/src/jaguar2/HalJaguar2.cpp
-index c81b6c4..6fd0a30 100644
+index 438ec52..fd6c911 100644
 --- a/src/jaguar2/HalJaguar2.cpp
 +++ b/src/jaguar2/HalJaguar2.cpp
-@@ -1366,10 +1366,26 @@ bool HalJaguar2::fw_channel_switch(uint8_t central, uint8_t pri_ch_idx,
+@@ -1400,10 +1400,26 @@ bool HalJaguar2::fw_channel_switch(uint8_t central, uint8_t pri_ch_idx,
                                                ((bw & 0xf) << 4))
                          << 16) |
                         (0x02u << 24);
@@ -88,7 +88,7 @@ index c81b6c4..6fd0a30 100644
  }
  
 diff --git a/src/jaguar2/HalJaguar2.h b/src/jaguar2/HalJaguar2.h
-index 88922c1..8caf494 100644
+index 3333575..9c7c9aa 100644
 --- a/src/jaguar2/HalJaguar2.h
 +++ b/src/jaguar2/HalJaguar2.h
 @@ -12,6 +12,7 @@
@@ -99,7 +99,7 @@ index 88922c1..8caf494 100644
  
  namespace jaguar2 {
  
-@@ -215,6 +216,9 @@ public:
+@@ -222,6 +223,9 @@ public:
     * the firmware never landed the switch — caller resyncs via the full
     * path. */
    bool fw_switch_confirm();
@@ -109,7 +109,7 @@ index 88922c1..8caf494 100644
  
    /* Channel/BW register-canary dump for tests/hop_parity_check.sh — the same
     * grep format as the Jaguar1/Jaguar3 DumpCanary. Emitted by both the full
-@@ -344,6 +348,7 @@ private:
+@@ -373,6 +377,7 @@ private:
    bool _warned_uncharacterized = false; /* one-shot extended-channel warning */
    uint8_t _h2c_box = 0; /* round-robin HMEBOX index for send_h2c_raw */
    uint8_t _fw_sw_pending = 0; /* central ch of an unconfirmed fw switch */
@@ -117,6 +117,56 @@ index 88922c1..8caf494 100644
  
    /* fast_set_bandwidth cache: the values a full set_channel_bw computes for the
     * current channel, so a same-channel 20<->5/10 toggle can replay the
+diff --git a/src/jaguar2/HalmacJaguar2Fw.cpp b/src/jaguar2/HalmacJaguar2Fw.cpp
+index 07c1bba..c49d918 100644
+--- a/src/jaguar2/HalmacJaguar2Fw.cpp
++++ b/src/jaguar2/HalmacJaguar2Fw.cpp
+@@ -1,4 +1,4 @@
+-#include "HalmacJaguar2Fw.h"
++﻿#include "HalmacJaguar2Fw.h"
+ 
+ #include <array>
+ #include <chrono>
+@@ -391,19 +391,34 @@ bool HalmacJaguar2Fw::dlfw_end_flow() {
+   wlan_cpu_en(true);
+   _logger->info("Jaguar2 DLFW: download OK, CPU enabled — polling FW boot");
+ 
+-  uint32_t cnt = 5000;
++  /* Our fork (airbridge): the upstream budget is 5000 x 50 us = 250 ms. On
++     this 8821CU the MCU occasionally reports later than that, and a timeout
++     costs a full re-download through dlfw_enter's cpu-reset retry (~78 s
++     measured). Poll for up to 1 s instead and log how long the boot really
++     took, which is the only measurement of the transient we have. */
++  const auto started = std::chrono::steady_clock::now();
++  uint32_t polls = 0;
+   while (r16(REG_MCUFW_CTRL) != 0xC078) {
+-    if (cnt == 0) {
++    if (polls >= 20000) {
+       if ((r32(REG_FW_DBG7) & 0xFFFFFF00) == ILLEGAL_KEY_GROUP)
+         _logger->error("Jaguar2 DLFW: illegal key");
+-      _logger->error("Jaguar2 DLFW: FW ready check failed (0x80 != 0xC078)");
++      const auto waited = std::chrono::duration_cast<std::chrono::microseconds>(
++          std::chrono::steady_clock::now() - started).count();
++      _logger->error("Jaguar2 DLFW: FW ready check failed (0x80 != 0xC078) "
++                     "after {} us / {} polls",
++                     static_cast<long long>(waited), polls);
+       return false;
+     }
+-    cnt--;
++    polls++;
+     delay_us(50);
+   }
+   _boot.ready_ok = true;
+-  _logger->info("Jaguar2 DLFW: FW ready (0x80 = 0xC078)");
++  {
++    const auto waited = std::chrono::duration_cast<std::chrono::microseconds>(
++        std::chrono::steady_clock::now() - started).count();
++    _logger->warn("Jaguar2 DLFW: FW ready (0x80 = 0xC078) after {} us / {} polls",
++                  static_cast<long long>(waited), polls);
++  }
+   return true;
+ }
+ 
 diff --git a/src/jaguar2/Halrf8821c.h b/src/jaguar2/Halrf8821c.h
 index d7edc87..4298966 100644
 --- a/src/jaguar2/Halrf8821c.h
@@ -166,10 +216,10 @@ index 284e618..e7f601a 100644
  
  /* Factory: returns the calibration impl for the given chip. cut / is_2t2r come
 diff --git a/src/jaguar2/RtlJaguar2Device.cpp b/src/jaguar2/RtlJaguar2Device.cpp
-index 1cb08fd..8ab71d6 100644
+index 4160711..6e8042e 100644
 --- a/src/jaguar2/RtlJaguar2Device.cpp
 +++ b/src/jaguar2/RtlJaguar2Device.cpp
-@@ -705,6 +705,7 @@ void RtlJaguar2Device::StartRxLoop(Action_ParsedRadioPacket packetProcessor) {
+@@ -728,6 +728,7 @@ void RtlJaguar2Device::start_rx_loop(Action_ParsedRadioPacket packetProcessor, b
           * skips the SA/frame path (the vendor routes C2H to its own handler and
           * never treats it as a recvframe). Mirrors the Jaguar-1/-3 RX loops. */
          const bool is_c2h = (data[off + 11] & 0x10) != 0;
@@ -177,7 +227,7 @@ index 1cb08fd..8ab71d6 100644
          p.RxAtrib.pkt_rpt_type = is_c2h ? RX_PACKET_TYPE::C2H_PACKET
                                          : RX_PACKET_TYPE::NORMAL_RX;
          /* CCX TX report (DEVOURER_TX_REPORT / SPE_RPT feedback): the halmac
-@@ -1038,6 +1039,7 @@ void RtlJaguar2Device::SetMonitorChannel(SelectedChannel channel) {
+@@ -1061,6 +1062,7 @@ void RtlJaguar2Device::SetMonitorChannel(SelectedChannel channel) {
     * layout comments them out). */
    _rx_bw_code.store(channel_width_to_bw_code(channel.ChannelWidth),
                      std::memory_order_relaxed);
@@ -185,7 +235,7 @@ index 1cb08fd..8ab71d6 100644
    /* Runtime TX-power knobs in use: re-fold them against the NEW channel's
     * efuse group so the offset stays relative to the calibrated table (TXAGC
     * registers are not per-channel — a cross-group move would otherwise keep
-@@ -1065,6 +1067,14 @@ void RtlJaguar2Device::FastRetune(uint8_t channel, bool cache_rf) {
+@@ -1088,6 +1090,14 @@ void RtlJaguar2Device::FastRetune(uint8_t channel, bool cache_rf) {
    if (_hal.fast_retune(channel, static_cast<uint8_t>(_channel.ChannelWidth),
                         _channel.ChannelOffset, cache_rf)) {
      _channel.Channel = channel;
@@ -200,7 +250,7 @@ index 1cb08fd..8ab71d6 100644
      /* Only the fw fast path (DEVOURER_FASTRETUNE_FW=2) accepts a band
       * change; the firmware retunes the chip but TXAGC folding is host-side —
       * re-fold active power knobs against the new band's table (the same
-@@ -1079,6 +1089,11 @@ void RtlJaguar2Device::FastRetune(uint8_t channel, bool cache_rf) {
+@@ -1102,6 +1112,11 @@ void RtlJaguar2Device::FastRetune(uint8_t channel, bool cache_rf) {
    _channel.Channel = channel;
    _hal.set_channel_bw(channel, static_cast<uint8_t>(_channel.ChannelWidth),
                        _rfe, _channel.ChannelOffset);

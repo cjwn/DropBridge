@@ -8,8 +8,8 @@
   {
     "name": "devourer",
     "url": "https://github.com/OpenIPC/devourer.git",
-    "commit": "f7e073175852eeb87ccab7bfa619c41156a1b26b",
-    "latestCommit": "2026-10-26T15:16:52+03:00 jaguar1: HT40 centre channel follows the offset (vendor rtw_get_center_ch) (#500)"
+    "commit": "34a9e6f95c08da6cb7c4e621e070058e2cc5e779",
+    "latestCommit": "2026-10-30T09:31:15+03:00 jaguar2/examples: survive a failed register read under co-channel load (#511)"
   },
   {
     "name": "swooshdrop",
