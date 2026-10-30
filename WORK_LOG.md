@@ -1,5 +1,13 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-30：迁移环境后完整编译与打包（Q50）
+
+- 当前只有源码，恢复锁定 devourer、WinAWDL、OWL/radiotap 及现有补丁；使用本机 VS2026/MSVC、MinGW 和便携 Python 构建完整组件，未修改源码或构建脚本。
+- 产物：`dist/DropBridge-portable.zip` 16,676,195 B、`dist/DropBridge.exe` 16,677,888 B，以及 headless ZIP。portable 干净解压及 SFX 解压后 `--check` 均 exit 0。
+- 验证：radio 2/2、AWDL 5 个测试程序、托盘 3 项、会话分析 10/10 通过；netd 6/7，IPC 用例 15 秒及独立 90 秒均超时，未修复，不宣称回归全绿。
+- 依赖边界：lwIP 使用 2.2.1（历史文档写 2.2.2，但未锁定且对应 release 标签不存在）；Python 3.12.10 / cryptography 50.0.2。因此不能以本次构建继承旧包的真机性能结论。未运行无线、未测试手机；未修改持久化功能。
+- PR 预检不可用：匿名 API 404、gh 未登录。仅提交构建记录，不推送。完整证据与产物哈希见 `evidence/compile-windows-2026-10-30.log`，原始构建与失败日志留在 `build/`。
+
 ## 2026-10-30 13:52：Q49 产品名统一为 DropBridge
 
 - 起因：用户问“我的设备应该叫 DropBridge，为什么叫 AirBridge32”。查证：`docs/用户任务书.md:5` 写的是

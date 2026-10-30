@@ -76,6 +76,8 @@
 | Q48 | PC → iPhone 发送（AirDrop /Ask + /Upload） | 🔜 **阻塞**：发现、地址/端口、出站 TCP、TLS 握手全部走通，但 iPhone 以 TLS alert **拒绝本项目自签证书**（上游 `Unwilling`）；用户确认 AirDrop 一直是「所有人」，所以不只是“仅联系人”。下一步要么抓确切 alert 判断能否改证书参数，要么确认 iOS 要求 Apple 签名的发送方验证记录（`SenderRecordData`）→ 无解则终止该需求。beacon 走 Intel 蓝牙已可用，与 MI_00 无关 | `docs/SEND_PATH.md` §7、`build/diagnostics/send/tls_probe.py` |
 | Q49 | 产品名统一为 DropBridge | ✅ 离线重打包：用户可见名称（AirDrop 公告名、托盘标题、诊断标题、开机自启项、单实例互斥名）与产物名（`DropBridge.exe`、`dist\DropBridge\`、`DropBridge-portable.zip`、`DropBridge-headless.zip`、图标 `dropbridge.ico`）全部改为 DropBridge；内部组件名保持不变。验证：解压后 `--check` exit 0，`--auto-exit 45` 数据面就绪且 receiver 打印 `receiving as DropBridge`，退出无残留、`%LOCALAPPDATA%` 未创建；单文件 `--extract` 与 `--check` 通过。旧 `AirBridge32.*` 产物与 `build\supervisor\Release\AirBridge32.exe`（冻结测试包用）保留 | `evidence/rename-dropbridge-2026-10-30.log` |
 
+| Q50 | 迁移环境后完整本机编译与打包 | ✅ 2026-10-30：恢复锁定上游与依赖，MSVC 2026 构建 radio/netd/托盘，MinGW 构建 IPC awdld；生成 portable ZIP、headless ZIP 与单文件 EXE，两种布局 `--check` exit 0。radio 2/2、AWDL 5 个测试程序、托盘 3 项、分析器 10/10 通过；netd 6/7，IPC 测试 15 秒及独立 90 秒均超时，未解决。lwIP 使用 2.2.1，区别于历史文档中的 2.2.2；不是旧包逐字节重建。未启动无线或测试手机 | `evidence/compile-windows-2026-10-30.log`、`build/*-build*.log` |
+
 ## 3. 每项的具体做法
 
 ### Q1 receiver 离线吞吐台

@@ -1,0 +1,47 @@
+DropBridge 本机完整编译（2026-10-30，Asia/Shanghai）
+源码基线：3dc734f；本次未修改源码或构建脚本。
+PR 预检：匿名 GitHub API 返回 404；本机 gh 未登录，未能确认开放 PR。
+工具链：Visual Studio 2026 / MSVC 14.51.36231 / CMake 4.3.1-msvc1；AWDL 使用本机 MinGW GCC 16.2.0。
+上游：sources.lock.json 指定的 devourer f7e0731、WinAWDL 2196fb4；应用仓库现有补丁，OWL da255a7 + radiotap 94984dd。
+网络栈：lwIP STABLE-2_2_1_RELEASE，77dcd25a72509eb83f72b033d219b1d40cd8eb95；contrib 来自同一源码树。
+注意：历史文档写 lwIP 2.2.2，但未锁定此依赖；远程不存在 STABLE-2_2_2_RELEASE 标签。本次使用 2.2.1，不能视为历史测试包的逐字节重建。
+运行依赖：官方 Python 3.12.10 embed x64；cryptography 50.0.2、cffi 2.1.1、pycparser 3.12。
+libusb 1.0.30 使用 MSVC 直接编译，动态链接；pkgconf 使用本机 3.0.7。后续 vcpkg 依赖安装也成功，但未替换本次 radio 使用的直接构建副本。
+awdld 配置：AWDL_HOST_IPC=ON，不依赖 Wintun。
+验证：托盘 3 项检查通过；AWDL 5 个离线测试程序通过；radio CTest 2/2；会话分析 unittest 10/10；Python receiver/identity/mdns/SSL/cryptography 导入通过。
+netd CTest：6/7 通过；netd_ipc_io 在 15 秒超时，单独延长到 90 秒仍超时，未修复。测试含 100 次输入拒绝，每次最多 500 次 sleep_for(1ms)，实际墙钟受定时精度影响；不能将超时归为通过。
+包验证：portable ZIP 干净解压后 --check exit 0；单文件 --extract 后内部监管 --check exit 0。无 MISSING。
+未运行无线链路、未进行硬件测试、未验证手机收发；本次只证明本机编译与离线路径检查。
+未修改数据持久化功能，不重复历史持久化验收。
+日志保留于 build/：netd-configure.log、netd-build.log（首次并行卡住后停止）、netd-build-retry.log、netd-tests.log、awdl-ipc-build.log、awdl-tests.log、libusb-direct.log、radio-configure.log（首轮失败）、radio-configure-retry.log、radio-build.log、radio-tests.log、package-*.log、portable-check.txt、sfx-check.txt。
+构建过程故障：旧脚本硬编码 D:/VSBuildTools 与 VS2022；本次通过命令参数使用现有工具，未修改脚本。vcpkg 工具下载及缓存跨盘警告保留于 build/deps-install*.log、build/libusb-install.log。
+产物：
+DropBridge.exe bytes=16677888 sha256=f5fb1d7c6de375a1542b61a3d0809c76991d899f7042a4dcadb706a9484dab7c
+DropBridge-portable.zip bytes=16676195 sha256=a6316b165b1aae998d1ca9269868fbeaf1a1d79290c68d1d0780119efbb3957f
+DropBridge-headless.zip bytes=16669755 sha256=057f28324dd7367618a8c1f92aa806f28bd8c769f22783f4a02c875d4888408c
+
+netd 原始测试摘要：
+Test project O:/DropBridge/build/awdl_netd
+    Start 1: netd_ipc_io
+1/7 Test #1: netd_ipc_io ......................***Timeout  14.97 sec
+
+    Start 2: netd_tcp_diag
+2/7 Test #2: netd_tcp_diag ....................   Passed    0.26 sec
+    Start 3: netd_process_faults
+3/7 Test #3: netd_process_faults ..............   Passed    9.21 sec
+    Start 4: netd_tcp_roundtrip
+4/7 Test #4: netd_tcp_roundtrip ...............   Passed    5.35 sec
+    Start 5: netd_tcp_faults
+5/7 Test #5: netd_tcp_faults ..................   Passed   20.73 sec
+    Start 6: netd_proxy_soak
+6/7 Test #6: netd_proxy_soak ..................   Passed   15.50 sec
+    Start 7: netd_proxy_soak_mdns
+7/7 Test #7: netd_proxy_soak_mdns .............   Passed   10.43 sec
+
+86% tests passed, 1 tests failed out of 7
+
+Total Test time (real) =  76.58 sec
+
+The following tests FAILED:
+	  1 - netd_ipc_io (Timeout)
+Errors while running CTest
