@@ -2,7 +2,7 @@
 #
 #   powershell -ExecutionPolicy Bypass -File tools\Build-Supervisor.ps1
 #
-# Output: build\supervisor\Release\AirBridge32.exe (winexe, no console window).
+# Output: build\supervisor\Release\DropBridge.exe (winexe, no console window).
 # Package-Headless.ps1 copies it to backend\AirBridge32.exe, where the
 # self-extracting stub starts it. Package-Distributable.ps1 puts it at the
 # package root, next to backend\.
@@ -13,8 +13,8 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $source = Join-Path $root 'src\supervisor\Program.cs'
 $outDir = Join-Path $root 'build\supervisor\Release'
-$out = Join-Path $outDir 'AirBridge32.exe'
-$icon = Join-Path $root 'assets\airbridge32.ico'
+$out = Join-Path $outDir 'DropBridge.exe'
+$icon = Join-Path $root 'assets\dropbridge.ico'
 $csc = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 
 if (-not (Test-Path $csc)) { throw "in-box C# compiler missing: $csc" }
@@ -31,6 +31,11 @@ if (Test-Path $icon) { $iconArgument = @("/win32icon:$icon") }
 if ($LASTEXITCODE -ne 0) { throw "csc failed with $LASTEXITCODE" }
 
 Write-Host ("supervisor: {0} ({1:N0} KB)" -f $out, ((Get-Item $out).Length / 1KB))
+
+# Legacy name: the frozen test packages in build\diagnostics still point at
+# this path, so keep a copy until those launchers are updated.
+$legacy = Join-Path $outDir 'AirBridge32.exe'
+Copy-Item $out $legacy -Force
 
 if ($Test) {
     $testExe = Join-Path $outDir 'channel_sequence_test.exe'

@@ -1,11 +1,11 @@
-# Q4: pack dist\AirBridge32-headless into a single self-extracting exe.
+# Q4: pack dist\DropBridge-headless into a single self-extracting exe.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\Build-Sfx.ps1
 #
-# Produces dist\AirBridge32.exe: a ~16 MB stub+payload built with the in-box
-# C# compiler (.NET Framework 4.8). It unpacks once per build into
-# %LOCALAPPDATA%\AirBridge32\<build stamp> and then runs Start.cmd, which
-# starts the chain in a console (the tray supervisor is Q5).
+# Produces dist\DropBridge.exe: a ~16 MB stub+payload built with the in-box
+# C# compiler (.NET Framework 4.8). It unpacks once per build into the folder's
+# app\<build stamp> and starts the tray supervisor (the stub looks for
+# backend\DropBridge.exe, then the legacy backend\AirBridge32.exe).
 [CmdletBinding()]
 param(
     [switch]$SkipPayload
@@ -14,9 +14,9 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $dist = Join-Path $root 'dist'
-$stage = Join-Path $dist 'AirBridge32-headless'
+$stage = Join-Path $dist 'DropBridge-headless'
 $payload = Join-Path $dist 'payload.zip'
-$exe = Join-Path $dist 'AirBridge32.exe'
+$exe = Join-Path $dist 'DropBridge.exe'
 $source = Join-Path $root 'src\sfx\Program.cs'
 $csc = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 

@@ -1,4 +1,4 @@
-# DropBridge / AirBridge32
+# DropBridge（原暂定名 AirBridge32）
 
 > 后续 Q25/Q29：逐连接 TCP/代理观测及异常清理已完成，真实 lwIP 本机回归 5/5；独立测试目录的 334 后端文件仅换 netd，未启动真机或替换旧包，手机改善仍未验证。见 [TCP 诊断](docs/TCP_DIAGNOSTICS.md)、[代理修复](docs/TCP_PROXY_CLEANUP.md)。
 
@@ -8,9 +8,9 @@
 
 > 后续本机修复：netd 的 IPC 错误回报、断链退出和丢弃计数已通过回环故障测试，无需手机；新二进制尚未替换旧测试包，未验证真实传输改善。见 [Q28 本机修复](docs/NETD_OFFLINE_FIX.md)。
 
-Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirBridge32 为任务书暂定产品名；没有 ESP32 固件要求。
+Windows 11 原生 AirDrop 接收端。产品原名 AirBridge32（任务书暂定名），2026-10-30 起用户可见名称统一为 **DropBridge**；没有 ESP32 固件要求。
 
-**当前：单文件 exe + 原生托盘，已达 1 MB/s 量级。** 用户侧只有一个 `AirBridge32.exe`：解压到同目录的 `app\`，数据（证书、实例 ID、接收文件、日志）全部留在同目录的 `data\`，不写 `%LOCALAPPDATA%`。后端是 radio（devourer/RTL8821CU）+ awdld（OWL）+ awdld 用户态网络栈 + Python 接收端，托盘负责启动、监控、低速告警与自恢复。**实测吞吐 1121 KB/s（29.46 MB / 26.3 s）**，配置为 149 / 20 MHz 且让 Windows 当 AWDL 同步主控；40 MHz 已实测更慢且会退化，不再使用。Dart/Flutter 壳已删除。固件再分发授权、代码签名与干净机器验收仍未完成。
+**当前：一文件夹 + 托盘，已达 1.1 MB/s 量级。** 用户侧只有一个 `DropBridge.exe`：解压到同目录的 `app\`，数据（证书、实例 ID、接收文件、日志）全部留在同目录的 `data\`，不写 `%LOCALAPPDATA%`。后端是 radio（devourer/RTL8821CU）+ awdld（OWL）+ awdld 用户态网络栈 + Python 接收端，托盘负责启动、监控、低速告警与自恢复。**实测吞吐 1121 KB/s（29.46 MB / 26.3 s）**，配置为 149 / 20 MHz 且让 Windows 当 AWDL 同步主控；40 MHz 已实测更慢且会退化，不再使用。Dart/Flutter 壳已删除。固件再分发授权、代码签名与干净机器验收仍未完成。
 
 目标是让 iPhone 系统原生隔空投送通过专用 RTL8821CU USB 网卡把文件交给 Windows，不依赖 WSL2、虚拟机或 iPhone 第三方应用。
 
@@ -49,10 +49,10 @@ Windows 11 原生 AirDrop 接收研究工程。目录名保持 DropBridge，AirB
 .\tools\Build-UsbProbe.ps1        # 编译只读 USB 探针（open/claim，不初始化芯片）
 .\tools\Start-Chain.ps1           # 无 Flutter 起停整条链路；默认 dry-run，加 -Run 才发帧
 .\tools\Build-Supervisor.ps1      # 编译托盘监管（C#，系统自带 csc）
-.\tools\Package-Headless.ps1      # 打无 Dart 的包：dist\AirBridge32-headless.zip（16 MB）
+.\tools\Package-Headless.ps1      # 打无 Dart 的包：dist\DropBridge-headless.zip（16 MB）
 .\tools\Monitor-Soak.ps1          # 24 h 常驻采样：内存/句柄/进程/端口，CSV 落 build\soak
-.\tools\Build-Sfx.ps1             # 打成单文件 dist\AirBridge32.exe（16 MB）
-python .\tools\analyze_session.py --latest dist\AirBridge32-headless   # 从日志算真实 MB/s 与帧率
+.\tools\Build-Sfx.ps1             # 打成单文件 dist\DropBridge.exe（16 MB）
+python .\tools\analyze_session.py --latest dist\DropBridge-headless   # 从日志算真实 MB/s 与帧率
 python .\tools\bench_receiver.py --mb 20 --runs 3   # receiver 离线吞吐（不涉及射频）
 python .\tools\check_project.py   # 文档、证据与版本锁一致性
 ```

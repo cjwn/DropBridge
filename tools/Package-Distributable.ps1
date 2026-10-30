@@ -4,14 +4,14 @@
 #   powershell -ExecutionPolicy Bypass -File tools\Package-Distributable.ps1 -SkipZip
 #
 # Output:
-#   dist\AirBridge32\            the folder a user unzips and keeps
-#     AirBridge32.exe            tray supervisor (entry point, winexe)
+#   dist\DropBridge\            the folder a user unzips and keeps
+#     DropBridge.exe            tray supervisor (entry point, winexe)
 #     backend\                   radio, bridge, awdl_netd, awdld, python, airdrop
 #     tools\Start-Chain.ps1      headless console fallback (troubleshooting)
 #     licenses\                  upstream licence texts we must ship
 #     README.txt                 user-facing instructions (Chinese)
 #     VERSION.txt                build stamp, commit, backend hashes
-#   dist\AirBridge32-portable.zip
+#   dist\DropBridge-portable.zip
 #
 # Nothing is written outside the package folder at runtime: data\ (keys,
 # instance id, received files, logs) is created next to the exe on first run.
@@ -21,14 +21,14 @@ param([switch]$SkipZip)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $dist = Join-Path $root 'dist'
-$stage = Join-Path $dist 'AirBridge32'
-$zip = Join-Path $dist 'AirBridge32-portable.zip'
+$stage = Join-Path $dist 'DropBridge'
+$zip = Join-Path $dist 'DropBridge-portable.zip'
 
 function Need([string]$Path, [string]$Hint) {
     if (-not (Test-Path $Path)) { throw "missing $Path - $Hint" }
 }
 
-$supervisor = Join-Path $root 'build\supervisor\Release\AirBridge32.exe'
+$supervisor = Join-Path $root 'build\supervisor\Release\DropBridge.exe'
 $radio = Join-Path $root 'build\radio_usb\Release\airbridge_radio.exe'
 $bridge = Join-Path $root 'build\radio_usb\Release\radio_pipe_bridge.exe'
 $netd = Join-Path $root 'build\awdl_netd\Release\awdl_netd.exe'
@@ -58,7 +58,7 @@ foreach ($dir in 'backend', 'backend\airdrop', 'backend\python', 'tools', 'licen
     New-Item -ItemType Directory -Force (Join-Path $stage $dir) | Out-Null
 }
 
-Copy-Item $supervisor (Join-Path $stage 'AirBridge32.exe') -Force
+Copy-Item $supervisor (Join-Path $stage 'DropBridge.exe') -Force
 foreach ($file in @($radio, $bridge, $netd, $awdld, $libusb)) {
     Copy-Item $file (Join-Path $stage 'backend') -Force
 }
@@ -102,7 +102,7 @@ Copy-Item (Join-Path $root 'packaging\README.txt') (Join-Path $stage 'README.txt
 $commit = (& git rev-parse --short HEAD 2>$null)
 if (-not $commit) { $commit = 'unknown' }
 $version = @(
-    'AirBridge32 build'
+    'DropBridge build'
     ('built      ' + (Get-Date).ToString('yyyy-MM-dd HH:mm:ss zzz'))
     ('git        ' + $commit)
     ('supervisor ' + (Get-FileHash $supervisor -Algorithm SHA256).Hash.ToLowerInvariant())
@@ -110,7 +110,7 @@ $version = @(
     ('radio      ' + (Get-FileHash $radio -Algorithm SHA256).Hash.ToLowerInvariant())
     ('awdld      ' + (Get-FileHash $awdld -Algorithm SHA256).Hash.ToLowerInvariant())
     ('bridge     ' + (Get-FileHash $bridge -Algorithm SHA256).Hash.ToLowerInvariant())
-    'layout     one folder; data\ is created next to AirBridge32.exe on first run'
+    'layout     one folder; data\ is created next to DropBridge.exe on first run'
 )
 Set-Content -LiteralPath (Join-Path $stage 'VERSION.txt') -Value $version -Encoding utf8
 

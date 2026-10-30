@@ -1,8 +1,8 @@
-AirBridge32 —— iPhone 隔空投送接收端（Windows，托盘常驻）
+DropBridge —— iPhone 隔空投送接收端（Windows，托盘常驻）
 ================================================================
 
 这是什么
-  双击 AirBridge32.exe 之后，它在任务栏右下角的通知区域常驻一个小图标，
+  双击 DropBridge.exe 之后，它在任务栏右下角的通知区域常驻一个小图标，
   不显示窗口、不占任务栏按钮。iPhone 用系统「隔空投送」就能把文件传到这台
   电脑上，收到的文件落在本文件夹的 data\received 里。
 
@@ -14,15 +14,15 @@ AirBridge32 —— iPhone 隔空投送接收端（Windows，托盘常驻）
     ★ 只处理 MI_02（Wi-Fi）。MI_00（蓝牙）不要动。
 
 第一次运行
-  1. 把整个 AirBridge32 文件夹解压到任意可写目录（不要放 Program Files；
+  1. 把整个 DropBridge 文件夹解压到任意可写目录（不要放 Program Files；
      本程序不在系统目录写任何东西，也不需要管理员）。
-  2. 双击 AirBridge32.exe。
+  2. 双击 DropBridge.exe。
   3. 右下角出现蓝色图标即表示已在运行；首次启动约需 40–90 秒初始化网卡，
      托盘会先提示「正在启动后端…」，随后变为就绪。
 
 日常使用
   - iPhone 打开「隔空投送」，接收范围选「所有人，10 分钟」更稳。
-  - 在分享面板里选 AirBridge32，发送文件。
+  - 在分享面板里选 DropBridge，发送文件。
   - 收到后托盘弹出完成提示；文件在 data\received，双击托盘图标可直接打开。
 
 托盘菜单
@@ -37,10 +37,10 @@ AirBridge32 —— iPhone 隔空投送接收端（Windows，托盘常驻）
 数据放在哪
   全部在本文件夹内，不写 %LOCALAPPDATA%、不装服务、不写驱动的安装记录：
     data\keys\         TLS 自签证书与 AirDrop 实例 ID（升级时保留，避免手机
-                       列表里出现多个 AirBridge32）
+                       列表里出现多个 DropBridge）
     data\received\     收到的文件
     data\logs\<会话>\  各进程日志
-  升级 = 覆盖 AirBridge32.exe 与 backend\，保留 data\。
+  升级 = 覆盖 DropBridge.exe 与 backend\，保留 data\。
 
 卸载
   托盘菜单「退出」，然后删除整个文件夹即可。没有服务、没有驱动安装包、
@@ -55,7 +55,7 @@ AirBridge32 —— iPhone 隔空投送接收端（Windows，托盘常驻）
   - 蓝牙接口（MI_00）若不慎异常，只能重启系统恢复；本程序不会去碰它。
 
 故障排查
-  - 手机看不到 AirBridge32：先确认托盘状态为就绪、iPhone 的隔空投送范围是
+  - 手机看不到 DropBridge：先确认托盘状态为就绪、iPhone 的隔空投送范围是
     「所有人」；再看 data\logs\<会话>\awdld.log 里是否有 peers 1。
   - 需要控制台方式启动（调试）：tools\Start-Chain.ps1，默认 dry-run，
     加 -Run 才会真正初始化网卡。

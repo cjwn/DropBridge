@@ -397,7 +397,7 @@ internal sealed class Supervisor
     private Child NewReceiver()
     {
         return new Child("receiver", PythonPath(),
-            "-u \"" + ReceiverPath() + "\" --name AirBridge32 --listen 127.0.0.1" +
+            "-u \"" + ReceiverPath() + "\" --name DropBridge --listen 127.0.0.1" +
             " --mdns-address-file \"" + AddressFile() + "\"" +
             " --outdir \"" + ReceivedDirectory + "\"" +
             " --keys \"" + Path.Combine(_data, "keys") + "\" --trace",
@@ -447,7 +447,7 @@ internal sealed class Supervisor
             }
             catch (System.Net.Sockets.SocketException)
             {
-                return "port " + port + " is already in use (another AirBridge32 instance?)";
+                return "port " + port + " is already in use (another DropBridge instance?)";
             }
         }
         return null;
@@ -610,12 +610,12 @@ internal sealed class TrayApp : ApplicationContext
         _icon = new NotifyIcon
         {
             Icon = AppIcon(),
-            Text = "AirBridge32",
+            Text = "DropBridge",
             ContextMenuStrip = menu,
             Visible = true,
         };
         _icon.DoubleClick += delegate { OpenFolder(_supervisor.ReceivedDirectory); };
-        _icon.ShowBalloonTip(3000, "AirBridge32", "正在启动后端…", ToolTipIcon.Info);
+        _icon.ShowBalloonTip(3000, "DropBridge", "正在启动后端…", ToolTipIcon.Info);
 
         Application.Idle += CaptureContext;
         StartWatcher();
@@ -673,7 +673,7 @@ internal sealed class TrayApp : ApplicationContext
                 {
                 }
                 string text = "收到文件：" + note;
-                Ui(delegate { _icon.ShowBalloonTip(4000, "AirBridge32", text, ToolTipIcon.Info); });
+                Ui(delegate { _icon.ShowBalloonTip(4000, "DropBridge", text, ToolTipIcon.Info); });
             };
         }
         catch (Exception error)
@@ -718,7 +718,7 @@ internal sealed class TrayApp : ApplicationContext
                     {
                         _gaveUp = true;
                         _status.Text = "状态：多次失败，已停止";
-                        _icon.ShowBalloonTip(10000, "AirBridge32",
+                        _icon.ShowBalloonTip(10000, "DropBridge",
                             "后端反复失败，已停止自动重启。请查看日志后从托盘菜单重试。",
                             ToolTipIcon.Error);
                     });
@@ -741,12 +741,12 @@ internal sealed class TrayApp : ApplicationContext
                             _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
                             if (automatic)
                             {
-                                _icon.ShowBalloonTip(4000, "AirBridge32",
+                                _icon.ShowBalloonTip(4000, "DropBridge",
                                     "后端已自动恢复。", ToolTipIcon.Info);
                             }
                             else
                             {
-                                _icon.ShowBalloonTip(3000, "AirBridge32",
+                                _icon.ShowBalloonTip(3000, "DropBridge",
                                     "接收已就绪，可以在手机上发送了。", ToolTipIcon.Info);
                             }
                         }
@@ -755,7 +755,7 @@ internal sealed class TrayApp : ApplicationContext
                             _supervisor.LastError = error;
                             _supervisor.Log("start failed: " + error);
                             _status.Text = "状态：启动失败，稍后自动重试";
-                            _icon.ShowBalloonTip(8000, "AirBridge32 启动失败", error,
+                            _icon.ShowBalloonTip(8000, "DropBridge 启动失败", error,
                                 ToolTipIcon.Error);
                             // The radio sometimes fails several firmware boots
                             // in a row; retry with the usual backoff instead of
@@ -788,7 +788,7 @@ internal sealed class TrayApp : ApplicationContext
             _masterWarned = true;
             _supervisor.Log("AWDL mastership lost: sync master " + _supervisor.SyncMaster +
                             ", self " + _supervisor.SelfAddress);
-            _icon.ShowBalloonTip(8000, "AirBridge32",
+            _icon.ShowBalloonTip(8000, "DropBridge",
                 "同步主控被对方的手机接管，速度会明显下降。可从托盘菜单选“重置链路”后重试。",
                 ToolTipIcon.Warning);
         }
@@ -810,7 +810,7 @@ internal sealed class TrayApp : ApplicationContext
         {
             _slowWarned = true;
             _supervisor.Log("low link rate: " + (int)_supervisor.Fps + " frames/s");
-            _icon.ShowBalloonTip(8000, "AirBridge32",
+            _icon.ShowBalloonTip(8000, "DropBridge",
                 "链路速率偏低（约 " + (int)_supervisor.Fps +
                 " 帧/s）。可从托盘菜单选“重置链路”后重试。", ToolTipIcon.Warning);
         }
@@ -833,7 +833,7 @@ internal sealed class TrayApp : ApplicationContext
         if (!_reportedExit)
         {
             _reportedExit = true;
-            _icon.ShowBalloonTip(5000, "AirBridge32",
+            _icon.ShowBalloonTip(5000, "DropBridge",
                 "有后端进程退出，正在自动恢复。", ToolTipIcon.Warning);
         }
         if (dead.Count == 1 && dead[0] == "receiver" && RestartReceiverOnly())
@@ -861,7 +861,7 @@ internal sealed class TrayApp : ApplicationContext
                     {
                         _reportedExit = false;
                         _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
-                        _icon.ShowBalloonTip(3000, "AirBridge32",
+                        _icon.ShowBalloonTip(3000, "DropBridge",
                             "接收端已恢复，无需重新初始化网卡。", ToolTipIcon.Info);
                     }
                     else
@@ -881,7 +881,7 @@ internal sealed class TrayApp : ApplicationContext
     private void CopyDiagnostics()
     {
         var text = new StringBuilder();
-        text.AppendLine("AirBridge32 diagnostics");
+        text.AppendLine("DropBridge diagnostics");
         text.AppendLine("time: " + DateTime.Now.ToString("o"));
         text.AppendLine("exe: " + Application.ExecutablePath);
         text.AppendLine("root: " + _supervisor.Root);
@@ -908,17 +908,17 @@ internal sealed class TrayApp : ApplicationContext
         try
         {
             Clipboard.SetText(text.ToString());
-            _icon.ShowBalloonTip(3000, "AirBridge32",
+            _icon.ShowBalloonTip(3000, "DropBridge",
                 "诊断信息已复制到剪贴板。", ToolTipIcon.Info);
         }
         catch (Exception)
         {
-            _icon.ShowBalloonTip(3000, "AirBridge32",
+            _icon.ShowBalloonTip(3000, "DropBridge",
                 "复制失败，可在日志目录自行打包。", ToolTipIcon.Warning);
         }
     }
 
-    /* The exe carries an icon (assets\airbridge32.ico at build time); the tray
+    /* The exe carries an icon (assets\dropbridge.ico at build time); the tray
      * reuses it so the notification area matches the file the user launched.
      * A checkout without the icon still runs with the stock application icon. */
     private static Icon AppIcon()
@@ -963,8 +963,11 @@ internal sealed class TrayApp : ApplicationContext
             string build = Path.GetDirectoryName(here);
             string appRoot = Path.GetDirectoryName(build);
             string folder = Path.GetDirectoryName(appRoot);
-            string stub = Path.Combine(folder, "AirBridge32.exe");
-            if (File.Exists(stub)) return "\"" + stub + "\"";
+            foreach (string name in new[] { "DropBridge.exe", "AirBridge32.exe" })
+            {
+                string stub = Path.Combine(folder, name);
+                if (File.Exists(stub)) return "\"" + stub + "\"";
+            }
         }
         catch (ArgumentException)
         {
@@ -978,7 +981,7 @@ internal sealed class TrayApp : ApplicationContext
                    @"Software\Microsoft\Windows\CurrentVersion\Run", false))
         {
             if (key == null) return false;
-            return key.GetValue("AirBridge32") as string == AutostartValue();
+            return key.GetValue("DropBridge") as string == AutostartValue();
         }
     }
 
@@ -988,8 +991,8 @@ internal sealed class TrayApp : ApplicationContext
                    @"Software\Microsoft\Windows\CurrentVersion\Run"))
         {
             if (key == null) return;
-            if (enabled) key.SetValue("AirBridge32", AutostartValue());
-            else key.DeleteValue("AirBridge32", false);
+            if (enabled) key.SetValue("DropBridge", AutostartValue());
+            else key.DeleteValue("DropBridge", false);
         }
     }
 
@@ -1028,7 +1031,7 @@ internal static class Program
             return Path.GetFullPath(argument);
         }
         string executableDirectory = Path.GetDirectoryName(Application.ExecutablePath);
-        // Folder distribution: AirBridge32.exe sits at the package root next to
+        // Folder distribution: DropBridge.exe sits at the package root next to
         // backend\. The self-extracting layout keeps it inside backend\ and is
         // still handled by the parent-directory fallback.
         if (Directory.Exists(Path.Combine(executableDirectory, "backend")))
@@ -1109,8 +1112,8 @@ internal static class Program
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(
                        @"Software\Microsoft\Windows\CurrentVersion\Run"))
             {
-                if (autostart > 0) key.SetValue("AirBridge32", "\"" + Application.ExecutablePath + "\"");
-                else key.DeleteValue("AirBridge32", false);
+                if (autostart > 0) key.SetValue("DropBridge", "\"" + Application.ExecutablePath + "\"");
+                else key.DeleteValue("DropBridge", false);
             }
             return 0;
         }
@@ -1150,7 +1153,7 @@ internal static class Program
         }
 
         bool created;
-        using (var mutex = new Mutex(true, @"Local\AirBridge32-tray", out created))
+        using (var mutex = new Mutex(true, @"Local\DropBridge-tray", out created))
         {
             if (!created) return 0;
             Application.EnableVisualStyles();

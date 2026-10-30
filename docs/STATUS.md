@@ -18,15 +18,15 @@
 
 ## 1. 一句话
 
-AirBridge32 现在是一个**单文件 exe + 原生托盘**的 Windows AirDrop 接收端：双击后全部数据留在 exe 所在文件夹内，iPhone 用系统隔空投送即可传文件。**最好实测 1121 KB/s（29.46 MB / 26.3 s），传输起步 930 帧/s**（约 1.2 MB/s）。已修复“主控被抢、序列不跟随、换台太慢”三个确定性速度问题；剩下的不稳定来自射频状态退化，需要一次冷复位才能恢复，自动化恢复尚未完成。
+DropBridge（原名 AirBridge32）现在是一个**单文件 exe + 原生托盘**的 Windows AirDrop 接收端：双击后全部数据留在 exe 所在文件夹内，iPhone 用系统隔空投送即可传文件。**最好实测 1121 KB/s（29.46 MB / 26.3 s），传输起步 930 帧/s**（约 1.2 MB/s）。已修复“主控被抢、序列不跟随、换台太慢”三个确定性速度问题；剩下的不稳定来自射频状态退化，需要一次冷复位才能恢复，自动化恢复尚未完成。
 
 ## 2. 交付形态
 
 **主形态（2026-10-29 起）：一个文件夹 + 压缩包，托盘常驻**
 
 ```text
-AirBridge32\                 ← 解压后就是这个文件夹，压缩包里也是它
-  AirBridge32.exe            唯一入口：托盘监管（无控制台窗口）
+DropBridge\                 ← 解压后就是这个文件夹，压缩包里也是它
+  DropBridge.exe            唯一入口：托盘监管（无控制台窗口）
   backend\                   radio / bridge / awdl_netd / awdld / python / airdrop
   tools\Start-Chain.ps1      控制台调试入口（dry-run 默认）
   licenses\
@@ -38,11 +38,11 @@ AirBridge32\                 ← 解压后就是这个文件夹，压缩包里�
     awdl_netd.addr
 ```
 
-- 产出：`dist\AirBridge32\`（333 文件，36.5 MB）与 `dist\AirBridge32-portable.zip`（16.1 MB）；
+- 产出：`dist\DropBridge\`（333 文件，36.5 MB）与 `dist\DropBridge-portable.zip`（16.1 MB）；
 - 不在 `%LOCALAPPDATA%` 或其它机器目录写任何东西；无服务、无安装程序、无需管理员
   （唯一需要管理员的是**一次性** WinUSB 绑定，见 `docs/BINDING_RUNBOOK.md`）；
-- 升级 = 覆盖 `AirBridge32.exe` 与 `backend\`，保留 `data\`；卸载 = 托盘退出后删文件夹；
-- 仍保留旧形态：`dist\AirBridge32.exe` 自解压单文件（内部解压到 `app\<时间戳>`）。
+- 升级 = 覆盖 `DropBridge.exe` 与 `backend\`，保留 `data\`；卸载 = 托盘退出后删文件夹；
+- 旧名兼容：历史单文件 `dist\AirBridge32.exe` 仍可运行（内部解压到 `app\<时间戳>`），新名字是 `dist\DropBridge.exe`。
   两种形态不要混用同一个 `data\`。
 
 细节与验证记录见 [分发形态](DISTRIBUTION.md)。
@@ -51,7 +51,7 @@ AirBridge32\                 ← 解压后就是这个文件夹，压缩包里�
 
 | 进程 | 许可证 | 职责 |
 | --- | --- | --- |
-| `AirBridge32.exe`（托盘/监管） | MIT | 单实例、按序拉起后端、健康检查、低速/主控告警、开机自启、退出清理 |
+| `DropBridge.exe`（托盘/监管） | MIT | 单实例、按序拉起后端、健康检查、低速/主控告警、开机自启、退出清理 |
 | `airbridge_radio.exe` | GPL-2.0 | RTL8821CU（devourer/libusb），USB 独占，`radio_link` TCP 49876 |
 | `radio_pipe_bridge.exe` | MIT | 命名管道 ↔ radio TCP |
 | `awdld.exe` | GPL-3.0 | OWL 的 AWDL 控制面，原始 IPv6 到 49877 |
@@ -114,7 +114,7 @@ AirBridge32\                 ← 解压后就是这个文件夹，压缩包里�
 
 | 进程 | 工作集 | 私有 | 句柄 |
 | --- | --- | --- | --- |
-| AirBridge32 | 33–37 MB | 75–79 MB | ~421 |
+| DropBridge | 33–37 MB | 75–79 MB | ~421 |
 | airbridge_radio | 7.4 MB | 1.8 MB | 125 |
 | awdl_netd | 7.1 MB | 2.2 MB | 131 |
 | awdld | 4.5 MB | 9.1 MB | 88 |
@@ -130,9 +130,9 @@ D:\VSBuildTools\...\cmake.exe --build build\radio_usb --config Release
 powershell -File tools\Build-Awdl.ps1
 powershell -File tools\Build-Supervisor.ps1
 powershell -File tools\Package-Headless.ps1
-powershell -File tools\Build-Sfx.ps1 -SkipPayload     # 产出 dist\AirBridge32.exe
+powershell -File tools\Build-Sfx.ps1 -SkipPayload     # 产出 dist\DropBridge.exe
 
-# 运行：双击 dist\AirBridge32.exe（或复制到任意可写文件夹再双击）
+# 运行：双击 dist\DropBridge.exe（或复制到任意可写文件夹再双击）
 
 # 观测
 python tools\analyze_session.py --latest dist          # 传输速率与帧率

@@ -6,8 +6,8 @@
 ## 1. 产物
 
 ```text
-dist\AirBridge32\                 ← 解压后就是这个文件夹（333 个文件，36.5 MB）
-  AirBridge32.exe                 ← 唯一入口：托盘监管（winexe，无控制台窗口）
+dist\DropBridge\                 ← 解压后就是这个文件夹（333 个文件，36.5 MB）
+  DropBridge.exe                 ← 唯一入口：托盘监管（winexe，无控制台窗口）
   backend\
     airbridge_radio.exe           RTL8821CU 驱动进程（GPL-2.0）
     radio_pipe_bridge.exe         管道桥（MIT）
@@ -20,7 +20,7 @@ dist\AirBridge32\                 ← 解压后就是这个文件夹（333 个�
   licenses\                       上游许可证原文
   README.txt                      给用户看的说明（中文）
   VERSION.txt                     构建时间、提交、各后端哈希
-dist\AirBridge32-portable.zip     压缩包（16.1 MB）
+dist\DropBridge-portable.zip     压缩包（16.1 MB）
 ```
 
 运行后**在同一个文件夹里**生成 `data\`：
@@ -34,14 +34,14 @@ data\awdl_netd.addr
 
 ## 2. 与旧形态的区别
 
-| | 旧：单文件 `AirBridge32.exe` | 新：文件夹 + zip |
+| | 旧：单文件 exe | 新：文件夹 + zip |
 | --- | --- | --- |
-| 入口 | 自解压 stub → `app\<时间戳>\backend\AirBridge32.exe` | 根目录的 `AirBridge32.exe` 直接就是托盘程序 |
+| 入口 | 自解压 stub → `app\<时间戳>\backend\DropBridge.exe` | 根目录的 `DropBridge.exe` 直接就是托盘程序 |
 | 首次启动 | 先解压（约 0.4 s / 333 文件） | 无解压步骤 |
 | 升级 | 换外层 exe，内部按时间戳保留最近 2 个构建 | 覆盖 exe 与 `backend\`，保留 `data\` |
 | 分发 | 单文件 exe | 压缩包（也可只发文件夹） |
 
-两种形态仍然都能用：`dist\AirBridge32.exe` 是单文件版，`dist\AirBridge32-portable.zip`
+两种形态仍然都能用：`dist\DropBridge.exe` 是单文件版，`dist\DropBridge-portable.zip`
 是文件夹版。二者共用同一套 `data\` 布局，**不要把两者的 data 混用**（各自在各自目录里）。
 
 ## 3. 代码改动（为文件夹形态）
@@ -51,7 +51,7 @@ data\awdl_netd.addr
    exe 不需要任何参数。
 2. 同一文件的 `AutostartValue`：文件夹形态下开机自启直接注册根目录 exe 自身；
    自解压形态仍注册外层 stub（升级后路径不变）。
-3. 托盘图标：`assets\airbridge32.ico` 由 `tools/make_icon.py` 生成，编译时用
+3. 托盘图标：`assets\dropbridge.ico` 由 `tools/make_icon.py` 生成，编译时用
    `/win32icon:` 嵌入，运行时 `Icon.ExtractAssociatedIcon` 取用，取不到就回退系统图标。
 4. 新增 `tools/Package-Distributable.ps1`：可重复地生成上面的文件夹与 zip（含
    `README.txt`、`VERSION.txt`、许可证、Python 的 `._pth` 修正）；拒绝在非 `dist\`
@@ -61,9 +61,9 @@ data\awdl_netd.addr
 
 | 项目 | 结果 |
 | --- | --- |
-| 打包 | `dist\AirBridge32` 333 文件 36.5 MB；zip `16,852,043 B`（`bf…`） |
+| 打包 | `dist\DropBridge` 333 文件 36.5 MB；zip `16,852,043 B`（`bf…`） |
 | 干净解压 | 解压到 `build\diagnostics\dist-check\` 后，根目录只有预期的四类内容 |
-| 默认根解析 | 无参数运行 `AirBridge32.exe --check` → exit 0、无 MISSING，计划里的路径全部指向解压目录 |
+| 默认根解析 | 无参数运行 `DropBridge.exe --check` → exit 0、无 MISSING，计划里的路径全部指向解压目录 |
 | 托盘常驻 | `--auto-exit 150`：00:38:18 启动，00:39:01 就绪（43 s），49876/49877/8771 与 UDP 15353 全部在听 |
 | 单实例 | 第二个实例立即 exit 0，进程数仍为 1，没有第二条链路 |
 | 干净退出 | 00:40:49 自动退出；无残留进程、四个端口全空 |
@@ -97,11 +97,11 @@ data\awdl_netd.addr
 ```powershell
 powershell -File tools\Build-Radio.ps1
 powershell -File tools\Build-Awdl.ps1
-powershell -File tools\Build-Supervisor.ps1        # 需要 assets\airbridge32.ico
+powershell -File tools\Build-Supervisor.ps1        # 需要 assets\dropbridge.ico
 powershell -File tools\Build-Python.ps1            # 若还没准备 build\python-embed
-powershell -File tools\Package-Distributable.ps1   # → dist\AirBridge32 + zip
+powershell -File tools\Package-Distributable.ps1   # → dist\DropBridge + zip
 powershell -File tools\Build-Sfx.ps1 -SkipPayload  # 可选：单文件 exe 形态
 ```
 
-`tools\make_icon.py` 只在需要改图标时运行（依赖 Pillow，产物 `assets\airbridge32.ico`
+`tools\make_icon.py` 只在需要改图标时运行（依赖 Pillow，产物 `assets\dropbridge.ico`
 已提交，构建不依赖 Pillow）。

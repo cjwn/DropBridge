@@ -1,0 +1,47 @@
+﻿# Product name: AirBridge32 -> DropBridge (user-visible surface only)
+# 2026-10-30 13:45-13:52 (UTC+8). Offline rebuild + package; no radio or phone involved.
+
+## why it was called AirBridge32
+docs/用户任务书.md line 5: "项目名称：AirBridge32（暂定）" - the provisional name from the
+task book, while the folder/repo stayed DropBridge. The iPhone showed it because the
+receiver is started with --name AirBridge32.
+
+## what changed (user-visible only)
+src/supervisor/Program.cs   receiver --name, tray text, balloon titles, diagnostics header,
+                            autostart registry value, single-instance mutex name
+src/sfx/Program.cs          comments, error text, launcher lookup (DropBridge.exe then the
+                            legacy AirBridge32.exe)
+tools/Build-Supervisor.ps1  output build\supervisor\Release\DropBridge.exe and a legacy copy
+                            AirBridge32.exe so the frozen test launchers keep working
+tools/Package-Headless.ps1  stage/zip renamed to DropBridge-headless*
+tools/Build-Sfx.ps1         packs dist\DropBridge-headless, produces dist\DropBridge.exe
+tools/Package-Distributable.ps1  dist\DropBridge\ + dist\DropBridge-portable.zip
+tools/Start-Chain.ps1       receiver --name DropBridge
+tools/make_icon.py, assets/  airbridge32.ico -> dropbridge.ico
+packaging/README.txt, README.md, docs/DISTRIBUTION.md, docs/STATUS.md, tools/check_project.py
+Unchanged: internal component names (airbridge_radio, radio_pipe_bridge, awdl_netd, awdld),
+upstream/ research copies, historical docs and evidence logs.
+
+## new artifacts
+dist\DropBridge-portable.zip  16,856,504 B  7e8230d4b8b73fc868fd95e01abcacb4faa7a31865cf11d223e918c85556fa5c
+dist\DropBridge.exe           16,855,552 B  1710b83645e2c08ec277fb862de522942a0463fcf332a09076268fd94b851676
+dist\DropBridge-headless.zip  16,847,762 B  c615a07cd5f591d28d6ef7ddb1a4fdc7522116ec509780507b96abfc640d9712
+supervisor  6277aacdb65882647400244067c17feaa32ad0cd54d1557ec5bc1ff8019f746c
+netd        4e7a65ee0096f83d8fb84603ef07dfe1fae57912655d412694b1931627bd72d0
+old artifacts left in place: dist\AirBridge32.exe, AirBridge32-portable.zip, AirBridge32-headless.zip,
+AirBridge32-pre-q38.exe (historical; not rebuilt)
+
+## verification
+portable zip extracted to build\diagnostics\dist-check3: folder is DropBridge\, root exe
+DropBridge.exe; --check exit 0, no MISSING; --auto-exit 45 reached the data plane and
+the receiver logged "receiving as DropBridge (MacBookPro18,3)"; after the auto exit no
+process, no listener on 49876/49877/8771/8772; %LOCALAPPDATA%\DropBridge and
+%LOCALAPPDATA%\AirBridge32 both absent; data\keys, data\received, data\logs inside the folder.
+single-file: dist\DropBridge.exe --extract produced app\20261030-135002 with backend\DropBridge.exe
+and netd 4e7a65ee; --check on that tree exit 0, no MISSING.
+
+## note
+The portable-folder smoke test used the new supervisor + new netd (4e7a65ee: mDNS group join,
+querier routing, opt-in outbound proxy). The data path is unchanged from the Q46 run, but a
+real iPhone transfer on this exact zip is still pending - the 1.0975 MB/s result was measured
+with netd 300aac25.

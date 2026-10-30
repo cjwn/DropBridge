@@ -1,5 +1,5 @@
 # Q3/Q4: build a Dart-free package (folder + ZIP) that starts the chain with
-# tools\Start-Chain.ps1. This is the A/B counterpart of dist\AirBridge32-portable
+# tools\Start-Chain.ps1. This is the A/B counterpart of dist\DropBridge-portable
 # and the payload a single-file wrapper will carry later.
 #
 #   powershell -ExecutionPolicy Bypass -File tools\Package-Headless.ps1
@@ -12,8 +12,8 @@ param(
 $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 $dist = Join-Path $root 'dist'
-$stage = Join-Path $dist 'AirBridge32-headless'
-$zip = Join-Path $dist 'AirBridge32-headless.zip'
+$stage = Join-Path $dist 'DropBridge-headless'
+$zip = Join-Path $dist 'DropBridge-headless.zip'
 
 function Need([string]$Path, [string]$Hint) {
     if (-not (Test-Path $Path)) { throw "missing $Path - $Hint" }
@@ -24,7 +24,7 @@ $bridge = Join-Path $root 'build\radio_usb\Release\radio_pipe_bridge.exe'
 $netd = Join-Path $root 'build\awdl_netd\Release\awdl_netd.exe'
 $awdld = Join-Path $root 'build\awdl\awdld.exe'
 $libusb = Join-Path $root 'build\radio_usb\Release\libusb-1.0.dll'
-$supervisor = Join-Path $root 'build\supervisor\Release\AirBridge32.exe'
+$supervisor = Join-Path $root 'build\supervisor\Release\DropBridge.exe'
 $python = Join-Path $root 'build\python-embed'
 $airdrop = Join-Path $root 'upstream\winawdl\airdrop'
 
@@ -85,7 +85,7 @@ foreach ($license in @(
 
 @'
 @echo off
-rem Starts the AirBridge32 backend chain without Flutter.
+rem Starts the DropBridge backend chain without Flutter.
 rem This initialises the RTL8821CU and makes awdld transmit AWDL frames:
 rem run it only when you intend to test with the phone.
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\Start-Chain.ps1" -Run %*
@@ -93,7 +93,7 @@ pause
 '@ | Set-Content (Join-Path $stage 'Start.cmd') -Encoding ascii
 
 @'
-AirBridge32 headless package
+DropBridge headless package
 
 1. Extract this folder anywhere writable.
 2. Bind the RTL8821CU MI_02 interface to WinUSB once if this PC never used it

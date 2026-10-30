@@ -77,13 +77,13 @@ foreach ($port in $ports) {
     if ($listener) { $busy += $port }
 }
 if ($busy.Count -gt 0) {
-    throw "ports already in use: $($busy -join ', '); stop the other AirBridge32/radio instance first"
+    throw "ports already in use: $($busy -join ', '); stop the other DropBridge/radio instance first"
 }
 
 $radioArgs = @($Channel, $Width)
 $joinWaitUs = if ($NoTcpMerge) { '0' } else { '400' }
 $awdlArgs = @('-c', $Channel, '-s', '2', '-j', $joinWaitUs, '-v')
-$receiverArgs = @('-u', $binaries.receiver, '--name', 'AirBridge32',
+$receiverArgs = @('-u', $binaries.receiver, '--name', 'DropBridge',
                   '--listen', '127.0.0.1', '--mdns-address-file', $addrFile,
                   '--outdir', $received, '--keys', $keys)
 if ($Trace) { $receiverArgs += '--trace' }
@@ -103,7 +103,7 @@ $awdlEnvironment = @{
     AWDL_FOLLOW_MASTER_SEQ = $null
 }
 
-Write-Host "AirBridge32 chain, channel $Channel width $Width MHz, logs: $runDir"
+Write-Host "DropBridge chain, channel $Channel width $Width MHz, logs: $runDir"
 $plan | ForEach-Object { Write-Host "  $_" }
 Write-Host "  chanseq=$ChannelSequence (fixed removes AWDL_CHANSEQ; follow-master disabled)"
 Write-Host "  join_us=$joinWaitUs (0 disables TCP merging)"

@@ -5,9 +5,9 @@
 // so the result needs no installer, no Python, no Flutter and no extra runtime
 // on Windows 10/11.
 //
-//   AirBridge32.exe            unpack (once per build) and start the supervisor
-//   AirBridge32.exe --extract  unpack only, print the directory
-//   AirBridge32.exe --where    print the directory without unpacking
+//   DropBridge.exe             unpack (once per build) and start the supervisor
+//   DropBridge.exe --extract   unpack only, print the directory
+//   DropBridge.exe --where     print the directory without unpacking
 //
 // Everything stays inside the folder the exe lives in: the payload under
 // app\<build> and the data (keys, instance id, received files, logs) under
@@ -134,14 +134,18 @@ internal static class Program
                 Console.WriteLine(target);
                 return 0;
             }
-            string launcher = Path.Combine(target, @"backend\AirBridge32.exe");
+            string launcher = Path.Combine(target, @"backend\DropBridge.exe");
+            if (!File.Exists(launcher))
+            {
+                launcher = Path.Combine(target, @"backend\AirBridge32.exe");
+            }
             if (!File.Exists(launcher))
             {
                 launcher = Path.Combine(target, "Start.cmd");
             }
             if (!File.Exists(launcher))
             {
-                Console.Error.WriteLine("AirBridge32: no launcher in " + target);
+                Console.Error.WriteLine("DropBridge: no launcher in " + target);
                 return 2;
             }
             var start = new ProcessStartInfo(launcher)
@@ -156,7 +160,7 @@ internal static class Program
         }
         catch (Exception error)
         {
-            Console.Error.WriteLine("AirBridge32: " + error.Message);
+            Console.Error.WriteLine("DropBridge: " + error.Message);
             return 1;
         }
     }

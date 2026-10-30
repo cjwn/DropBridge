@@ -1,5 +1,23 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-30 13:52：Q49 产品名统一为 DropBridge
+
+- 起因：用户问“我的设备应该叫 DropBridge，为什么叫 AirBridge32”。查证：`docs/用户任务书.md:5` 写的是
+  “项目名称：AirBridge32（暂定）”，程序一直沿用这个暂定名（iPhone 列表里看到的就是 `--name AirBridge32`），
+  而目录/仓库叫 DropBridge。
+- 改动只限用户可见面：receiver `--name`、托盘 Text/气泡标题/诊断标题、开机自启项名、单实例互斥名；
+  产物改成 `DropBridge.exe`、`dist\DropBridge\`、`DropBridge-portable.zip`、`DropBridge-headless.zip`、
+  图标 `assets\dropbridge.ico`；`Start-Chain.ps1` 的 `--name` 也改了。
+- 兼容：`Build-Supervisor.ps1` 仍额外输出一份 `AirBridge32.exe`，因为 `build\diagnostics\*` 里冻结的
+  测试包 launcher 指向该路径；自解压 stub 的 launcher 查找也先 `DropBridge.exe` 再回退旧名。
+  内部组件名（airbridge_radio、radio_pipe_bridge、awdl_netd、awdld）不变。
+- 验证：portable zip 解压后 `--check` exit 0、无 MISSING；`--auto-exit 45` 数据面就绪且 receiver 打印
+  `receiving as DropBridge`，退出后无进程/端口、`%LOCALAPPDATA%\DropBridge` 与 `AirBridge32` 都不存在；
+  单文件 `dist\DropBridge.exe --extract` → `app\20261030-135002`（backend 内有 DropBridge.exe、netd 4e7a65ee），
+  对该目录 `--check` exit 0。
+- 注意：这份新包里的 netd 是 4e7a65ee（含 mDNS 组播 join、查询路由、opt-in 出站代理），与 Q46 实测
+  1.0975 MB/s 用的 300aac25 不是同一个二进制；数据面未变，但真机传输还没在这份 zip 上复测。
+
 ## 2026-10-30 01:00：PC → iPhone 发送：发现与传输打通，卡在 iPhone 拒绝自签证书
 
 - 用户要求做“电脑发给手机”，并要求复用仓库已有实现。新增 netd 的 opt-in 出站 TCP 代理（`--allow-send` 才起，本地 8772，先 `CONNECT <ipv6> <port>` 再原样转发，TLS 端到端）；`tools/airdrop_send.py` 复用上游 `sender.py`/`transfer.py`/`identity.py`（MIT），只替换“发现”（走 netd 的 mDNS 代理）与“连接”（走 8772 代理）两处传输假设，并支持 `--address` 直连。

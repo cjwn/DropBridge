@@ -34,7 +34,7 @@ def render(size: int) -> Image.Image:
 
 
 def main() -> int:
-    out = Path(__file__).resolve().parent.parent / "assets" / "airbridge32.ico"
+    out = Path(__file__).resolve().parent.parent / "assets" / "dropbridge.ico"
     out.parent.mkdir(parents=True, exist_ok=True)
     # Pillow builds every requested size from one master image, which keeps the
     # ICO multi-resolution (Explorer, tray, alt-tab each pick their own).
