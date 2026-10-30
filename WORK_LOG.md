@@ -1,5 +1,14 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-31 02:22：Q58 优雅停没解决问题（诚实记录）
+
+- 做了两轮真机回归：① --auto-exit 110 让监管自己优雅停 → radio 4 秒内没退完，被强杀（stopped (exit -1)）；② 立刻再启动（不拔插）→ radio 104 秒未就绪、再等 300 秒仍不 ready，**网卡照旧楔死**。
+- 说明：命名事件确实送到了（radio 会关监听、跑 accept 失败收尾），但收尾里有一步阻塞，超出 4 秒预算 → 最终仍被 TerminateProcess。
+- 首版还有真 bug：stats_thread/writer/stats_stop 在 accept 循环内声明，失败路径留下 joinable std::thread → 析构走 std::terminate。已改到循环外，重编通过。
+- 下一步不猜：在 StopRxLoop → join(rx) → queue.stop → join(stats) → join(writer) → radio->Stop() → radio.reset() 每步前后加 WARN 日志（WARN 才能落盘），跑一次就能定位。
+- 顺带：本轮用户实测的正式发送是 **29,456,959 B / 26.85 s = 1.10 MB/s**，哈希一致，说明新二进制+自动 beacon 的接收路径是好的。
+
+
 ## 2026-10-31 02:03：Q58 停链路不再楔死网卡（命名事件优雅停）
 
 - 现象：今晚每次停链路后再起，radio 要么 `no device 0bda:c820`、要么卡在 libusb

@@ -388,6 +388,9 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     /* Accept clients forever: the Dart app may disconnect/reconnect without
      * paying the 40-120 s bring-up again. Per-client state is recreated each
      * iteration; the radio stays initialized. */
+    std::thread writer;
+    std::thread stats_thread;
+    std::atomic<bool> stats_stop{false};
     for (;;) {
         g_rx_cb = 0;
         g_rx_crc = 0;
@@ -422,7 +425,10 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
 
     const SOCKET client = accept(listener, nullptr, nullptr);
     if (client == INVALID_SOCKET) {
-        logger->error("radio: accept failed");
+        // Reached when the supervisor signals the stop event (it closes the
+        // listener) - or on a real accept error. The common teardown after the
+        // loop stops the threads and the device, so just leave the loop here.
+        logger->info("radio: accept failed; shutting down");
         radio->StopRxLoop();
         if (rx_thread.joinable()) rx_thread.join();
         queue.stop();
@@ -448,7 +454,9 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     client_ready = true;
     logger->info("radio: client connected, HELLO sent at {} ms", elapsed_ms());
 
-    std::thread writer([&] {
+    // Declared outside the loop so the accept/HELLO failure paths can join them
+    // too; a joinable std::thread destroyed at scope exit aborts the process.
+    writer = std::thread([&] {
         std::vector<uint8_t> message;
         while (queue.pop(message)) {
             if (!send_all(client, message.data(), message.size())) {
@@ -465,8 +473,8 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     // warn level so the supervisor can watch the rate without the radio's
     // per-frame "bulk_send" noise that info level produces.
     const bool stats_at_warn = env_flag("AIRBRIDGE_LINK_STATS");
-    std::atomic<bool> stats_stop{false};
-    std::thread stats_thread([&] {
+    stats_stop = false;
+    stats_thread = std::thread([&] {
         auto previous_sample = std::chrono::steady_clock::now();
         while (!stats_stop.load()) {
             for (int tick = 0; tick < 50 && !stats_stop.load(); tick++) {
@@ -635,6 +643,12 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     logger->info("radio: waiting for next client");
     }
 
+    // The accept/HELLO failure paths leave the loop without the per-iteration
+    // teardown, so finish it here: a joinable std::thread destroyed at scope
+    // exit calls std::terminate, which would abort instead of stopping cleanly.
+    stats_stop = true;
+    if (stats_thread.joinable()) stats_thread.join();
+    if (writer.joinable()) writer.join();
     radio->Stop();
     radio.reset();
     closesocket(listener);

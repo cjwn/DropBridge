@@ -1,0 +1,31 @@
+﻿# Does the named-event stop actually prevent the wedge? No - measured (2026-10-31 02:13-02:22)
+
+## the experiment
+Round 1: tray started with --auto-exit 110, i.e. the supervisor itself asks the chain to
+         stop (Child.Stop -> SignalRadioStop -> wait 4 s -> Kill if still alive).
+Round 2: immediately start the same package again, no replug in between.
+
+## result
+Round 1: ready 02:16:04, tray exited 02:17:15. radio.log ends with "stopped (exit -1)",
+         meaning the radio was still alive 4 s after the stop event and had to be killed.
+Round 2: radio started 02:17:26, killed 02:19:10 by the tray auto-exit, and never reached
+         "listening" in 104 s; a further 300 s wait also stayed not-ready. The device is
+         wedged again exactly as before the change.
+
+## what the change does and does not do
+It does: the stop event reaches the radio, its stop thread closes the listener, and the
+accept-failure path runs (StopRxLoop, rx join, queue stop) - the intent is visible in the
+code flow. It does NOT: the process still fails to finish teardown within the 4 s budget,
+so the supervisor kills it, and the chip is left in the same unusable state.
+
+## where to look next (instrumented, not guessed)
+The teardown after accept failure is: StopRxLoop -> join(rx_thread) -> queue.stop ->
+join(stats_thread) -> join(writer) -> radio->Stop() -> radio.reset() -> libusb release/
+close/exit. One of those blocks; the cheap way to find out is a WARN-level line before and
+after each step (WARN so it survives the log filter) and one stop test. Do not guess.
+
+## also from this round
+The first build of the change was itself buggy: stats_thread / writer / stats_stop were
+declared inside the accept loop, so the failure paths left joinable std::thread objects
+alive and the process aborted instead of stopping. They are now declared outside the loop;
+the build succeeds, but the teardown still does not complete (above).
