@@ -188,9 +188,13 @@ internal sealed class Supervisor
     public readonly bool TcpMerge;
     // Opt-in PC -> phone: netd then also listens on 127.0.0.1:8772.
     public static bool AllowSend;
+    // Receive spatial streams advertised by awdld. The RTL8821CU is 1T1R, so 1
+    // is the honest value; --streams 2 exists only to A/B whether the extra
+    // advertisement changes what the phone transmits (it is not a fix).
+    public static int AwdldStreams = 1;
     public string RadioArguments { get { return _channel + " " + _width; } }
     // RTL8821CU is 1T1R; announcing a second receive stream exceeds the hardware.
-    public string AwdldArguments { get { return "-c " + _channel + " -s 1 -j " + (TcpMerge ? "400" : "0") + " -v"; } }
+    public string AwdldArguments { get { return "-c " + _channel + " -s " + AwdldStreams + " -j " + (TcpMerge ? "400" : "0") + " -v"; } }
     // 20 MHz is the default: measured 202 KB/s against 40 MHz's 190 KB/s after a
     // cold start, and 40 MHz has a degraded mode that needs a USB replug to clear.
     public string BandText { get { return "ch" + _channel + " / " + _width + " MHz"; } }
@@ -387,6 +391,7 @@ internal sealed class Supervisor
                         (AllowSend ? "  [AWDL_NETD_OUTBOUND=8772: PC -> phone]" : ""));
         text.AppendLine("awdld: " + AwdldPath() + " " + AwdldArguments);
         text.AppendLine("tcp_merge: " + (TcpMerge ? "on (join_us=400)" : "off (join_us=0)"));
+        text.AppendLine("streams: " + AwdldStreams + (AwdldStreams == 1 ? " (honest for 1T1R)" : " (A/B only)"));
         text.AppendLine("chanseq: " + ChannelSequence + " [slot 8=" +
             (ChannelSequence == "social" ? "6" : _channel.ToString()) + "]");
         foreach (var pair in AwdldEnvironment())
@@ -1332,6 +1337,7 @@ internal static class Program
         string channelSequence = "social";
         bool tcpMerge = true;
         bool allowSend = false;
+        int streams = 1;
         string dataArgument = null;
         for (int index = 0; index < args.Length; index++)
         {
@@ -1372,6 +1378,15 @@ internal static class Program
                 case "--allow-send":
                     allowSend = true;
                     break;
+                case "--streams":
+                    // Diagnostic A/B of what awdld advertises; 1 is the honest
+                    // value for this 1T1R radio and stays the default.
+                    if (index + 1 < args.Length && int.TryParse(args[++index], out streams) &&
+                        (streams == 1 || streams == 2))
+                    {
+                        break;
+                    }
+                    return 2;
                 case "--install-driver":
                     {
                         bool quiet = false;
@@ -1395,6 +1410,7 @@ internal static class Program
         }
 
         Supervisor.AllowSend = allowSend;
+        Supervisor.AwdldStreams = streams;
 
         if (autostart != 0)
         {

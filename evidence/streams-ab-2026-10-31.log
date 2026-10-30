@@ -1,0 +1,35 @@
+﻿# awdld stream advertisement A/B on real hardware, 2026-10-31 01:29-01:40 (UTC+8)
+# Question: does -s 2 (what the supervisor used before e1ba5b7) change throughput
+# versus -s 1 (the honest 1T1R value)?
+
+## conditions
+Same phone (iPhone, 16 Pro Max per its report), same 29,456,959 B video, same
+dist\data identity and receive folder, same machine/port, channel 149 / 20 MHz,
+social chanseq, TCP merge on (join_us=400). Runs minutes apart.
+The Bluetooth beacon (upstream airdrop-beacon.ps1 on the Intel adapter) was
+advertising for BOTH runs - without it the phone stays out of AWDL (peers 0).
+
+## results
+A  --streams 2  session 20261031-012930  26.89 s  1.10 MB/s  fps peak 970  CRC 3.4%
+B  --streams 1  session 20261031-013547  27.04 s  1.09 MB/s  fps peak 867  CRC 4.2%
+both: stored file sha256 5d057f9c5bad719872cf316a9b6935fc965b6ff80ecc65ec5fe82ef768c73c54
+      = byte-identical to the reference copy of the same video
+both: netd input_fail=0 input_retry=0 tx_fail=0, no 408, one clean /Ask + /Upload
+
+## conclusion
+Within noise (0.9%); -s 1 does not cost throughput and does not fix the slow
+windows either. Keep -s 1 as the default because it matches the hardware
+(RTL8821C 1T1R) and the earlier e1ba5b7 diagnosis is sound.
+
+## the finding that actually matters
+Both runs reached 1.10 MB/s / 970 fps with CRC 3.4% while every run earlier tonight
+WITHOUT the beacon sat at 0.32-0.88 MB/s with CRC 13-49%. Same binaries, same file,
+same phone. The beacon is what keeps the phone on our AWDL schedule; running it
+automatically while the tray app is up is the single biggest remaining UX win.
+
+## exposed a real defect (not fixed here)
+Forcing the supervisor down (Stop-Process by name) leaves airbridge_radio/awdl_netd/
+awdld/python alive holding 49876/49877/8771, so the next start fails with
+"port 49876 is already in use" (seen at 01:35 on screen). Graceful exit is fine -
+this is the force-kill path. Candidate fixes: children exit when their IPC/stdout
+closes, or the supervisor reaps leftovers on start. Logged as Q55.
