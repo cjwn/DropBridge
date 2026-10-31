@@ -391,6 +391,9 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     std::thread writer;
     std::thread stats_thread;
     std::atomic<bool> stats_stop{false};
+    // Set when the accept-failure path already stopped the device to cancel a
+    // stuck RX worker; the common teardown must not call Stop() a second time.
+    bool radio_stopped = false;
     for (;;) {
         g_rx_cb = 0;
         g_rx_crc = 0;
@@ -439,14 +442,25 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         for (int i = 0; i < 20 && !rx_ended.load(); ++i) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
+        if (rx_thread.joinable() && !rx_ended.load()) {
+            // The worker is still inside StartRxLoop, which means its transfers
+            // were not cancelled by the stop request. Stop the device here so
+            // they fail and the thread returns, instead of detaching a thread
+            // that would race radio->Stop()/reset() in the common teardown.
+            logger->warn("shutdown: rx thread still inside StartRxLoop; stopping the device");
+            radio->Stop();
+            radio_stopped = true;
+            for (int i = 0; i < 20 && !rx_ended.load(); ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
         if (rx_thread.joinable()) {
             if (rx_ended.load()) {
                 rx_thread.join();
                 logger->warn("shutdown: rx thread joined");
             } else {
-                // Never block the exit path on a thread that will not come back:
-                // radio->Stop() below cancels its transfers anyway.
-                logger->warn("shutdown: rx thread did not return in 2 s; detaching");
+                // Last resort: never block the exit path forever.
+                logger->warn("shutdown: rx thread did not return; detaching");
                 rx_thread.detach();
             }
         }
@@ -674,7 +688,7 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     logger->warn("shutdown: joining writer");
     if (writer.joinable()) writer.join();
     logger->warn("shutdown: stopping the device");
-    radio->Stop();
+    if (!radio_stopped) radio->Stop();
     logger->warn("shutdown: device stopped; releasing radio");
     radio.reset();
     closesocket(listener);

@@ -1,0 +1,48 @@
+# Q57 silence watchdog + Q58 stop/start cycles, real hardware (2026-10-31 23:10-23:20)
+
+## Q57: a hung radio is now detected instead of trusted
+
+`Child` gained `LastOutputUtc` (stamped on every stdout/stderr line);
+`Supervisor.SilentSeconds(name)` exposes it; `TrayApp.CheckSilence` runs in the 5 s
+watchdog:
+
+  radio alive and silent > 30 s -> log "radio silent for N s (hit X); restarting the
+  chain", `Running=false`, `RequestStart(true)`. A second hit within 3 minutes raises
+  the balloon "网卡没有响应，已经自动重启过两次。请把网卡拔下来、重新插上。"
+
+Why silence is the right signal: the radio prints a `stats cb=...` line every ~5 s even
+with no traffic, so a process stuck inside a USB call is silent while still looking
+alive to the process table.
+
+Deliberate-hang test: started the chain, then suspended `airbridge_radio.exe` with
+`NtSuspendProcess` at 23:10:47 (exactly the "alive but making no progress" shape).
+
+  23:11:19  "radio silent for 32 s (hit 1); restarting the chain"
+  23:11:35  new radio process started (the suspended one cannot answer the stop event,
+            so it was killed after the 15 s grace - expected, it is frozen by definition)
+
+Detection and restart work. A frozen process cannot be shut down politely, which is why
+the second hit escalates to "replug" instead of looping forever.
+
+## Q58 residual: is the RX thread joined now?
+
+Measured: no. The stop path now calls `radio->Stop()` when the worker is still inside
+`StartRxLoop`, waits another 2 s, and the worker STILL does not return, so it is
+detached and the process exits immediately:
+
+  "rx loop stopped; waiting for the rx thread"
+  "rx thread still inside StartRxLoop; stopping the device"
+  "rx thread did not return; detaching"
+  "device stopped; releasing radio" / "shutdown: done" -> "stopped (exit 0)"
+
+So the detach is not a leftover of the old code but a property of devourer's RX loop:
+neither `StopRxLoop()` nor `Stop()` makes `StartRxLoop` return on this path. The race it
+implies is process-exit-only (the detached thread can touch radio/queue while teardown
+runs), and repeated cycles have not crashed.
+
+## stop/start cycles with the new ordering (no replug at any point)
+
+  23:15:42 ready (40 s)  ->  23:17:34 "shutdown: done" exit 0
+  23:17:40 ready (43 s)  ->  23:19:45 "shutdown: done" exit 0
+
+The dongle stayed usable across both cycles and across the suspended-process kill.

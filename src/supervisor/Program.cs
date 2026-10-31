@@ -79,6 +79,17 @@ internal sealed class Child
     private readonly LogSink _log;
     private readonly Action<string> _lineSeen;
     private Process _process;
+    private long _lastOutputTicks = DateTime.UtcNow.Ticks;
+
+    /// <summary>
+    /// When this child last printed anything. The radio prints a stats line every
+    /// ~5 s even when idle, so silence is the only reliable sign that it is stuck
+    /// inside a USB call while still looking alive to the process table.
+    /// </summary>
+    public DateTime LastOutputUtc
+    {
+        get { return new DateTime(Interlocked.Read(ref _lastOutputTicks), DateTimeKind.Utc); }
+    }
 
     public Child(string name, string exe, string arguments,
                  Dictionary<string, string> environment, string workdir,
@@ -141,6 +152,7 @@ internal sealed class Child
     private void OnLine(string line)
     {
         if (line == null) return;
+        Interlocked.Exchange(ref _lastOutputTicks, DateTime.UtcNow.Ticks);
         _log.Write(Name, line);
         if (_lineSeen != null) _lineSeen(line);
         if (_needle != null && line.IndexOf(_needle, StringComparison.Ordinal) >= 0)
@@ -453,6 +465,18 @@ internal sealed class Supervisor
             if (child.HasExited) names.Add(child.Name);
         }
         return names;
+    }
+
+    /// <summary>Seconds since the named child last wrote a line, or -1 if unknown.</summary>
+    public double SilentSeconds(string name)
+    {
+        foreach (Child child in _children)
+        {
+            if (child.Name != name) continue;
+            if (child.HasExited) return -1;
+            return (DateTime.UtcNow - child.LastOutputUtc).TotalSeconds;
+        }
+        return -1;
     }
 
     // The receiver is the only backend that can be replaced without touching the
@@ -853,7 +877,7 @@ internal sealed class TrayApp : ApplicationContext
         StartBeacon();
 
         _watchdog = new System.Windows.Forms.Timer { Interval = 5000 };
-        _watchdog.Tick += delegate { CheckChildren(); CheckBeacon(); };
+        _watchdog.Tick += delegate { CheckSilence(); CheckChildren(); CheckBeacon(); };
         _watchdog.Start();
 
         if (autoExitSeconds > 0)
@@ -1264,6 +1288,35 @@ internal sealed class TrayApp : ApplicationContext
                 "链路速率偏低（约 " + (int)_supervisor.Fps +
                 " 帧/s）。可从托盘菜单选“重置链路”后重试。", ToolTipIcon.Warning);
         }
+    }
+
+    // Q57: a radio stuck inside a USB call still looks alive to the process
+    // table. It prints a stats line every ~5 s even when idle, so silence is the
+    // signal. One silence restarts the chain; a second one within three minutes
+    // tells the user to replug instead of looping.
+    private int _silentHits;
+    private DateTime _lastSilenceUtc = DateTime.MinValue;
+
+    private void CheckSilence()
+    {
+        if (!_supervisor.Running || _gaveUp) return;
+        double silent = _supervisor.SilentSeconds("radio");
+        if (silent < 0 || silent < 30) return;
+        if ((DateTime.UtcNow - _lastSilenceUtc).TotalMinutes > 3) _silentHits = 0;
+        _lastSilenceUtc = DateTime.UtcNow;
+        _silentHits++;
+        _supervisor.Log("radio silent for " + (int)silent + " s (hit " + _silentHits + "); restarting the chain");
+        _supervisor.Running = false;
+        if (_silentHits >= 2)
+        {
+            _icon.ShowBalloonTip(10000, "DropBridge",
+                "网卡没有响应，已经自动重启过两次。请把网卡拔下来、重新插上。", ToolTipIcon.Error);
+        }
+        else
+        {
+            _icon.ShowBalloonTip(5000, "DropBridge", "网卡卡住了，正在自动重启…", ToolTipIcon.Warning);
+        }
+        RequestStart(true);
     }
 
     private void CheckChildren()

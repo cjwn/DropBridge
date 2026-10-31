@@ -1,5 +1,21 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-31 23:20：Q57 修完（静默看门狗）+ Q58 残留量化
+
+- **Q57（卡死进程被当健康）已修并真机验证**：`Child.LastOutputUtc` 每行输出打点，
+  `Supervisor.SilentSeconds("radio")` 读静默秒数，`TrayApp.CheckSilence` 在 5 s 看门狗里判断
+  “活着但 >30 s 没输出”→ 记日志 `radio silent for N s (hit X)` 并整链重启；3 分钟内第二次触发
+  弹“网卡没响应，请拔插”。选静默做判据是因为 radio 空闲也每 ~5 s 打 `stats cb=`。
+  实测：用 `NtSuspendProcess` 冻结 radio 模拟假死 → 23:11:19 检测到 32 s 静默并重启
+  （新 radio 23:11:35 起）。冻结进程无法响应优雅停，必然被强杀，这就是第二次提示拔插的原因。
+- **Q58 残留量化**：收尾已改为“有界等待 + 先 `radio->Stop()` 再等 2 s”，但实测该 RX 线程
+  **既不因 `StopRxLoop()` 也不因 `Stop()` 返回**，最终仍 detach。因此 detach 是 devourer RX 循环
+  的固有行为，不是我们代码的残留；竞态只发生在进程退出瞬间，多轮未崩。
+- 停→启循环（全程不拔插）连续两次通过：23:15:42 ready 40 s → 23:17:34 `shutdown: done` exit 0；
+  23:17:40 ready 43 s → 23:19:45 同样干净退出。
+- 结论：两项都收口——Q57 新增能力、Q58 已知残留且有量化说明。后续若要彻底消除 detach，
+  需要 devourer 侧提供可取消的 RX 传输。
+
 ## 2026-10-31 02:35：Q58 修好「停链路必须拔插」（三轮真机验证通过）
 
 - 定位：加 WARN 打点后看到 join(rx_thread) 卡住——StopRxLoop() 返回了，但 RX 工作线程仍在 StartRxLoop 里不出来。
