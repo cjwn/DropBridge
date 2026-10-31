@@ -1,0 +1,55 @@
+# Q55: a killed tray no longer leaves backends or a wedged dongle (2026-11-01 01:30-01:45)
+
+## the defect
+
+`Stop-Process` / Task Manager on `DropBridge.exe` runs no cleanup. The children kept
+running and kept 49876/49877/8771 bound, so the next start died with
+"port 49876 is already in use"; and because the radio was killed mid-transfer, the
+RTL8821CU was left wedged until a physical replug (the Q58 family).
+
+## the fix, three layers
+
+1. **Job object for every non-radio child** (`ChildJob`, kernel32 P/Invoke):
+   `CreateJobObject` + `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE`, and each child is assigned
+   right after `Process.Start`. When the supervisor dies - including a force kill - the
+   OS tears those children down with it, so no port and no orphan survives.
+2. **The radio stays out of the job** and watches the supervisor instead: the supervisor
+   passes `AIRBRIDGE_PARENT_PID`, the radio opens that process with `SYNCHRONIZE` and
+   waits on it *and* `Local\DropBridgeRadioStop` with `WaitForMultipleObjects`. Either
+   signal closes the listener, so `accept()` fails and the ordinary teardown runs
+   (StopRxLoop -> bounded wait -> device Stop -> libusb release). Being in the job would
+   TerminateProcess it mid-transfer, which is exactly what wedges the chip.
+3. **Reclaim on start** (`ReclaimLeftovers`): when a port is already bound, the
+   supervisor kills only processes whose executable sits under its own package root
+   (radio, bridge, netd, awdld, python) and tries again. Any other program on that port
+   is left alone and still reported as "port in use".
+
+## measured
+
+Start -> ready 01:43:14 (40 s), all six processes up. Then `Stop-Process -Id <tray> -Force`:
+
+  after 8 s: no process from the package, no listener on 49876/49877/8771
+
+Restart immediately, **no replug**:
+
+  01:43:32  FW ready after 7,700 us / 1 poll
+  01:44:14  radio listening (43 s to data plane)
+  01:45:03  "shutdown: done" / "stopped (exit 0)"   <- that run's own auto-exit
+
+So the chip came back clean on the first try, which is the outcome the whole Q58/Q55
+line was after: **a crash costs neither a stuck port nor a cable pull.**
+
+## note on log loss
+
+The radio's own last WARN lines are written to the supervisor's log sink, so a
+force-killed supervisor cannot record them. The proof of the clean radio shutdown is
+therefore behavioural (the next start reaching the data plane with no replug), not a log
+line - this is why the restart result above is the assertion.
+
+## fixed at the same time (found while testing)
+
+`HalmacJaguar2Fw`'s FW-boot poll was bounded by 20000 *polls*, on the assumption that a
+poll costs 50 us. A stalled control transfer costs ~15 ms, so the budget became 309 s,
+and a bring-up hung for five minutes before the supervisor gave up (measured 308,950,607
+us in session 20261101-013606). It is now bounded by **wall clock: 1 s**, which keeps the
+original intent (absorb a slow MCU) without the unbounded hang.

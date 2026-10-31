@@ -25,6 +25,99 @@ using System.Threading;
 using System.Windows.Forms;
 using Microsoft.Win32;
 
+// Q55: every backend lives in a Windows job object with KILL_ON_JOB_CLOSE, so
+// when this process dies - including Stop-Process/TerminateProcess, which run no
+// cleanup at all - the OS tears the whole chain down with it. That is what used
+// to leave airbridge_radio/awdl_netd/python holding 49876/49877/8771 and made
+// the next start fail with "port already in use".
+internal static class ChildJob
+{
+    private const int JobObjectExtendedLimitInformation = 9;
+    private const uint JobObjectLimitKillOnJobClose = 0x2000;
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct BasicLimit
+    {
+        public long PerProcessUserTimeLimit;
+        public long PerJobUserTimeLimit;
+        public uint LimitFlags;
+        public UIntPtr MinimumWorkingSetSize;
+        public UIntPtr MaximumWorkingSetSize;
+        public uint ActiveProcessLimit;
+        public UIntPtr Affinity;
+        public uint PriorityClass;
+        public uint SchedulingClass;
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct IoCounters
+    {
+        public ulong ReadOperationCount;
+        public ulong WriteOperationCount;
+        public ulong OtherOperationCount;
+        public ulong ReadTransferCount;
+        public ulong WriteTransferCount;
+        public ulong OtherTransferCount;
+    }
+
+    [System.Runtime.InteropServices.StructLayout(System.Runtime.InteropServices.LayoutKind.Sequential)]
+    private struct ExtendedLimit
+    {
+        public BasicLimit BasicLimitInformation;
+        public IoCounters IoInfo;
+        public UIntPtr ProcessMemoryLimit;
+        public UIntPtr JobMemoryLimit;
+        public UIntPtr PeakProcessMemoryUsed;
+        public UIntPtr PeakJobMemoryUsed;
+    }
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern IntPtr CreateJobObject(IntPtr attributes, string name);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern bool SetInformationJobObject(IntPtr job, int infoClass, ref ExtendedLimit info, int length);
+
+    [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+    private static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+
+    private static IntPtr _job = IntPtr.Zero;
+
+    public static void Ensure()
+    {
+        if (_job != IntPtr.Zero) return;
+        try
+        {
+            IntPtr job = CreateJobObject(IntPtr.Zero, null);
+            if (job == IntPtr.Zero) return;
+            var info = new ExtendedLimit();
+            info.BasicLimitInformation.LimitFlags = JobObjectLimitKillOnJobClose;
+            if (!SetInformationJobObject(job, JobObjectExtendedLimitInformation, ref info,
+                    System.Runtime.InteropServices.Marshal.SizeOf(typeof(ExtendedLimit))))
+            {
+                return;
+            }
+            _job = job;
+        }
+        catch
+        {
+        }
+    }
+
+    /// <summary>Put a freshly started child under the kill-on-close job.</summary>
+    public static void Add(Process process)
+    {
+        try
+        {
+            Ensure();
+            if (_job != IntPtr.Zero && process != null)
+                AssignProcessToJobObject(_job, process.Handle);
+        }
+        catch
+        {
+        }
+    }
+}
+
 internal sealed class LogSink
 {
     private readonly object _gate = new object();
@@ -141,6 +234,11 @@ internal sealed class Child
             error = problem.Message;
             return false;
         }
+        // The radio is NOT put in the kill-on-close job: that would TerminateProcess
+        // it mid-transfer and wedge the chip. It watches our process handle
+        // instead (AIRBRIDGE_PARENT_PID) and unwinds by itself; if it ever hangs,
+        // ReclaimLeftovers() on the next start clears it.
+        if (Name != "radio") ChildJob.Add(_process);
         _process.OutputDataReceived += (sender, line) => OnLine(line.Data);
         _process.ErrorDataReceived += (sender, line) => OnLine(line.Data);
         _process.BeginOutputReadLine();
@@ -517,11 +615,63 @@ internal sealed class Supervisor
         return null;
     }
 
+    /// <summary>
+    /// Kill leftover backends from a previous run that died abruptly. Only
+    /// processes whose executable sits under our own package root qualify, so a
+    /// user's unrelated program on the same port can never be touched.
+    /// Returns how many were reclaimed.
+    /// </summary>
+    public int ReclaimLeftovers()
+    {
+        int killed = 0;
+        try
+        {
+            using (var searcher = new ManagementObjectSearcher(
+                       "SELECT ProcessId, ExecutablePath FROM Win32_Process WHERE Name IN " +
+                       "('airbridge_radio.exe','radio_pipe_bridge.exe','awdl_netd.exe','awdld.exe','python.exe')"))
+            {
+                string root = Path.GetFullPath(_root).TrimEnd('\\') + "\\";
+                foreach (ManagementObject item in searcher.Get())
+                {
+                    string path = item["ExecutablePath"] as string;
+                    if (string.IsNullOrEmpty(path)) continue;
+                    if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue;
+                    int pid = Convert.ToInt32(item["ProcessId"], CultureInfo.InvariantCulture);
+                    try
+                    {
+                        Process leftover = Process.GetProcessById(pid);
+                        leftover.Kill();
+                        leftover.WaitForExit(3000);
+                        killed++;
+                        Log("reclaimed leftover " + Path.GetFileName(path) + " pid " + pid);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+            if (killed > 0) Thread.Sleep(1500);
+        }
+        catch
+        {
+        }
+        return killed;
+    }
+
     public bool StartAll(int readyTimeoutSeconds, out string error)
     {
         error = null;
         EnsureRadioStopEvent();
+        ChildJob.Ensure();
         string busy = PortProblem();
+        if (busy != null)
+        {
+            // A previous run that was killed outright leaves backends holding
+            // 49876/49877/8771/15353. Reclaim only our own package's processes,
+            // then look again before declaring failure.
+            int reclaimed = ReclaimLeftovers();
+            if (reclaimed > 0) busy = PortProblem();
+        }
         if (busy != null)
         {
             error = busy;
@@ -552,6 +702,10 @@ internal sealed class Supervisor
                 // 8 so an iPhone accepts it; the firmware fast path makes that
                 // cross-band hop ~2 ms instead of ~90 ms.
                 { "AIRBRIDGE_FASTRETUNE_FW", "2" },
+                // The radio watches this process and stops cleanly when it dies,
+                // even when that death is a force kill (Q55).
+                { "AIRBRIDGE_PARENT_PID",
+                  System.Diagnostics.Process.GetCurrentProcess().Id.ToString() },
             },
             _root, "listening on 127.0.0.1:49876", _log, OnChildLine);
         var bridge = new Child("bridge", BridgePath(), "",
@@ -987,6 +1141,7 @@ internal sealed class TrayApp : ApplicationContext
                 CreateNoWindow = true,
             };
             _beacon = Process.Start(start);
+            ChildJob.Add(_beacon);
             _beaconLog = Path.Combine(_supervisor.LogDirectory, "beacon.log");
             StartBeaconReader(_beacon.StandardOutput);
             StartBeaconReader(_beacon.StandardError);

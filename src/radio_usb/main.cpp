@@ -367,15 +367,27 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
 
     // The supervisor stops children with TerminateProcess, which leaves the
     // RTL8821CU in the middle of a USB transfer and wedges the chip until it is
-    // physically replugged (measured repeatedly tonight: 0.03 s CPU for minutes,
-    // then "no device" or a hung init). A named event lets it ask for a clean
-    // stop instead: closing the listener makes accept() fail, which takes the
-    // ordinary teardown path (StopRxLoop, device Stop, libusb release), so the
-    // next start works without touching the cable.
+    // physically replugged (measured repeatedly: 0.03 s CPU for minutes, then
+    // "no device" or a hung init). Two handles let us stop cleanly instead:
+    //   - Local\DropBridgeRadioStop, which the supervisor signals on a normal
+    //     exit or a restart, and
+    //   - the supervisor's own process handle, so a *crashed* or force-killed
+    //     supervisor still gets a clean stop before the job object terminates us.
+    // Either way we close the listener, accept() fails, and the ordinary
+    // teardown runs (StopRxLoop, device Stop, libusb release).
     HANDLE stop_event = OpenEventW(SYNCHRONIZE, FALSE, L"Local\\DropBridgeRadioStop");
-    if (stop_event != nullptr) {
-        std::thread([listener, stop_event]() {
-            WaitForSingleObject(stop_event, INFINITE);
+    HANDLE parent_process = nullptr;
+    if (const char *parent_pid = std::getenv("AIRBRIDGE_PARENT_PID")) {
+        const DWORD pid = static_cast<DWORD>(std::strtoul(parent_pid, nullptr, 10));
+        if (pid != 0) parent_process = OpenProcess(SYNCHRONIZE, FALSE, pid);
+    }
+    if (stop_event != nullptr || parent_process != nullptr) {
+        std::thread([listener, stop_event, parent_process]() {
+            HANDLE handles[2];
+            DWORD count = 0;
+            if (stop_event != nullptr) handles[count++] = stop_event;
+            if (parent_process != nullptr) handles[count++] = parent_process;
+            WaitForMultipleObjects(count, handles, FALSE, INFINITE);
             closesocket(listener);
         }).detach();
     }

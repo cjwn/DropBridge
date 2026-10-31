@@ -1,5 +1,21 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-01 01:46：Q55 收口——强杀托盘不再留残留、网卡也不再楔死
+
+- 三层修复：
+  1. **作业对象**：非 radio 子进程全部 `AssignProcessToJobObject` 到 `KILL_ON_JOB_CLOSE` 的
+     job（`ChildJob`，kernel32 P/Invoke），父进程一死系统连带清理，端口不残留；
+  2. **radio 不进作业**：改为收 `AIRBRIDGE_PARENT_PID`，用 `WaitForMultipleObjects` 同时等
+     父进程句柄与 `Local\DropBridgeRadioStop`，任一触发就关监听走干净收尾（进作业会被
+     TerminateProcess，正是楔死芯片的原因）；
+  3. **启动回收**：`ReclaimLeftovers()` 只在端口被占时回收**本包目录下**的同类进程。
+- 实测：就绪后 `Stop-Process -Force` 强杀托盘 → 8 秒内本包进程与 49876/49877/8771 全消失；
+  立刻重启（**不拔插**）40→43 秒到数据面、`shutdown: done` / exit 0。
+- 顺带修掉一个我自己引入的坑：固件就绪轮询原先按 20000 **次**计数（每次 USB 读在卡死时要 ~15 ms），
+  实测挂起 **309 秒**才超时；改为**按墙钟 1 秒**。
+- 注意：强杀后 radio 的最后几行日志写不出来（它的日志走父进程的管道），所以“干净退出”是靠
+  **行为**证明的：不拔插即可再次就绪。
+
 ## 2026-10-31 23:56：Q58 残留真正修掉（RX 线程不再 detach）
 
 - **根因是我们自己的启动顺序，不是 devourer**：RX 线程原先在 `accept()` 之前启动（还先睡 1 s），
