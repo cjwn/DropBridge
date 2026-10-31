@@ -1,5 +1,18 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-10-31 23:56：Q58 残留真正修掉（RX 线程不再 detach）
+
+- **根因是我们自己的启动顺序，不是 devourer**：RX 线程原先在 `accept()` 之前启动（还先睡 1 s），
+  而 `StartRxLoop()` 进入时 `clear_stale=true` 会**清掉 `_rx_stop`** → 停止请求在循环还没看它之前就被吞掉，
+  join 永远等不到。这也解释了日志里“finished 之后 1 秒又出现 entering StartRxLoop”的怪现象。
+- 修法三条：
+  1. RX 线程改到 `accept()` 成功 + HELLO 发完之后才启动（accept 失败的迭代没有线程，无需等待）；
+  2. 两条收尾路径统一：`StopRxLoop()` → 有界等 2 s → 仍在则 `radio->Stop()` 取消传输 → 再等 2 s →
+     能回就 join，只有两次都失败才 detach；
+  3. accept 失败且本轮没有线程时直接跳过等待（之前这里白等 2 s）。
+- 实测：整段收尾 **48 ms**、`shutdown: done`、`exit 0`、无 detach；停→启循环（不拔插）连续通过。
+  期间有一次启动命中已知的“init 卡住”（Q51 家族），设备自行恢复，不拔插也能再起。
+
 ## 2026-10-31 23:20：Q57 修完（静默看门狗）+ Q58 残留量化
 
 - **Q57（卡死进程被当健康）已修并真机验证**：`Child.LastOutputUtc` 每行输出打点，

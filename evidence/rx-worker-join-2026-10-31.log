@@ -1,0 +1,58 @@
+# Q58 residual closed: the RX worker is joined, not detached (2026-10-31 23:45-23:56)
+
+## the real cause (not a devourer bug)
+
+`StartRxLoop()` runs `start_rx_loop(..., clear_stale=true)`, which **clears `_rx_stop`
+on entry**. The radio used to start its RX worker *before* `accept()`, with a 1 s sleep
+first. On a stop, the sequence was:
+
+  StopRxLoop()            <- requested while the worker was still in that 1 s sleep
+  ... accept fails ...
+  worker wakes, calls StartRxLoop -> CLEARS the stop flag -> runs forever
+
+So the stop request was consumed before the loop looked at it, and the join could never
+finish. That is why `StopRxLoop()` and even `Stop()` did not bring it back: the loop had
+been told to clear its own stop flag by the very call that started it.
+
+Earlier instrumentation showed a second "rx thread entering StartRxLoop" one second
+after "rx thread finished" - the same loop iteration restarting, which fits exactly.
+
+## the fix
+
+1. The RX worker is now started **after** `accept()` succeeds and HELLO is sent, i.e.
+   only for an iteration that actually has a client. An iteration whose accept fails has
+   no worker at all, so there is nothing to stop and nothing to wait for.
+2. Both teardown paths (client gone, and accept failure) use the same bounded shape:
+   `StopRxLoop()` -> wait up to 2 s for `rx_ended` -> if still inside, `radio->Stop()`
+   to cancel its transfers -> wait up to 2 s more -> join if it came back, detach only as
+   a last resort.
+3. The accept-failure path skips the wait entirely when this iteration never started a
+   worker ("no worker in this iteration").
+
+## measured teardown after the fix
+
+  23:50:56.815  shutdown: rx loop stopped; no worker in this iteration
+  23:50:56.816  shutdown: stopping queue
+  23:50:56.817  shutdown: queue stopped; leaving accept loop
+  23:50:56.818  shutdown: stopping stats thread
+  23:50:56.819  shutdown: joining writer
+  23:50:56.820  shutdown: stopping the device
+  23:50:56.860  shutdown: device stopped; releasing radio
+  23:50:56.862  shutdown: done
+  23:50:56.863  stopped (exit 0)
+
+Whole teardown inside 48 ms, no wait, **no detach**. The earlier 2 s stall was the old
+code waiting for a worker that the failed-accept iteration never had.
+
+## cycles with the final binary (no replug)
+
+  cycle A  23:51:16 start -> radio never reached listening, killed by auto-exit
+           (the intermittent hung init, Q51 family; the device recovered on its own)
+  cycle B  23:53:52 start -> listening 23:54:34 (41 s) -> shutdown: done / exit 0
+
+## what this means
+
+The detach path is now unreachable in the normal stop sequence and exists only as a
+guard against a worker that ignores both a stop request and a device stop. The original
+"why is the RX thread detached" question is answered: it was our own start order, not
+devourer's RX loop.

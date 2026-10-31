@@ -410,24 +410,10 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     std::atomic<bool> rx_ended{false};
     const bool no_rx = env_flag("AIRBRIDGE_NO_RX");
     std::thread rx_thread;
-    if (!no_rx) {
-        rx_thread = std::thread([&] {
-            std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-            logger->warn("shutdown: rx thread entering StartRxLoop");
-            try {
-                radio->StartRxLoop([&](const Packet &packet) {
-                    on_rx(packet, queue, state, client_ready);
-                });
-                logger->warn("shutdown: rx thread returned from StartRxLoop");
-            } catch (const std::exception &error) {
-                logger->error("radio: RX loop died: {}", error.what());
-            }
-            logger->warn("shutdown: rx thread finished");
-            rx_ended = true;
-        });
-    } else {
-        logger->info("radio: AIRBRIDGE_NO_RX=1, RX loop skipped");
-    }
+    // The RX worker is started only after a client is accepted (see below).
+    // Starting it before accept() raced the stop path: StartRxLoop() clears the
+    // stale stop flag on entry, so a StopRxLoop() issued while the worker was
+    // still sleeping was lost and that loop could never be stopped.
 
     const SOCKET client = accept(listener, nullptr, nullptr);
     if (client == INVALID_SOCKET) {
@@ -438,9 +424,16 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         // teardown is exactly where a stuck call must be visible.
         logger->warn("shutdown: accept failed; stopping rx loop");
         radio->StopRxLoop();
-        logger->warn("shutdown: rx loop stopped; waiting for the rx thread");
-        for (int i = 0; i < 20 && !rx_ended.load(); ++i) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        // Only this iteration's client ever starts a worker, so an iteration
+        // that fails accept has nothing to wait for; skip a pointless 2 s sleep.
+        if (rx_thread.joinable()) {
+            logger->warn("shutdown: rx loop stopped; waiting for the rx thread");
+            for (int i = 0; i < 20 && !rx_ended.load(); ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+        else {
+            logger->warn("shutdown: rx loop stopped; no worker in this iteration");
         }
         if (rx_thread.joinable() && !rx_ended.load()) {
             // The worker is still inside StartRxLoop, which means its transfers
@@ -488,6 +481,26 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     }
     client_ready = true;
     logger->info("radio: client connected, HELLO sent at {} ms", elapsed_ms());
+
+    // Now that a client exists, start the receive worker. Frames are dropped by
+    // on_rx until client_ready, which is already true here.
+    if (!no_rx) {
+        rx_thread = std::thread([&] {
+            logger->warn("shutdown: rx thread entering StartRxLoop");
+            try {
+                radio->StartRxLoop([&](const Packet &packet) {
+                    on_rx(packet, queue, state, client_ready);
+                });
+                logger->warn("shutdown: rx thread returned from StartRxLoop");
+            } catch (const std::exception &error) {
+                logger->error("radio: RX loop died: {}", error.what());
+            }
+            logger->warn("shutdown: rx thread finished");
+            rx_ended = true;
+        });
+    } else {
+        logger->info("radio: AIRBRIDGE_NO_RX=1, RX loop skipped");
+    }
 
     // Declared outside the loop so the accept/HELLO failure paths can join them
     // too; a joinable std::thread destroyed at scope exit aborts the process.
@@ -669,7 +682,25 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
 
     client_ready = false;
     radio->StopRxLoop();
-    if (rx_thread.joinable()) rx_thread.join();
+    // Bounded, like the accept-failure path: a worker that will not come back
+    // must not hold the whole teardown hostage.
+    if (rx_thread.joinable()) {
+        for (int i = 0; i < 20 && !rx_ended.load(); ++i) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        if (!rx_ended.load()) {
+            radio->Stop();
+            radio_stopped = true;
+            for (int i = 0; i < 20 && !rx_ended.load(); ++i) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            }
+        }
+        if (rx_ended.load()) rx_thread.join();
+        else {
+            logger->warn("shutdown: rx worker did not return; detaching");
+            rx_thread.detach();
+        }
+    }
     queue.stop();
     if (writer.joinable()) writer.join();
 
