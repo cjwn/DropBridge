@@ -32,6 +32,11 @@ internal static class SettingsTest
             Check(ref failures, again.DeviceName == "客厅的电脑", "device name persists");
             Check(ref failures, !again.Beacon, "beacon=off persists");
 
+            // Q64: the still-copy switch defaults to on and is remembered.
+            Check(ref failures, again.StillCopy, "stillCopy defaults to on");
+            again.SetStillCopy(false);
+            Check(ref failures, !Settings.Load(root).StillCopy, "stillCopy=off persists");
+
             Check(ref failures, Settings.CleanName("DropBridge") == "DropBridge", "plain name accepted");
             Check(ref failures, Settings.CleanName("  小林 的电脑  ") == "小林 的电脑", "trimmed");
             Check(ref failures, Settings.CleanName("") == null, "empty rejected");

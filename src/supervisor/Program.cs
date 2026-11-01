@@ -1215,6 +1215,7 @@ internal sealed class TrayApp : ApplicationContext
     private bool _beaconWanted = true;
     private ToolStripMenuItem _beaconItem;
     private ToolStripMenuItem _nameItem;
+    private ToolStripMenuItem _stillCopyItem;
     private string _beaconLog;
     private readonly Settings _prefs;
 
@@ -1245,6 +1246,9 @@ internal sealed class TrayApp : ApplicationContext
         _beaconItem = new ToolStripMenuItem("蓝牙 beacon（帮 iPhone 发现这台电脑）", null,
             delegate { ToggleBeacon(); }) { Checked = _beaconWanted, ToolTipText = "周期性发送 Apple 的 AirDrop 蓝牙广播，让 iPhone 的 AWDL 保持唤醒；关掉后手机可能看不到本机" };
         menu.Items.Add(_beaconItem);
+        _stillCopyItem = new ToolStripMenuItem("为实况图生成单图副本", null,
+            delegate { ToggleStillCopy(); }) { Checked = _prefs.StillCopy, ToolTipText = "收到实况照片（HEIC/实况 JPG + MOV）时，在同目录生成一份 -still.jpg 静图，Windows 上直接可看" };
+        menu.Items.Add(_stillCopyItem);
         menu.Items.Add(new ToolStripMenuItem("重新启动后端", null, delegate { StartBackends(); }));
         menu.Items.Add(new ToolStripMenuItem("重置链路", null, delegate
         {
@@ -1362,6 +1366,8 @@ internal sealed class TrayApp : ApplicationContext
             {
                 Thread.Sleep(300);
                 string name = args.Name;
+                // Q64: our own still copies must not bounce back as "new files".
+                if (name.EndsWith("-still.jpg", StringComparison.OrdinalIgnoreCase)) return;
                 long size = 0;
                 try
                 {
@@ -1372,6 +1378,17 @@ internal sealed class TrayApp : ApplicationContext
                 {
                 }
                 Ui(delegate { ShowReceived(args.FullPath, name, size); });
+                // Q64: the still copy is I/O bound (WIC decode + re-encode), so it
+                // runs on its own STA thread; WPF imaging prefers STA.
+                if (_prefs.StillCopy)
+                {
+                    string file = args.FullPath;
+                    string shown = name;
+                    var worker = new Thread(delegate() { MaybeCreateStillCopy(file, shown); });
+                    worker.IsBackground = true;
+                    worker.SetApartmentState(ApartmentState.STA);
+                    worker.Start();
+                }
             };
         }
         catch (Exception error)
@@ -1393,6 +1410,9 @@ internal sealed class TrayApp : ApplicationContext
         string extension = Path.GetExtension(name).ToLowerInvariant();
         if (Array.IndexOf(PictureExtensions, extension) < 0)
         {
+            // Q64: the movie half of a Live Photo is announced by the picture's
+            // own toast, so do not add a second notification for it.
+            if (Array.IndexOf(MotionExtensions, extension) >= 0 && HasStillSibling(path, name)) return;
             LogLine("received file (balloon): " + name);
             _icon.ShowBalloonTip(4000, _icon.Text,
                 "收到文件：" + name + " (" + (bytes / 1024) + " KB)", ToolTipIcon.Info);
@@ -1462,12 +1482,90 @@ internal sealed class TrayApp : ApplicationContext
         return Math.Round(bytes / (1024.0 * 1024.0), 1) + " MB";
     }
 
+    private static bool HasStillSibling(string path, string name)
+    {
+        string stem = Path.GetFileNameWithoutExtension(name);
+        string directory = Path.GetDirectoryName(path);
+        foreach (string candidate in StillExtensions)
+        {
+            if (File.Exists(Path.Combine(directory, stem + candidate))) return true;
+        }
+        return false;
+    }
+
     private void LogLine(string message)
     {
         try { _supervisor.Log(message); }
         catch (Exception) { }
     }
 
+
+    /* Q64: Live Photos arrive as a still plus a .MOV, HEIC arrives on its own.
+     * Either way, write "<name>-still.jpg" next to it once. */
+    private static readonly string[] StillExtensions = { ".heic", ".heif", ".jpg", ".jpeg", ".png" };
+    private static readonly string[] MotionExtensions = { ".mov", ".mp4" };
+
+    private void MaybeCreateStillCopy(string path, string name)
+    {
+        if (!_prefs.StillCopy) return;
+        string extension = Path.GetExtension(name).ToLowerInvariant();
+        if (name.EndsWith("-still.jpg", StringComparison.OrdinalIgnoreCase)) return;
+
+        bool still = Array.IndexOf(StillExtensions, extension) >= 0;
+        bool motion = Array.IndexOf(MotionExtensions, extension) >= 0;
+        if (!still && !motion) return;
+
+        string directory = Path.GetDirectoryName(path);
+        string stem = Path.GetFileNameWithoutExtension(name);
+        string source = null;
+        if (still)
+        {
+            source = path;
+        }
+        else
+        {
+            // The movie half of a pair: the still may be .HEIC, .JPG or .PNG.
+            for (int attempt = 0; attempt < 10 && source == null; attempt++)
+            {
+                foreach (string candidate in StillExtensions)
+                {
+                    string sibling = Path.Combine(directory, stem + candidate);
+                    if (File.Exists(sibling)) { source = sibling; break; }
+                }
+                if (source == null) Thread.Sleep(300);
+            }
+            if (source == null) return;
+        }
+
+        // Wait briefly for the movie half so a plain still is not mistaken for a
+        // Live Photo; HEIC is worth converting even without one.
+        bool heic = extension == ".heic" || extension == ".heif" ||
+                    source.EndsWith(".heic", StringComparison.OrdinalIgnoreCase) ||
+                    source.EndsWith(".heif", StringComparison.OrdinalIgnoreCase);
+        bool live = false;
+        for (int attempt = 0; attempt < 10 && !live; attempt++)
+        {
+            foreach (string candidate in MotionExtensions)
+            {
+                if (File.Exists(Path.Combine(directory, stem + candidate))) { live = true; break; }
+            }
+            if (!live) Thread.Sleep(300);
+        }
+        if (!live && !heic) return;
+
+        string target = Path.Combine(directory, stem + "-still.jpg");
+        if (File.Exists(target)) return;
+        string error;
+        if (StillCopy.TryCreate(source, target, out error))
+        {
+            LogLine("still copy: " + Path.GetFileName(target) + " from " + Path.GetFileName(source) +
+                    (live ? " (live photo)" : " (heic)"));
+        }
+        else
+        {
+            LogLine("still copy failed for " + Path.GetFileName(source) + ": " + error);
+        }
+    }
 
     private void StartBackends()
     {
@@ -1602,6 +1700,17 @@ internal sealed class TrayApp : ApplicationContext
         catch
         {
         }
+    }
+
+    /* Q64: toggles the automatic still copy for Live Photos / HEIC files. */
+    private void ToggleStillCopy()
+    {
+        _prefs.SetStillCopy(!_prefs.StillCopy);
+        if (_stillCopyItem != null) _stillCopyItem.Checked = _prefs.StillCopy;
+        LogLine("still copy " + (_prefs.StillCopy ? "on" : "off"));
+        _icon.ShowBalloonTip(3000, _icon.Text,
+            _prefs.StillCopy ? "已开启：实况图会自动生成 -still.jpg" : "已关闭：不再生成实况图的单图副本",
+            ToolTipIcon.Info);
     }
 
     /* Q60: the receiver reads {"do": "set", "name": ...} from stdin, so the new
@@ -2103,12 +2212,15 @@ internal sealed class Settings
 
     public string DeviceName { get; private set; }
     public bool Beacon { get; private set; }
+    // Q64: write a plain still copy for Live Photos / HEIC files.
+    public bool StillCopy { get; private set; }
 
-    private Settings(string path, string deviceName, bool beacon)
+    private Settings(string path, string deviceName, bool beacon, bool stillCopy)
     {
         _path = path;
         DeviceName = deviceName;
         Beacon = beacon;
+        StillCopy = stillCopy;
     }
 
     public static Settings Load(string dataDirectory)
@@ -2116,6 +2228,7 @@ internal sealed class Settings
         string path = Path.Combine(dataDirectory, FileName);
         string deviceName = DefaultDeviceName;
         bool beacon = true;
+        bool stillCopy = true;
         try
         {
             if (File.Exists(path))
@@ -2138,6 +2251,11 @@ internal sealed class Settings
                         bool on;
                         if (bool.TryParse(value, out on)) beacon = on;
                     }
+                    else if (key.Equals("stillCopy", StringComparison.OrdinalIgnoreCase))
+                    {
+                        bool on;
+                        if (bool.TryParse(value, out on)) stillCopy = on;
+                    }
                 }
             }
             else if (File.Exists(Path.Combine(dataDirectory, "beacon-off")))
@@ -2149,7 +2267,7 @@ internal sealed class Settings
         catch (Exception)
         {
         }
-        return new Settings(path, deviceName, beacon);
+        return new Settings(path, deviceName, beacon, stillCopy);
     }
 
     public void SetDeviceName(string name)
@@ -2164,6 +2282,12 @@ internal sealed class Settings
         Save();
     }
 
+    public void SetStillCopy(bool enabled)
+    {
+        StillCopy = enabled;
+        Save();
+    }
+
     private void Save()
     {
         try
@@ -2174,8 +2298,10 @@ internal sealed class Settings
             text.AppendLine("# DropBridge 设置（关闭托盘后可直接改，下一个启动生效）");
             text.AppendLine("# deviceName: iPhone 隔空投送里显示的名字，1-63 个字符");
             text.AppendLine("# beacon: 是否周期性发蓝牙 beacon 帮 iPhone 发现本机");
+            text.AppendLine("# stillCopy: 收到的实况图/HEIC 是否自动生成一份单图 JPG 副本");
             text.AppendLine("deviceName=" + DeviceName);
             text.AppendLine("beacon=" + (Beacon ? "true" : "false"));
+            text.AppendLine("stillCopy=" + (StillCopy ? "true" : "false"));
             File.WriteAllText(_path, text.ToString(), new UTF8Encoding(false));
         }
         catch (Exception)
@@ -2201,6 +2327,52 @@ internal sealed class Settings
             if (c == '\ufeff') return null;
         }
         return name;
+    }
+}
+
+/* Q64: turn a received Live Photo (still + .MOV) or a plain HEIC into one
+ * ordinary still JPEG, so it opens in any Windows viewer without the HEIF
+ * codec. A JPEG still is copied byte-for-byte; everything else is decoded
+ * through WIC (WPF's BitmapDecoder) and re-encoded. */
+internal static class StillCopy
+{
+    public static bool TryCreate(string source, string target, out string error)
+    {
+        error = null;
+        try
+        {
+            if (!File.Exists(source))
+            {
+                error = "missing " + source;
+                return false;
+            }
+            string extension = Path.GetExtension(source).ToLowerInvariant();
+            if (extension == ".jpg" || extension == ".jpeg")
+            {
+                File.Copy(source, target, true);
+                return true;
+            }
+            var decoder = System.Windows.Media.Imaging.BitmapDecoder.Create(
+                new Uri(source), System.Windows.Media.Imaging.BitmapCreateOptions.None,
+                System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+            var frame = decoder.Frames[0];
+            var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder { QualityLevel = 92 };
+            encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(frame));
+            using (FileStream stream = File.Create(target)) encoder.Save(stream);
+            return true;
+        }
+        catch (Exception problem)
+        {
+            error = problem.Message;
+            try
+            {
+                if (File.Exists(target)) File.Delete(target);
+            }
+            catch (Exception)
+            {
+            }
+            return false;
+        }
     }
 }
 

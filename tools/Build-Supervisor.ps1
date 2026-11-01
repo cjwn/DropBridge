@@ -34,10 +34,17 @@ $resourceArgument = @()
 if (Test-Path $icon) { $resourceArgument += "/resource:$icon,tray-light.ico" }
 if (Test-Path $trayDark) { $resourceArgument += "/resource:$trayDark,tray-dark.ico" }
 
-# Q61: the tray stays DPI-unaware on purpose (its menus already render that way);
-# the received-file popup converts the physical screen rectangle back to the
-# virtualised coordinates the shell uses, see TrayIcons.RealScale().
-& $csc /nologo /target:winexe /optimize+ "/out:$out" @iconArgument @resourceArgument `
+# Q64: WIC through WPF is used to decode HEIC/HEIF stills (GDI+ cannot), so the
+# build references the in-box WPF assemblies.
+$wpf = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\WPF'
+$wpfArgument = @()
+$framework = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319'
+if (Test-Path (Join-Path $wpf 'PresentationCore.dll')) {
+    $wpfArgument = @("/r:`"$wpf\PresentationCore.dll`"", "/r:`"$wpf\WindowsBase.dll`"",
+                     "/r:`"$framework\System.Xaml.dll`"")
+}
+
+& $csc /nologo /target:winexe /optimize+ "/out:$out" @iconArgument @resourceArgument @wpfArgument `
     /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source
 if ($LASTEXITCODE -ne 0) { throw "csc failed with $LASTEXITCODE" }
 
@@ -50,7 +57,7 @@ Copy-Item $out $legacy -Force
 
 if ($Test) {
     $testExe = Join-Path $outDir 'channel_sequence_test.exe'
-    & $csc /nologo /target:exe /main:ChannelSequenceTest "/out:$testExe" `
+    & $csc /nologo /target:exe /main:ChannelSequenceTest "/out:$testExe" @wpfArgument `
         /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source `
         (Join-Path $root 'src\supervisor\channel_sequence_test.cs')
     if ($LASTEXITCODE -ne 0) { throw "test compile failed: $LASTEXITCODE" }
@@ -58,7 +65,7 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw "offline test failed: $LASTEXITCODE" }
 
     $trayTest = Join-Path $outDir 'tray_icon_test.exe'
-    & $csc /nologo /target:exe /main:TrayIconTest "/out:$trayTest" @resourceArgument `
+    & $csc /nologo /target:exe /main:TrayIconTest "/out:$trayTest" @resourceArgument @wpfArgument `
         /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source `
         (Join-Path $root 'src\supervisor\tray_icon_test.cs')
     if ($LASTEXITCODE -ne 0) { throw "tray icon test compile failed: $LASTEXITCODE" }
@@ -66,7 +73,7 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw "tray icon test failed: $LASTEXITCODE" }
 
     $settingsTest = Join-Path $outDir 'settings_test.exe'
-    & $csc /nologo /target:exe /main:SettingsTest "/out:$settingsTest" `
+    & $csc /nologo /target:exe /main:SettingsTest "/out:$settingsTest" @wpfArgument `
         /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source `
         (Join-Path $root 'src\supervisor\settings_test.cs')
     if ($LASTEXITCODE -ne 0) { throw "settings test compile failed: $LASTEXITCODE" }

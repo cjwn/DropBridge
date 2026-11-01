@@ -1,5 +1,21 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-02 00:55：Q64 实况图自动生成单图副本（带开关）
+
+- 需求：收到苹果实况图自动生成一份「单图片副本」，要可选开关。
+- 规则：`IMG.HEIC/.JPG/.PNG + IMG.MOV` 或单独的 `.HEIC/.HEIF` → 同目录 `IMG-still.jpg`；
+  JPG 静图字节级复制（不重编码），PNG/HEIC 走 WIC（WPF BitmapDecoder）解码后存 JPEG(92)。
+  普通单张 JPG/PNG 不生成；自己生成的 `-still.jpg` 被 watcher 忽略，不递归不重复通知。
+- 开关：`settings.ini` 的 `stillCopy`（默认 true）+ 托盘勾选项「为实况图生成单图副本」，
+  切换即写盘。生成工作在独立 STA 线程做，不卡托盘。
+- 构建：新增 WPF 引用 `PresentationCore/WindowsBase/System.Xaml`（系统自带，无新依赖）。
+- 验证：`_live2.JPG`+`_live2.MOV` → `_live2-still.jpg`（8230 B，与源一致）；
+  `_pnglive.PNG`+`_pnglive.MOV` → `_pnglive-still.jpg`（走 WIC 重编码）；单张 PNG 不生成；
+  .MOV 不再单独弹气泡；`-Test` 全过（settings 测试覆盖 stillCopy 默认值与持久化）。
+- 未验证：没有真实 HEIC 样本，只验证了 WIC 解码→JPEG 这条链路（用 PNG 走通）；
+  无 HEIF 扩展时会记 `still copy failed` 并跳过。
+- 证据：`evidence/still-copy-2026-11-02.log`。
+
 ## 2026-11-01 23:20：Q63 弃用自绘弹窗，收图只走系统 toast
 
 - 用户不要 Q61 那个右下角自绘小窗了。删掉 `ReceivedPopup` 与 `AppIdentity.IconForPopup`

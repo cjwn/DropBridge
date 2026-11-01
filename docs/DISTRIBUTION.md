@@ -81,6 +81,9 @@ data\awdl_netd.addr
    点按钮 → 系统用 `dropbridge://copy?file=...` 启动本 exe → 第二个实例经命名管道转给
    正在运行的实例 → 复制到剪贴板。包仍是 zip；换机器首次运行会重写这几项，
    菜单「清理通知注册信息」可撤销。
+8. 实况图（Q64）：收到 `X.HEIC/.JPG/.PNG + X.MOV`（或单独的 `.HEIC`）时，在同目录生成
+   `X-still.jpg` 单图副本；JPG 直接复制，PNG/HEIC 走 WIC 解码后存 JPEG。
+   `settings.ini` 的 `stillCopy`（默认 true）与托盘勾选项控制开关。
 
 ## 4. 本机验证（2026-10-29 00:36–00:41）
 
