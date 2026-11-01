@@ -119,6 +119,8 @@ powershell -File tools\Build-Sfx.ps1 -SkipPayload  # 可选：单文件 exe 形�
 `tools\Build-Supervisor.ps1 -Test` 会编译并运行 `src\supervisor\tray_icon_test.cs`
 检查两份资源都能按 16×16 读出来。
 
-小尺寸帧是手绘的：`python tools\hint_icon.py` 保留 48/64/256 原图，把 16/20/24/32
-重画成 1 px 笔画的像素图（显示器 + 手机，不画箭头）。原 ICO 的小帧是从 256 直接
-下采样来的，16 px 上细线只剩 30–60 % 覆盖，托盘里会糊成一团灰。
+小尺寸帧是重新采样出来的，不是另画的：`python tools\icon_frames.py` 从 256 px 母图
+纯 Lanczos 生成 16/20/24/28/32/40/48/64/256 九档。托盘图标按**物理像素**取帧：
+进程是 DPI 不感知的，`TrayIcons.SmallIconPixels()` 用
+`SetThreadDpiAwarenessContext` 临时读真实 DPI，再按 `SM_CXSMICON` 换算
+（本机 175 % → 28 px），否则 Windows 会把 16 px 帧放大到 28 px，看起来又糊又细。

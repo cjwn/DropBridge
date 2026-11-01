@@ -1001,6 +1001,49 @@ internal static class TrayIcons
         return Load(lightTaskbar ? ForLightTaskbar : ForDarkTaskbar, size);
     }
 
+    /* Q59c: the supervisor is a DPI-unaware process, so SystemInformation.SmallIconSize
+     * reports the 96-DPI value (16) even on a 175 % display where the taskbar draws
+     * 28 px. Windows then stretched our 16 px frame, which looked thin and blurry.
+     * Asking for the real size first gives a frame that is drawn 1:1. The awareness
+     * switch is thread-scoped and put back immediately, so the rest of the UI keeps
+     * its current (unaware) layout. */
+    public static int SmallIconPixels()
+    {
+        IntPtr previous = IntPtr.Zero;
+        try
+        {
+            previous = SetThreadDpiAwarenessContext(new IntPtr(PerMonitorAwareV2));
+            uint dpi = GetDpiForSystem();
+            if (dpi == 0) dpi = 96;
+            int pixels = GetSystemMetricsForDpi(SmCxSmIcon, dpi);
+            if (pixels > 0) return pixels;
+        }
+        catch (Exception)
+        {
+        }
+        finally
+        {
+            if (previous != IntPtr.Zero)
+            {
+                try { SetThreadDpiAwarenessContext(previous); }
+                catch (Exception) { }
+            }
+        }
+        return SystemInformation.SmallIconSize.Width;
+    }
+
+    private const int SmCxSmIcon = 49;
+    private const int PerMonitorAwareV2 = -4;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern uint GetDpiForSystem();
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern int GetSystemMetricsForDpi(int index, uint dpi);
+
     private static Icon Load(string name, Size size)
     {
         try
@@ -1024,6 +1067,7 @@ internal sealed class TrayApp : ApplicationContext
     private readonly NotifyIcon _icon;
     private Icon _trayIcon;
     private bool _taskbarLight;
+    private int _trayPixels;
     private readonly ToolStripMenuItem _status;
     private readonly ToolStripMenuItem _autostart;
     private readonly System.Windows.Forms.Timer _watchdog;
@@ -1074,7 +1118,8 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add(new ToolStripMenuItem("退出", null, delegate { Exit(); }));
 
         _taskbarLight = TrayIcons.TaskbarIsLight();
-        _trayIcon = TrayIcons.ForTaskbar(_taskbarLight, SystemInformation.SmallIconSize) ?? AppIcon();
+        _trayPixels = TrayIcons.SmallIconPixels();
+        _trayIcon = TrayIcons.ForTaskbar(_taskbarLight, new Size(_trayPixels, _trayPixels)) ?? AppIcon();
         _icon = new NotifyIcon
         {
             Icon = _trayIcon,
@@ -1138,7 +1183,8 @@ internal sealed class TrayApp : ApplicationContext
 
     private void ApplyTrayIcon()
     {
-        Icon next = TrayIcons.ForTaskbar(_taskbarLight, SystemInformation.SmallIconSize);
+        _trayPixels = TrayIcons.SmallIconPixels();
+        Icon next = TrayIcons.ForTaskbar(_taskbarLight, new Size(_trayPixels, _trayPixels));
         if (next == null) return;
         Icon previous = _trayIcon;
         _trayIcon = next;

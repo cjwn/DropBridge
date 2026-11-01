@@ -43,8 +43,10 @@ internal static class TrayIconTest
         // Both variants must be distinct files; the same bytes would mean the
         // light/dark mapping collapsed to a single image.
         bool light = TrayIcons.TaskbarIsLight();
-        using (Icon forLight = TrayIcons.ForTaskbar(true, new Size(16, 16)))
-        using (Icon forDark = TrayIcons.ForTaskbar(false, new Size(16, 16)))
+        int pixels = TrayIcons.SmallIconPixels();
+        Console.WriteLine("physical tray size: " + pixels + " px");
+        using (Icon forLight = TrayIcons.ForTaskbar(true, new Size(pixels, pixels)))
+        using (Icon forDark = TrayIcons.ForTaskbar(false, new Size(pixels, pixels)))
         {
             if (forLight == null || forDark == null)
             {
@@ -54,7 +56,8 @@ internal static class TrayIconTest
             }
             else
             {
-                Console.WriteLine("ok ForTaskbar(light)=16x16 ForTaskbar(dark)=16x16");
+                Console.WriteLine("ok ForTaskbar(light)=" + forLight.Width + "x" + forLight.Height +
+                                  " ForTaskbar(dark)=" + forDark.Width + "x" + forDark.Height);
             }
         }
 

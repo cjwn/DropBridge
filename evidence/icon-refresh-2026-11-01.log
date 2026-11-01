@@ -136,3 +136,42 @@ fd52bfe79b3dd306a7c963bf4acf036c22320122a841597656cae8beb190fdc2，即黑色线�
 
 已知取舍：16–32 px 的简化版没有双向箭头（原图细节在那个尺寸必然糊掉）；
 48 px 及以上仍是用户提供的原图，保留箭头。
+
+8. 追加（2026-11-01 13:00–13:25）：真正的根因是 DPI，不是图——恢复原图，按物理像素取帧
+--------------------------------------------------------------------------------------
+用户反馈「还是细条，优先别重绘」。重新量测后发现第三点才是关键：
+
+  GetDpiForSystem（进程 DPI 不感知）   : 96   ← 被虚拟化
+  SetProcessDPIAware 之后 LOGPIXELSX   : 168  ← 真实系统 DPI = 175 %
+  GetSystemMetricsForDpi(SM_CXSMICON,168): 28
+  SystemInformation.SmallIconSize（不感知）: 16
+  SystemInformation.SmallIconSize（感知后）: 28
+
+即：托盘进程是 DPI **不感知**的 .NET Framework 程序，它以为通知区域是 16 px，
+于是拿了 ICO 的 16 px 帧；而任务栏实际按 168 DPI 画 **28 px**，Windows 把 16 px
+放大到 28 px —— 又糊又细。图本身没问题，是取的帧不对。
+
+修复（不重绘）：
+- `TrayIcons.SmallIconPixels()`：用 `SetThreadDpiAwarenessContext(PER_MONITOR_AWARE_V2)`
+  临时把**当前线程**切成感知态，取 `GetDpiForSystem()` + `GetSystemMetricsForDpi(SM_CXSMICON)`
+  得到物理像素（本机 28），然后立刻还原线程上下文——进程仍是 DPI 不感知，菜单布局不变。
+  旧系统缺这些 API 时回退 `SystemInformation.SmallIconSize`。
+- 两份 ICO 用 `tools/icon_frames.py` 从 256 px 母图**重新采样**出
+  16/20/24/28/32/40/48/64/256 九档（纯 Lanczos，不重绘、不加箭头、不改构图）；
+  28 px 帧 solid=70、semi=139，正是 175 % 下任务栏直接 1:1 使用的那一帧。
+- 删掉上一轮手绘的 `tools/hint_icon.py` 与它生成的 16/20/24/32 帧。
+
+验证：
+- `Build-Supervisor.ps1 -Test`：
+  `physical tray size: 28 px`、`ok ForTaskbar(light)=28x28 ForTaskbar(dark)=28x28`、
+  `ok taskbar light=False -> tray-dark.ico`。
+- 重新打包：portable 22,231,883 B（99538788…，343 文件 41.7 MB）、
+  单文件 16,898,048 B（e102d888…）、文件夹版 exe 91,136 B（b8f59c7b…）。
+- portable 解压后 `--check` exit 0、MISSING 0；单文件 `--extract` 后 `--check`
+  exit 0、MISSING 0。
+- 成品文件夹 data\（35 文件 3,985,445 B）备份后原样放回，重启后 6 进程齐全、
+  49876/49877/8771 在听。
+
+仍然存在的限制：100 % DPI（16 px）下，用户提供的素材本身就是 256 的缩小版，
+没有实心像素，看起来会偏软——这是素材在这个尺寸的固有表现，不是取帧错误；
+175 % 这一档现在是 1:1。

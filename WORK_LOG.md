@@ -1,5 +1,20 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-01 13:25：Q59 再修——根因是 DPI，恢复原图按 28 px 帧取图
+
+- 用户反馈「还是细条，优先别重绘」。查到真根因：托盘进程是 **DPI 不感知**的进程，
+  `GetDpiForSystem()` 被虚拟化成 96、`SmallIconSize` 报 16，而真实系统 DPI 是 **168（175 %）**，
+  任务栏按 `GetSystemMetricsForDpi(SM_CXSMICON,168) = 28 px` 绘制 —— Windows 把 16 px
+  帧放大到 28 px，所以又糊又细。图没问题，取的帧错了。
+- 修复：`TrayIcons.SmallIconPixels()` 用 `SetThreadDpiAwarenessContext(PER_MONITOR_AWARE_V2)`
+  临时把当前线程切成感知态读真实 DPI 与 28 px，然后立刻还原（进程和不感知的菜单布局都不变）。
+- 素材回退到用户原图：`tools/icon_frames.py` 从 256 px 母图纯 Lanczos 重新采样出
+  16/20/24/28/32/40/48/64/256 九档，删掉上一轮手绘的 `tools/hint_icon.py`。
+- 验证：`-Test` 打出 `physical tray size: 28 px`、`ForTaskbar(light)=28x28`；重打包
+  portable/单文件后 `--check` 均 exit 0 无 MISSING；成品文件夹重启后 6 进程、三端口在听。
+- 仍存限制：100 % DPI（16 px）下原素材本身偏软，这是素材在该尺寸的固有表现。
+- 证据：`evidence/icon-refresh-2026-11-01.log` 第 8 节。
+
 ## 2026-11-01 13:00：Q59 补充——托盘 16 px 不再糊（手绘小尺寸帧）
 
 - 用户反馈托盘图标发糊。量测两份 ICO：16 px 帧里 alpha>=200 的像素是 **0**（20 px 只有 3 个），
