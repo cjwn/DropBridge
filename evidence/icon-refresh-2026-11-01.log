@@ -98,3 +98,41 @@ fd52bfe79b3dd306a7c963bf4acf036c22320122a841597656cae8beb190fdc2，即黑色线�
 - 黑色线条 exe 图标在深色资源管理器背景上对比度偏低；这是单色素材的固有取舍，
   没有改动用户提供的素材。需要的话可以再做一版“白底圆角方块 + 黑色线条”的 exe 图标。
 - 单文件 stub 的参数透传问题（见第 4 节）是既有行为，本次未修改，只在文档里写清楚。
+
+7. 追加（2026-11-01 12:45–13:00）：托盘 16 px 发糊的根因与修复
+----------------------------------------------------------------
+现象：用户截图里托盘图标是一团灰。
+
+量测两份 ICO 的每一帧（assets\dropbridge.ico、assets\dropbridge-tray-white.ico）：
+
+  16px  alpha>=200: 0      20..199: 103    <20: 153
+  20px  alpha>=200: 3      20..199: 118    <20: 279
+  24px  alpha>=200: 9      20..199: 162    <20: 405
+  32px  alpha>=200: 73     20..199: 172    <20: 779
+  256px alpha>=200: 7994   20..199: 1435   <20: 56107
+
+即 16/20/24 帧是从 256 px 原图直接下采样来的：细线在 16 px 上只剩 30–60 % 覆盖，
+叠在深色任务栏上就是灰糊。本机 DPI=96、SystemInformation.SmallIconSize=16，
+托盘取的就是这张 16 px 帧（Windows 托盘 16 px 是标准值，与是否高 DPI 无关）。
+
+修复：
+- 新增 tools/hint_icon.py：保留原 48/64/256 帧，把 16/20/24/32 重画成 1 px 笔画的
+  像素网格图（显示器 + 手机，与主图同母题；16–32 px 不画双向箭头，空间不够会糊成一团）。
+- 重建后 16 px 帧 solid=48、semi=0；20/24/32 px 帧分别为 67/77/105 个实心像素。
+- 两份 ICO 都重新生成：dropbridge.ico 10,874 B、dropbridge-tray-white.ico 12,386 B
+  （帧数仍是 16/20/24/32/48/64/256 七档）。
+
+验证：
+- `powershell -File tools\Build-Supervisor.ps1 -Test` 全过
+  （`ok tray-light.ico 16x16 (10874 B)`、`ok tray-dark.ico 16x16 (12386 B)`）。
+- Shell32!ExtractIconEx 取三个 exe 的 16 px 小图标：build 下的 supervisor、
+  dist\DropBridge\DropBridge.exe、dist\DropBridge.exe 都是新的像素图
+  （PNG 见 build\_small_*.png，16×16，179 B）。
+- 重新打包：headless 16.1 MB、单文件 16,884,736 B（86cab379…）、
+  portable 22,221,749 B（759e475f…，343 文件 41.7 MB）。
+- portable 解压后 `--check` exit 0、MISSING 0；单文件 `--extract` 后 `--check`
+  exit 0、MISSING 0。
+- 成品文件夹的 data\（28 文件 3,440,599 B）备份后原样放回，重启后托盘使用新图。
+
+已知取舍：16–32 px 的简化版没有双向箭头（原图细节在那个尺寸必然糊掉）；
+48 px 及以上仍是用户提供的原图，保留箭头。

@@ -118,3 +118,7 @@ powershell -File tools\Build-Sfx.ps1 -SkipPayload  # 可选：单文件 exe 形�
 素材（多尺寸 ICO，构建不依赖任何图像库）；换图标就是替换这两个文件后重新编译，
 `tools\Build-Supervisor.ps1 -Test` 会编译并运行 `src\supervisor\tray_icon_test.cs`
 检查两份资源都能按 16×16 读出来。
+
+小尺寸帧是手绘的：`python tools\hint_icon.py` 保留 48/64/256 原图，把 16/20/24/32
+重画成 1 px 笔画的像素图（显示器 + 手机，不画箭头）。原 ICO 的小帧是从 256 直接
+下采样来的，16 px 上细线只剩 30–60 % 覆盖，托盘里会糊成一团灰。
