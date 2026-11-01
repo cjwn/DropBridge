@@ -68,6 +68,11 @@ if (Test-Path $pth) {
 
 Copy-Item (Join-Path $airdrop '*.py') (Join-Path $stage 'backend\airdrop') -Force
 Copy-Item (Join-Path $root 'tools\Start-Chain.ps1') (Join-Path $stage 'tools') -Force
+# Q62: notification helpers, used by the tray in the single-file payload too.
+foreach ($helper in 'toast.ps1', 'register.ps1') {
+    $source = Join-Path $root (Join-Path 'tools' $helper)
+    if (Test-Path $source) { Copy-Item $source (Join-Path $stage 'tools') -Force }
+}
 
 foreach ($dll in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
     $src = Join-Path $env:SystemRoot "System32\$dll"

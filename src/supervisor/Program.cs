@@ -18,6 +18,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Drawing;
 using System.IO;
+using System.IO.Pipes;
 using System.Management;
 using System.Globalization;
 using System.Text;
@@ -1391,27 +1392,16 @@ internal sealed class ReceivedPopup : Form
 
     private void CopyToClipboard()
     {
-        try
+        string error;
+        if (ClipboardBridge.Copy(_path, out error))
         {
-            var data = new DataObject();
-            Image image = null;
-            try
-            {
-                using (Image loaded = Image.FromFile(_path)) image = new Bitmap(loaded);
-            }
-            catch (Exception)
-            {
-            }
-            if (image != null) data.SetData(DataFormats.Bitmap, true, image);
-            data.SetData(DataFormats.FileDrop, true, new[] { _path });
-            Clipboard.SetDataObject(data, true);
             _copy.Text = "已复制";
             _copy.Enabled = false;
             _log("copied to clipboard: " + _path);
         }
-        catch (Exception error)
+        else
         {
-            _log("clipboard copy failed: " + error.Message);
+            _log("clipboard copy failed: " + error);
             _copy.Text = "复制失败";
         }
     }
@@ -1484,6 +1474,8 @@ internal sealed class TrayApp : ApplicationContext
         _nameItem = new ToolStripMenuItem("设备名称：" + _prefs.DeviceName + "…", null,
             delegate { RenameDevice(); }) { ToolTipText = "iPhone 隔空投送里显示的名字；改完立即生效并记住" };
         menu.Items.Add(_nameItem);
+        menu.Items.Add(new ToolStripMenuItem("清理通知注册信息", null,
+            delegate { RemoveRegistration(); }) { ToolTipText = "删掉开始菜单快捷方式与 dropbridge:// 协议（取消后系统通知里的按钮不再可用）" });
         _beaconWanted = _prefs.Beacon;
         _beaconItem = new ToolStripMenuItem("蓝牙 beacon（帮 iPhone 发现这台电脑）", null,
             delegate { ToggleBeacon(); }) { Checked = _beaconWanted, ToolTipText = "周期性发送 Apple 的 AirDrop 蓝牙广播，让 iPhone 的 AWDL 保持唤醒；关掉后手机可能看不到本机" };
@@ -1509,6 +1501,17 @@ internal sealed class TrayApp : ApplicationContext
         };
         _icon.DoubleClick += delegate { OpenFolder(_supervisor.ReceivedDirectory); };
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+
+        // Q62: the toast button talks back through a named pipe; the protocol and
+        // Start-menu identity are written once (they live in HKCU, not the zip).
+        Activation.StartServer(delegate(string uri) { Ui(delegate { HandleActivation(uri); }); });
+        string registrationError;
+        if (!AppIdentity.EnsureRegistration(_supervisor.Root, out registrationError) &&
+            !string.IsNullOrEmpty(registrationError))
+        {
+            LogLine("notification registration failed: " + registrationError);
+        }
+
         _icon.ShowBalloonTip(3000, _icon.Text, "正在启动后端…", ToolTipIcon.Info);
 
         Application.Idle += CaptureContext;
@@ -1532,6 +1535,15 @@ internal sealed class TrayApp : ApplicationContext
                 Exit();
             };
             autoExit.Start();
+        }
+
+        // The toast button started this process (no tray was running): replay it
+        // now that the icon and the clipboard plumbing exist.
+        if (!string.IsNullOrEmpty(Program.PendingActivation))
+        {
+            string uri = Program.PendingActivation;
+            Program.PendingActivation = null;
+            HandleActivation(uri);
         }
     }
 
@@ -1621,6 +1633,22 @@ internal sealed class TrayApp : ApplicationContext
                 "收到文件：" + name + " (" + (bytes / 1024) + " KB)", ToolTipIcon.Info);
             return;
         }
+
+        // Q62: a real system toast with the "复制到剪贴板" button. The button comes
+        // back as dropbridge://copy?file=... (see HandleActivation). Falls back to
+        // the custom popup when the registration or the helper is unavailable.
+        string argument = Activation.Scheme + "copy?file=" + Uri.EscapeDataString(path);
+        string toastError = "registration missing";
+        if (AppIdentity.RegistrationCurrent() &&
+            ToastBridge.Show(_supervisor.Root, "收到照片",
+                name + " · " + SizeText(bytes) + "，点击下方按钮复制到剪贴板",
+                "复制到剪贴板", argument, path, out toastError))
+        {
+            LogLine("received picture (toast): " + name);
+            return;
+        }
+        LogLine("toast unavailable (" + toastError + "), using popup: " + name);
+
         Image preview = null;
         try
         {
@@ -1629,9 +1657,52 @@ internal sealed class TrayApp : ApplicationContext
         catch (Exception)
         {
         }
-        LogLine("received picture (popup, preview=" + (preview != null) + "): " + name);
         ReceivedPopup.ShowOne(new ReceivedPopup(_icon.Text, path, name, bytes, preview,
             LogLine, RevealFile));
+    }
+
+    /* Q62: the toast button launched us with dropbridge://copy?file=... */
+    private void HandleActivation(string uri)
+    {
+        string file = Activation.FileFromUri(uri);
+        if (string.IsNullOrEmpty(file))
+        {
+            LogLine("activation without a file: " + uri);
+            return;
+        }
+        string error;
+        if (ClipboardBridge.Copy(file, out error))
+        {
+            LogLine("clipboard: copied " + file + " (toast button)");
+            _icon.ShowBalloonTip(3000, _icon.Text,
+                "已复制到剪贴板：" + Path.GetFileName(file), ToolTipIcon.Info);
+        }
+        else
+        {
+            LogLine("clipboard: failed " + file + ": " + error);
+            _icon.ShowBalloonTip(4000, _icon.Text, "复制失败：" + error, ToolTipIcon.Warning);
+        }
+    }
+
+    private void RemoveRegistration()
+    {
+        if (MessageBox.Show("删除开始菜单快捷方式和 dropbridge:// 协议？删除后系统通知里的按钮将不再可用。",
+                "清理通知注册信息", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes)
+        {
+            return;
+        }
+        string error;
+        bool removed = AppIdentity.RemoveRegistration(_supervisor.Root, out error);
+        LogLine("notification registration removed: " + removed +
+                (string.IsNullOrEmpty(error) ? "" : " (" + error + ")"));
+    }
+
+    private static string SizeText(long bytes)
+    {
+        if (bytes <= 0) return "";
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
+        return Math.Round(bytes / (1024.0 * 1024.0), 1) + " MB";
     }
 
     private void LogLine(string message)
@@ -2426,6 +2497,98 @@ internal static class AppIdentity
     [System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
     private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
 
+    /* Q62: the toast button needs a protocol registration that points at this
+     * exe. tools\register.ps1 does the writing (it also stamps the AUMID on the
+     * Start-menu shortcut); it is re-run when the package has been moved. */
+    public static string RegisteredExe()
+    {
+        try
+        {
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(
+                       @"Software\Classes\dropbridge\shell\open\command"))
+            {
+                if (key == null) return null;
+                string command = key.GetValue(null) as string;
+                if (string.IsNullOrEmpty(command)) return null;
+                // The command is written as: "<exe path>" "%1"
+                int first = command.IndexOf('"');
+                if (first < 0) return command.Split(' ')[0];
+                int second = command.IndexOf('"', first + 1);
+                if (second < 0) return null;
+                return command.Substring(first + 1, second - first - 1);
+            }
+        }
+        catch (Exception)
+        {
+        }
+        return null;
+    }
+
+    public static bool RegistrationCurrent()
+    {
+        string registered = RegisteredExe();
+        return !string.IsNullOrEmpty(registered) &&
+               string.Equals(registered, Application.ExecutablePath, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool EnsureRegistration(string root, out string error)
+    {
+        error = null;
+        if (RegistrationCurrent()) return true;
+        return RunScript(root, "register.ps1", "", out error);
+    }
+
+    public static bool RemoveRegistration(string root, out string error)
+    {
+        error = null;
+        return RunScript(root, "register.ps1", "-Remove", out error);
+    }
+
+    private static bool RunScript(string root, string name, string arguments, out string error)
+    {
+        error = null;
+        try
+        {
+            string script = Path.Combine(root, "tools", name);
+            if (!File.Exists(script))
+            {
+                error = "tools\\" + name + " missing";
+                return false;
+            }
+            var start = new ProcessStartInfo("powershell.exe",
+                "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\" " + arguments)
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+            };
+            start.EnvironmentVariables["DROPBRIDGE_EXE"] = Application.ExecutablePath;
+            using (Process process = Process.Start(start))
+            {
+                if (!process.WaitForExit(20000))
+                {
+                    try { process.Kill(); }
+                    catch (Exception) { }
+                    error = name + " timed out";
+                    return false;
+                }
+                string stderr = process.StandardError.ReadToEnd().Trim();
+                if (process.ExitCode != 0)
+                {
+                    error = name + " exit " + process.ExitCode + ": " + stderr;
+                    return false;
+                }
+            }
+            return true;
+        }
+        catch (Exception problem)
+        {
+            error = problem.Message;
+            return false;
+        }
+    }
+
     /* The 28 px tray icon, for the received-file popup. */
     public static Image IconForPopup()
     {
@@ -2440,6 +2603,186 @@ internal static class AppIdentity
         {
         }
         return SystemIcons.Application.ToBitmap();
+    }
+}
+
+/* Q62: the toast button is a protocol activation -- Windows launches
+ * "DropBridge.exe dropbridge://copy?file=...". A second instance forwards that
+ * URI to the running tray over a named pipe; when nothing is running the tray
+ * starts normally and replays it once the UI exists. */
+internal static class Activation
+{
+    public const string Scheme = "dropbridge://";
+    private const string PipeName = "DropBridge.Activate";
+
+    public static bool IsActivation(string value)
+    {
+        return !string.IsNullOrEmpty(value) &&
+               value.StartsWith(Scheme, StringComparison.OrdinalIgnoreCase);
+    }
+
+    public static bool Send(string uri)
+    {
+        try
+        {
+            using (var client = new NamedPipeClientStream(".", PipeName, PipeDirection.Out))
+            {
+                client.Connect(400);
+                using (var writer = new StreamWriter(client))
+                {
+                    writer.WriteLine(uri);
+                    writer.Flush();
+                }
+            }
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
+        }
+    }
+
+    public static void StartServer(Action<string> handler)
+    {
+        var thread = new Thread(delegate()
+        {
+            while (true)
+            {
+                try
+                {
+                    using (var server = new NamedPipeServerStream(PipeName, PipeDirection.In, 1))
+                    {
+                        server.WaitForConnection();
+                        using (var reader = new StreamReader(server))
+                        {
+                            string line = reader.ReadLine();
+                            if (!string.IsNullOrEmpty(line)) handler(line);
+                        }
+                    }
+                }
+                catch (Exception)
+                {
+                    Thread.Sleep(500);
+                }
+            }
+        });
+        thread.IsBackground = true;
+        thread.Start();
+    }
+
+    /* dropbridge://copy?file=<url encoded path> */
+    public static string FileFromUri(string uri)
+    {
+        try
+        {
+            var parsed = new Uri(uri);
+            string query = parsed.Query.TrimStart('?');
+            foreach (string pair in query.Split('&'))
+            {
+                int at = pair.IndexOf('=');
+                if (at <= 0) continue;
+                if (!pair.Substring(0, at).Equals("file", StringComparison.OrdinalIgnoreCase)) continue;
+                // The tray encodes with Uri.EscapeDataString; "+" is a literal plus
+                // there, not a space.
+                return Uri.UnescapeDataString(pair.Substring(at + 1).Replace("+", "%2B"));
+            }
+        }
+        catch (Exception)
+        {
+        }
+        return null;
+    }
+}
+
+/* Q62/Q61: one place that puts a received picture on the clipboard as both a
+ * bitmap and a file, so "paste" works in chat apps and in Explorer. */
+internal static class ClipboardBridge
+{
+    public static bool Copy(string path, out string error)
+    {
+        error = null;
+        try
+        {
+            if (!File.Exists(path))
+            {
+                error = "file not found";
+                return false;
+            }
+            var data = new DataObject();
+            Image image = null;
+            try
+            {
+                using (Image loaded = Image.FromFile(path)) image = new Bitmap(loaded);
+            }
+            catch (Exception)
+            {
+            }
+            if (image != null) data.SetData(DataFormats.Bitmap, true, image);
+            data.SetData(DataFormats.FileDrop, true, new[] { path });
+            Clipboard.SetDataObject(data, true);
+            return true;
+        }
+        catch (Exception problem)
+        {
+            error = problem.Message;
+            return false;
+        }
+    }
+}
+
+/* Q62: a real Windows toast with an action button, produced by the in-box
+ * Windows PowerShell (WinRT types are not reachable from csc-built .NET
+ * Framework code without the Windows SDK). Everything lives in the package. */
+internal static class ToastBridge
+{
+    public static bool Show(string root, string title, string message, string button,
+                            string argument, string image, out string error)
+    {
+        error = null;
+        try
+        {
+            string script = Path.Combine(root, "tools", "toast.ps1");
+            if (!File.Exists(script))
+            {
+                error = "tools\\toast.ps1 missing";
+                return false;
+            }
+            var start = new ProcessStartInfo("powershell.exe",
+                "-NoProfile -ExecutionPolicy Bypass -File \"" + script + "\"")
+            {
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+            };
+            start.EnvironmentVariables["DROPBRIDGE_TOAST_TITLE"] = title;
+            start.EnvironmentVariables["DROPBRIDGE_TOAST_MESSAGE"] = message ?? "";
+            start.EnvironmentVariables["DROPBRIDGE_TOAST_BUTTON"] = button;
+            start.EnvironmentVariables["DROPBRIDGE_TOAST_ARGS"] = argument;
+            if (!string.IsNullOrEmpty(image)) start.EnvironmentVariables["DROPBRIDGE_TOAST_IMAGE"] = image;
+            using (Process process = Process.Start(start))
+            {
+                if (!process.WaitForExit(15000))
+                {
+                    try { process.Kill(); }
+                    catch (Exception) { }
+                    error = "toast helper timeout";
+                    return false;
+                }
+                if (process.ExitCode != 0)
+                {
+                    error = "toast helper exit " + process.ExitCode + ": " +
+                            process.StandardError.ReadToEnd().Trim();
+                    return false;
+                }
+            }
+            return true;
+        }
+        catch (Exception problem)
+        {
+            error = problem.Message;
+            return false;
+        }
     }
 }
 
@@ -2463,9 +2806,24 @@ internal static class Program
         return packageRoot;
     }
 
+    /* Set when the process was started by the toast button and no tray was
+     * running yet; TrayApp replays it once the UI is up. */
+    internal static string PendingActivation;
+
     [STAThread]
     private static int Main(string[] args)
     {
+        // Q62: "dropbridge://copy?file=..." comes from the toast button. Hand it
+        // to the running tray if there is one; otherwise start normally and
+        // replay after the tray exists (and keep it out of the switch parser).
+        if (args.Length > 0 && Activation.IsActivation(args[0]))
+        {
+            string activation = args[0];
+            if (Activation.Send(activation)) return 0;
+            PendingActivation = activation;
+            args = new string[0];
+        }
+
         string rootArgument = null;
         string output = null;
         bool check = false;

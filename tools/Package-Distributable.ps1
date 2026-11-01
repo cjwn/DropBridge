@@ -95,6 +95,11 @@ foreach ($dll in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
 }
 
 Copy-Item (Join-Path $root 'tools\Start-Chain.ps1') (Join-Path $stage 'tools') -Force
+# Q62: notification helpers (toast with an action button + per-user registration).
+foreach ($helper in 'toast.ps1', 'register.ps1') {
+    $source = Join-Path $root (Join-Path 'tools' $helper)
+    if (Test-Path $source) { Copy-Item $source (Join-Path $stage 'tools') -Force }
+}
 
 foreach ($license in @(
     @($root, 'upstream\winawdl\LICENSE'),

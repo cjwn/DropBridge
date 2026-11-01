@@ -1,5 +1,23 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-01 23:25：Q62 真正的系统通知按钮（toast + dropbridge:// 回调）
+
+- 用户要「系统通知里带一个确认/复制按钮」，并同意为此写 HKCU 注册（包里仍是一个 zip）。
+- 关键事实：未安装的 exe 想有可点的 toast 按钮，必须有 ①带 AUMID 的开始菜单快捷方式
+  ②`dropbridge://` 协议；否则 toast 被静默丢弃（实测未注册的 AUMID 连通知设置键都不生成）。
+- 包内两个脚本：`tools\toast.ps1`（PowerShell 5.1 调 WinRT 发带 `<actions>` 的 toast，
+  输入走环境变量避开引号地狱）、`tools\register.ps1`（写 AUMID、协议、开始菜单快捷方式并
+  回读字节校验，`-Remove` 可撤销）。
+- DropBridge.exe：启动时校验协议是否指向自己（搬家后自动重写）；收图片先走 toast
+  （标题「收到照片」+ 文件名/大小 + 「复制到剪贴板」+ 缩略图），失败才退回自绘弹窗；
+  带 `dropbridge://copy?file=...` 的第二个实例用命名管道把 URI 转给运行中的实例；
+  菜单加「清理通知注册信息」。
+- 验证：`Start-Process "dropbridge://copy?file=<IMG_3637.PNG>"` → 日志
+  `clipboard: copied ... (toast button)`，STA 读剪贴板 `image: True 1290x2796` + 文件；
+  收图日志 `received picture (toast)`；通知库 Payload 里确认有 `<action content="复制到剪贴板">`。
+- 未验证：toast 横幅此刻不弹（已入库）——本机专注助手/通知设置可能拦了横幅，需用户侧确认。
+- 证据：`evidence/toast-button-2026-11-01.log`。
+
 ## 2026-11-01 23:05：Q61 收到图片时弹窗，一键复制到剪贴板
 
 - 用户要「收到图片后的通知里加一个复制按钮，点了把图放进剪贴板」。

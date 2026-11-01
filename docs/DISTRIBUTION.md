@@ -76,6 +76,12 @@ data\awdl_netd.addr
 6. 收到图片时（Q61）：右下角弹一个自绘小窗，含缩略图与「复制图片」「打开文件夹」；
    复制会把位图和文件同时放进剪贴板。系统通知给未安装的 exe 加不了按钮，所以用自绘窗；
    非图片文件仍是普通通知。窗口定位做了 DPI 换算（进程不感知 DPI）。
+7. 系统通知按钮（Q62）：`tools\toast.ps1` 用 Windows PowerShell 5.1 的 WinRT 支持发
+   带 `<actions>` 的 toast，`tools\register.ps1` 在 HKCU 写
+   `AppUserModelId\DropBridge.Tray` + `dropbridge://` 协议 + 开始菜单快捷方式（AUMID）。
+   点按钮 → 系统用 `dropbridge://copy?file=...` 启动本 exe → 第二个实例经命名管道转给
+   正在运行的实例 → 复制到剪贴板。包仍是 zip；换机器首次运行会重写这几项，
+   菜单「清理通知注册信息」可撤销。
 
 ## 4. 本机验证（2026-10-29 00:36–00:41）
 

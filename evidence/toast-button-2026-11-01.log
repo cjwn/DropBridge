@@ -1,0 +1,63 @@
+DropBridge Q62 —— 真正的系统通知按钮（toast + dropbridge:// 回调）
+==================================================================
+
+时间：2026-11-01 22:55–23:25（Asia/Hong_Kong）
+机器：WES-COMPUTER / ndpyz，Windows 11（175 %）
+
+1. 为什么必须"注册"
+-------------------
+系统 toast 的按钮点下去要能叫回程序。对未安装的 exe，Windows 只认两样东西：
+- 带 AppUserModelID 的开始菜单快捷方式（决定通知身份/图标/名字）；
+- `dropbridge://` 协议（决定按钮点下去启动哪个 exe、带什么参数）。
+没有它们，toast 会被**静默丢弃**（实测：换一个没注册过的 AUMID，连
+`...\Notifications\Settings\<id>` 这个键都不会生成）。
+
+2. 包内实现（不引入安装器）
+---------------------------
+- `tools\toast.ps1`：用系统自带 Windows PowerShell 5.1 的 WinRT 支持发 toast
+  （`ToastNotificationManager` + `<actions><action activationType="protocol">`）。
+  输入走环境变量（避免中文/路径的引号地狱）：TITLE / MESSAGE / BUTTON / ARGS / IMAGE。
+  不需要 Windows SDK、不引第三方模块。
+- `tools\register.ps1`：写三样东西（全部 HKCU，无需管理员）：
+  `HKCU\Software\Classes\AppUserModelId\DropBridge.Tray`（DisplayName、IconUri）、
+  `HKCU\Software\Classes\dropbridge`（`shell\open\command = "<exe>" "%1"`）、
+  开始菜单 `DropBridge.lnk`（并把 AUMID 戳进快捷方式，写完回读字节验证）。
+  `-Remove` 可整组撤销。
+- `DropBridge.exe`：
+  · 启动时若协议指向的不是自己（换目录/拷贝了包）就重跑 register.ps1；
+  · 收到图片 → 先发 toast（标题「收到照片」、正文带文件名和大小、按钮「复制到剪贴板」、
+    带缩略图），失败才退回自绘弹窗；
+  · 带 `dropbridge://copy?file=...` 启动的第二个实例，通过命名管道把 URI 转给正在运行的
+    实例后退出；托盘里没有实例时，正常启动并在 UI 就绪后补做复制；
+  · 托盘菜单加「清理通知注册信息」。
+
+3. 验证（本机）
+---------------
+- 注册：`register.ps1` 输出 `registered exe=...`，回读
+  `HKCU\Software\Classes\dropbridge\shell\open\command` 为
+  `"J:\...\dist\DropBridge\DropBridge.exe" "%1"`；快捷方式字节里含 `DropBridge.Tray`。
+- 点按钮的回调：直接 `Start-Process "dropbridge://copy?file=<urlencoded IMG_3637.PNG>"`，
+  托盘日志出现
+  `clipboard: copied ...\IMG_3637.PNG (toast button)`；
+  再用 STA 进程读剪贴板：`image: True  size: 1290x2796`、`files: ...IMG_3637.PNG`
+  ——位图与文件都在，等价于点击浏览器里那个按钮。
+- 收图走 toast：放入 `_toast_demo2.png` 后日志为
+  `received picture (toast): _toast_demo2.png`（不再落回 popup）。
+- 通知库确认「按钮真的在」：
+  `wpndatabase.db` 的 Notification 表里有 type=toast、HandlerId=1884、
+  Payload 含
+  `<toast activationType="protocol" launch="dropbridge://copy?file=...">` 与
+  `<action content="复制到剪贴板" .../>`。
+
+4. 未验证 / 需要你确认的一点
+----------------------------
+**toast 横幅在这台机器上此刻没有弹出**（通知库里已入库）。WinRT toast 的入库与展示
+是分开的：Windows 的「专注助手/勿扰」开着时只进通知中心、不弹横幅。自绘弹窗、气泡
+通知都能看到，所以这不是代码路径的问题。请在系统「设置 → 系统 → 通知」看一眼
+DropBridge 是否被允许、以及专注助手是否开着；关掉后应能看到带按钮的横幅。
+
+5. 说明
+-------
+- 注册信息在 HKCU：换机器/拷新包第一次运行会重写一次；菜单里可一键清理。
+- 卸载（删包）不会自动清注册表，这是"绿色包 + 系统通知按钮"的固有代价。
+- 非图片文件仍走原来的气泡通知。
