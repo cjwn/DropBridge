@@ -34,6 +34,9 @@ $resourceArgument = @()
 if (Test-Path $icon) { $resourceArgument += "/resource:$icon,tray-light.ico" }
 if (Test-Path $trayDark) { $resourceArgument += "/resource:$trayDark,tray-dark.ico" }
 
+# Q61: the tray stays DPI-unaware on purpose (its menus already render that way);
+# the received-file popup converts the physical screen rectangle back to the
+# virtualised coordinates the shell uses, see TrayIcons.RealScale().
 & $csc /nologo /target:winexe /optimize+ "/out:$out" @iconArgument @resourceArgument `
     /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source
 if ($LASTEXITCODE -ne 0) { throw "csc failed with $LASTEXITCODE" }
@@ -70,3 +73,4 @@ if ($Test) {
     & $settingsTest
     if ($LASTEXITCODE -ne 0) { throw "settings test failed: $LASTEXITCODE" }
 }
+

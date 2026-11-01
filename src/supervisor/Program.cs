@@ -1051,6 +1051,31 @@ internal static class TrayIcons
         return Load(lightTaskbar ? ForLightTaskbar : ForDarkTaskbar, size);
     }
 
+    /* Real display scale (1.75 on a 175 % monitor). The process is DPI-unaware on
+     * purpose, so this has to be read on a temporarily aware thread. */
+    public static double RealScale()
+    {
+        IntPtr previous = IntPtr.Zero;
+        try
+        {
+            previous = SetThreadDpiAwarenessContext(new IntPtr(PerMonitorAwareV2));
+            uint dpi = GetDpiForSystem();
+            if (dpi > 0) return dpi / 96.0;
+        }
+        catch (Exception)
+        {
+        }
+        finally
+        {
+            if (previous != IntPtr.Zero)
+            {
+                try { SetThreadDpiAwarenessContext(previous); }
+                catch (Exception) { }
+            }
+        }
+        return 1.0;
+    }
+
     /* Q59c: the supervisor is a DPI-unaware process, so SystemInformation.SmallIconSize
      * reports the 96-DPI value (16) even on a 175 % display where the taskbar draws
      * 28 px. Windows then stretched our 16 px frame, which looked thin and blurry.
@@ -1161,6 +1186,252 @@ internal sealed class DeviceNameDialog : Form
         Controls.Add(cancel);
         ActiveControl = box;
         box.SelectAll();
+    }
+}
+
+/* Q61: a received file used to produce a plain balloon. Windows toasts cannot
+ * carry custom buttons for a portable exe (that needs a registered COM
+ * activator), so the picture arrives in this small no-activation popup instead,
+ * with a one-click "copy to clipboard" that puts both the bitmap and the file
+ * itself on the clipboard. It never takes focus from whatever the user is
+ * doing. */
+internal sealed class ReceivedPopup : Form
+{
+    private static readonly List<ReceivedPopup> Open = new List<ReceivedPopup>();
+    private const int PopupWidth = 344;
+
+    private readonly string _path;
+    private readonly Image _preview;
+    private readonly Action<string> _log;
+    private readonly Action<string> _reveal;
+    private readonly System.Windows.Forms.Timer _life;
+    private readonly Button _copy;
+
+    public ReceivedPopup(string deviceName, string path, string fileName, long bytes,
+                         Image preview, Action<string> log, Action<string> reveal)
+    {
+        _path = path;
+        _preview = preview;
+        _log = log;
+        _reveal = reveal;
+
+        FormBorderStyle = FormBorderStyle.None;
+        StartPosition = FormStartPosition.Manual;
+        ShowInTaskbar = false;
+        TopMost = true;
+        BackColor = Color.FromArgb(250, 250, 250);
+        Width = PopupWidth;
+        Height = preview == null ? 120 : 216;
+
+        var icon = new PictureBox
+        {
+            Image = AppIdentity.IconForPopup(),
+            Location = new Point(12, 12),
+            Size = new Size(28, 28),
+            SizeMode = PictureBoxSizeMode.Zoom,
+        };
+        var title = new Label
+        {
+            Text = deviceName,
+            Font = new Font(Font, FontStyle.Bold),
+            AutoEllipsis = true,
+            Location = new Point(48, 10),
+            Size = new Size(230, 20),
+        };
+        var name = new Label
+        {
+            Text = fileName,
+            AutoEllipsis = true,
+            Location = new Point(48, 30),
+            Size = new Size(230, 18),
+        };
+        var info = new Label
+        {
+            Text = FormatSize(bytes),
+            ForeColor = Color.DimGray,
+            Location = new Point(48, 48),
+            Size = new Size(230, 18),
+        };
+        var close = new Button
+        {
+            Text = "×",
+            FlatStyle = FlatStyle.Flat,
+            Size = new Size(24, 24),
+            Location = new Point(Width - 32, 8),
+        };
+        close.FlatAppearance.BorderSize = 0;
+        close.Click += delegate { Dismiss(); };
+
+        _copy = new Button
+        {
+            Text = preview == null ? "复制文件" : "复制图片",
+            FlatStyle = FlatStyle.System,
+            Size = new Size(96, 28),
+            Location = new Point(12, Height - 40),
+        };
+        _copy.Click += delegate { CopyToClipboard(); };
+
+        var revealButton = new Button
+        {
+            Text = "打开文件夹",
+            FlatStyle = FlatStyle.System,
+            Size = new Size(96, 28),
+            Location = new Point(116, Height - 40),
+        };
+        revealButton.Click += delegate
+        {
+            _reveal(_path);
+            Dismiss();
+        };
+
+        Controls.Add(icon);
+        Controls.Add(title);
+        Controls.Add(name);
+        Controls.Add(info);
+        Controls.Add(close);
+        Controls.Add(_copy);
+        Controls.Add(revealButton);
+        if (preview != null)
+        {
+            Controls.Add(new PictureBox
+            {
+                Image = preview,
+                Location = new Point(12, 70),
+                Size = new Size(Width - 24, 100),
+                SizeMode = PictureBoxSizeMode.Zoom,
+            });
+        }
+
+        _life = new System.Windows.Forms.Timer { Interval = 12000 };
+        _life.Tick += delegate { Dismiss(); };
+        MouseEnter += delegate { _life.Stop(); };
+        MouseLeave += delegate { if (!_life.Enabled) _life.Start(); };
+        foreach (Control control in Controls)
+        {
+            control.MouseEnter += delegate { _life.Stop(); };
+            control.MouseLeave += delegate { if (!_life.Enabled) _life.Start(); };
+        }
+    }
+
+    /* A no-activation tool window: clicks work, but the popup never steals the
+     * keyboard focus from the app the user is typing in. */
+    protected override bool ShowWithoutActivation
+    {
+        get { return true; }
+    }
+
+    protected override CreateParams CreateParams
+    {
+        get
+        {
+            CreateParams parameters = base.CreateParams;
+            parameters.ExStyle |= 0x08000000; // WS_EX_NOACTIVATE
+            parameters.ExStyle |= 0x00000080; // WS_EX_TOOLWINDOW
+            return parameters;
+        }
+    }
+
+    protected override void OnPaint(PaintEventArgs e)
+    {
+        base.OnPaint(e);
+        using (var pen = new Pen(Color.FromArgb(210, 210, 210)))
+        {
+            e.Graphics.DrawRectangle(pen, 0, 0, Width - 1, Height - 1);
+        }
+    }
+
+    public static void ShowOne(ReceivedPopup popup)
+    {
+        while (Open.Count >= 3) Open[0].Dismiss();
+        Rectangle area = Screen.PrimaryScreen.WorkingArea;
+        // The process is DPI-unaware: WinForms reports the physical screen size,
+        // while the shell positions windows in 96-dpi virtual coordinates. On a
+        // 175 % display the difference put the popup off-screen, so convert.
+        double scale = TrayIcons.RealScale();
+        if (scale > 1.001)
+        {
+            area = new Rectangle(0, 0, (int)Math.Round(area.Width / scale),
+                (int)Math.Round(area.Height / scale));
+        }
+        int top = area.Bottom - popup.Height - 16;
+        foreach (ReceivedPopup other in Open) top -= other.Height + 8;
+        if (top < area.Top + 16) top = area.Top + 16;
+        popup.Location = new Point(area.Right - popup.Width - 16, top);
+        Open.Add(popup);
+        popup.Show();
+        // A no-activation window is not raised by Show() alone, so ask for the top
+        // of the topmost band explicitly; SWP_NOACTIVATE keeps the focus where it is.
+        SetWindowPos(popup.Handle, HwndTopmost, 0, 0, 0, 0,
+            SwpNoSize | SwpNoMove | SwpNoActivate);
+        popup._life.Start();
+    }
+
+    private static readonly IntPtr HwndTopmost = new IntPtr(-1);
+    private const uint SwpNoSize = 0x0001;
+    private const uint SwpNoMove = 0x0002;
+    private const uint SwpNoActivate = 0x0010;
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr insertAfter, int x, int y,
+        int width, int height, uint flags);
+
+    public static void CloseAll()
+    {
+        foreach (ReceivedPopup popup in Open.ToArray()) popup.Dismiss();
+    }
+
+    private void Dismiss()
+    {
+        _life.Stop();
+        Open.Remove(this);
+        if (IsDisposed) return;
+        Hide();
+        Dispose();
+    }
+
+    private void CopyToClipboard()
+    {
+        try
+        {
+            var data = new DataObject();
+            Image image = null;
+            try
+            {
+                using (Image loaded = Image.FromFile(_path)) image = new Bitmap(loaded);
+            }
+            catch (Exception)
+            {
+            }
+            if (image != null) data.SetData(DataFormats.Bitmap, true, image);
+            data.SetData(DataFormats.FileDrop, true, new[] { _path });
+            Clipboard.SetDataObject(data, true);
+            _copy.Text = "已复制";
+            _copy.Enabled = false;
+            _log("copied to clipboard: " + _path);
+        }
+        catch (Exception error)
+        {
+            _log("clipboard copy failed: " + error.Message);
+            _copy.Text = "复制失败";
+        }
+    }
+
+    private static string FormatSize(long bytes)
+    {
+        if (bytes <= 0) return "";
+        if (bytes < 1024) return bytes + " B";
+        if (bytes < 1024 * 1024) return (bytes / 1024) + " KB";
+        return (bytes / (1024 * 1024)) + " MB";
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing)
+        {
+            if (_preview != null) _preview.Dispose();
+            if (_life != null) _life.Dispose();
+        }
+        base.Dispose(disposing);
     }
 }
 
@@ -1313,23 +1584,66 @@ internal sealed class TrayApp : ApplicationContext
             _watcher.Created += delegate(object sender, FileSystemEventArgs args)
             {
                 Thread.Sleep(300);
-                string note = args.Name;
+                string name = args.Name;
+                long size = 0;
                 try
                 {
                     var info = new FileInfo(args.FullPath);
-                    if (info.Exists) note += " (" + (info.Length / 1024) + " KB)";
+                    if (info.Exists) size = info.Length;
                 }
                 catch (IOException)
                 {
                 }
-                string text = "收到文件：" + note;
-                Ui(delegate { _icon.ShowBalloonTip(4000, _icon.Text, text, ToolTipIcon.Info); });
+                Ui(delegate { ShowReceived(args.FullPath, name, size); });
             };
         }
         catch (Exception error)
         {
             _supervisor.LastError = "cannot watch received folder: " + error.Message;
         }
+    }
+
+    /* Pictures get the popup with the copy button; anything else stays a plain
+     * balloon. HEIC and WebP often cannot be decoded by GDI+, so those still get
+     * the popup but the button only offers the file itself. */
+    private static readonly string[] PictureExtensions =
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".webp",
+    };
+
+    private void ShowReceived(string path, string name, long bytes)
+    {
+        string extension = Path.GetExtension(name).ToLowerInvariant();
+        if (Array.IndexOf(PictureExtensions, extension) < 0)
+        {
+            LogLine("received file (balloon): " + name);
+            _icon.ShowBalloonTip(4000, _icon.Text,
+                "收到文件：" + name + " (" + (bytes / 1024) + " KB)", ToolTipIcon.Info);
+            return;
+        }
+        Image preview = null;
+        try
+        {
+            using (Image loaded = Image.FromFile(path)) preview = new Bitmap(loaded);
+        }
+        catch (Exception)
+        {
+        }
+        LogLine("received picture (popup, preview=" + (preview != null) + "): " + name);
+        ReceivedPopup.ShowOne(new ReceivedPopup(_icon.Text, path, name, bytes, preview,
+            LogLine, RevealFile));
+    }
+
+    private void LogLine(string message)
+    {
+        try { _supervisor.Log(message); }
+        catch (Exception) { }
+    }
+
+    private static void RevealFile(string path)
+    {
+        try { Process.Start("explorer.exe", "/select,\"" + path + "\""); }
+        catch (Exception) { }
     }
 
     private void StartBackends()
@@ -1928,6 +2242,7 @@ internal sealed class TrayApp : ApplicationContext
     private void Exit()
     {
         _watchdog.Stop();
+        ReceivedPopup.CloseAll();
         SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         if (_watcher != null) _watcher.EnableRaisingEvents = false;
         _icon.Visible = false;
@@ -2110,6 +2425,22 @@ internal static class AppIdentity
 
     [System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
     private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
+
+    /* The 28 px tray icon, for the received-file popup. */
+    public static Image IconForPopup()
+    {
+        try
+        {
+            using (Icon icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath))
+            {
+                if (icon != null) return icon.ToBitmap();
+            }
+        }
+        catch (Exception)
+        {
+        }
+        return SystemIcons.Application.ToBitmap();
+    }
 }
 
 internal static class Program
