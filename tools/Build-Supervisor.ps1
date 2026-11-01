@@ -61,4 +61,12 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw "tray icon test compile failed: $LASTEXITCODE" }
     & $trayTest
     if ($LASTEXITCODE -ne 0) { throw "tray icon test failed: $LASTEXITCODE" }
+
+    $settingsTest = Join-Path $outDir 'settings_test.exe'
+    & $csc /nologo /target:exe /main:SettingsTest "/out:$settingsTest" `
+        /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source `
+        (Join-Path $root 'src\supervisor\settings_test.cs')
+    if ($LASTEXITCODE -ne 0) { throw "settings test compile failed: $LASTEXITCODE" }
+    & $settingsTest
+    if ($LASTEXITCODE -ne 0) { throw "settings test failed: $LASTEXITCODE" }
 }

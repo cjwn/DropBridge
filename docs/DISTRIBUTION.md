@@ -67,6 +67,12 @@ data\awdl_netd.addr
 4. 新增 `tools/Package-Distributable.ps1`：可重复地生成上面的文件夹与 zip（含
    `README.txt`、`VERSION.txt`、许可证、Python 的 `._pth` 修正）；拒绝在非 `dist\`
    路径上删除，拒绝覆盖含 `data\` 的目录。
+5. 用户设置：`<包目录>\data\settings.ini`（Q60）。纯文本，键为 `deviceName`
+   （iPhone 隔空投送里显示的名字，1–63 字符）和 `beacon`（蓝牙 beacon 开关）；
+   托盘菜单「设备名称：<名字>…」改完会写盘、更新托盘提示与通知身份，并通过
+   receiver 的 stdin 发 `{"do":"set","name":...}` 立即生效（不重启射频）；
+   beacon 开关改由这里记录，旧版的 `data\beacon-off` 标记仍会被读取（迁移）。
+   开机自启仍走注册表 `Run` 项。
 
 ## 4. 本机验证（2026-10-29 00:36–00:41）
 

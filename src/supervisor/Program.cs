@@ -216,6 +216,7 @@ internal sealed class Child
             WorkingDirectory = _workdir,
             UseShellExecute = false,
             CreateNoWindow = true,
+            RedirectStandardInput = true,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
         };
@@ -256,6 +257,26 @@ internal sealed class Child
         if (_needle != null && line.IndexOf(_needle, StringComparison.Ordinal) >= 0)
         {
             Ready.Set();
+        }
+    }
+
+    /// <summary>
+    /// Send one JSON command line to the child's stdin. The Python receiver reads
+    /// {"do": "set", "name": ...} from there, which renames it without touching
+    /// the radio. Other children simply never read stdin.
+    /// </summary>
+    public bool SendLine(string line)
+    {
+        try
+        {
+            if (_process == null || _process.HasExited) return false;
+            _process.StandardInput.WriteLine(line);
+            _process.StandardInput.Flush();
+            return true;
+        }
+        catch (Exception)
+        {
+            return false;
         }
     }
 
@@ -346,6 +367,7 @@ internal sealed class Supervisor
     private readonly string _data;
     private readonly LogSink _log;
     private readonly List<Child> _children = new List<Child>();
+    public readonly Settings Prefs;
     public volatile bool Running;
     public string LastError = "";
 
@@ -368,6 +390,7 @@ internal sealed class Supervisor
             ? Path.Combine(root, "data")
             : Path.GetFullPath(dataDirectory);
         _log = new LogSink(Path.Combine(_data, "logs", sessionStamp), prepareDirectories);
+        Prefs = Settings.Load(_data);
         if (prepareDirectories)
         {
             Directory.CreateDirectory(ReceivedDirectory);
@@ -540,6 +563,7 @@ internal sealed class Supervisor
         foreach (var pair in AwdldEnvironment())
             text.AppendLine("  " + pair.Key + "=" + (pair.Value ?? "<unset>"));
         text.AppendLine("receiver: " + PythonPath() + " -u " + ReceiverPath());
+        text.AppendLine("device: " + Prefs.DeviceName + " (beacon " + (Prefs.Beacon ? "on" : "off") + ")");
         foreach (string problem in Validate()) text.AppendLine("MISSING: " + problem);
         return text.ToString();
     }
@@ -547,7 +571,7 @@ internal sealed class Supervisor
     private Child NewReceiver()
     {
         return new Child("receiver", PythonPath(),
-            "-u \"" + ReceiverPath() + "\" --name DropBridge --listen 127.0.0.1" +
+            "-u \"" + ReceiverPath() + "\" --name \"" + Prefs.DeviceName + "\" --listen 127.0.0.1" +
             " --mdns-address-file \"" + AddressFile() + "\"" +
             " --outdir \"" + ReceivedDirectory + "\"" +
             " --keys \"" + Path.Combine(_data, "keys") + "\" --trace",
@@ -575,6 +599,32 @@ internal sealed class Supervisor
             return (DateTime.UtcNow - child.LastOutputUtc).TotalSeconds;
         }
         return -1;
+    }
+
+    /// <summary>
+    /// Rename the receiver in place. The Python receiver reads JSON commands from
+    /// stdin ({"do": "set", "name": ...}) and re-announces itself, so the radio
+    /// and the rest of the chain stay untouched. Returns false when the receiver
+    /// is not running -- the name then takes effect on its next start.
+    /// </summary>
+    public bool RenameReceiver(string name, out string error)
+    {
+        error = null;
+        foreach (Child child in _children)
+        {
+            if (child.Name != "receiver") continue;
+            string json = "{\"do\": \"set\", \"name\": \"" +
+                          name.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}";
+            if (!child.SendLine(json))
+            {
+                error = "receiver is not accepting commands";
+                return false;
+            }
+            Log("receiver renamed to " + name);
+            return true;
+        }
+        error = "receiver is not running";
+        return false;
     }
 
     // The receiver is the only backend that can be replaced without touching the
@@ -1061,6 +1111,59 @@ internal static class TrayIcons
     }
 }
 
+/* Q60: small modal used by the tray's "设备名称…" entry. The validation mirrors
+ * Settings.CleanName(), which in turn mirrors the receiver's valid_name(). */
+internal sealed class DeviceNameDialog : Form
+{
+    public string Value { get; private set; }
+
+    public DeviceNameDialog(string current)
+    {
+        Text = "设备名称";
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        StartPosition = FormStartPosition.CenterScreen;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        ClientSize = new Size(400, 132);
+        var label = new Label
+        {
+            Text = "iPhone 隔空投送里显示的名称（1–63 个字符）：",
+            AutoSize = true,
+            Location = new Point(12, 12),
+        };
+        var box = new TextBox { Text = current ?? string.Empty, Location = new Point(12, 40), Width = 372 };
+        var ok = new Button { Text = "保存", Location = new Point(220, 84), Width = 80 };
+        var cancel = new Button
+        {
+            Text = "取消",
+            DialogResult = DialogResult.Cancel,
+            Location = new Point(310, 84),
+            Width = 80,
+        };
+        ok.Click += delegate
+        {
+            string clean = Settings.CleanName(box.Text);
+            if (clean == null)
+            {
+                MessageBox.Show(this,
+                    "名称需要 1–63 个字符，且不能包含 \\ / : * ? \" < > | 或控制字符。",
+                    "设备名称", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            Value = clean;
+            DialogResult = DialogResult.OK;
+        };
+        AcceptButton = ok;
+        CancelButton = cancel;
+        Controls.Add(label);
+        Controls.Add(box);
+        Controls.Add(ok);
+        Controls.Add(cancel);
+        ActiveControl = box;
+        box.SelectAll();
+    }
+}
+
 internal sealed class TrayApp : ApplicationContext
 {
     private readonly Supervisor _supervisor;
@@ -1085,11 +1188,14 @@ internal sealed class TrayApp : ApplicationContext
     private Process _beacon;
     private bool _beaconWanted = true;
     private ToolStripMenuItem _beaconItem;
+    private ToolStripMenuItem _nameItem;
     private string _beaconLog;
+    private readonly Settings _prefs;
 
     public TrayApp(Supervisor supervisor, int autoExitSeconds)
     {
         _supervisor = supervisor;
+        _prefs = supervisor.Prefs;
         var menu = new ContextMenuStrip();
         _status = new ToolStripMenuItem("状态：启动中…") { Enabled = false };
         menu.Items.Add(_status);
@@ -1104,7 +1210,10 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add(_autostart);
         menu.Items.Add(new ToolStripMenuItem("安装驱动（首次使用）", null,
             delegate { InstallDriver(); }));
-        _beaconWanted = !File.Exists(Path.Combine(supervisor.Root, "data", "beacon-off"));
+        _nameItem = new ToolStripMenuItem("设备名称：" + _prefs.DeviceName + "…", null,
+            delegate { RenameDevice(); }) { ToolTipText = "iPhone 隔空投送里显示的名字；改完立即生效并记住" };
+        menu.Items.Add(_nameItem);
+        _beaconWanted = _prefs.Beacon;
         _beaconItem = new ToolStripMenuItem("蓝牙 beacon（帮 iPhone 发现这台电脑）", null,
             delegate { ToggleBeacon(); }) { Checked = _beaconWanted, ToolTipText = "周期性发送 Apple 的 AirDrop 蓝牙广播，让 iPhone 的 AWDL 保持唤醒；关掉后手机可能看不到本机" };
         menu.Items.Add(_beaconItem);
@@ -1123,13 +1232,13 @@ internal sealed class TrayApp : ApplicationContext
         _icon = new NotifyIcon
         {
             Icon = _trayIcon,
-            Text = "DropBridge",
+            Text = _prefs.DeviceName,
             ContextMenuStrip = menu,
             Visible = true,
         };
         _icon.DoubleClick += delegate { OpenFolder(_supervisor.ReceivedDirectory); };
         SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
-        _icon.ShowBalloonTip(3000, "DropBridge", "正在启动后端…", ToolTipIcon.Info);
+        _icon.ShowBalloonTip(3000, _icon.Text, "正在启动后端…", ToolTipIcon.Info);
 
         Application.Idle += CaptureContext;
         StartWatcher();
@@ -1214,7 +1323,7 @@ internal sealed class TrayApp : ApplicationContext
                 {
                 }
                 string text = "收到文件：" + note;
-                Ui(delegate { _icon.ShowBalloonTip(4000, "DropBridge", text, ToolTipIcon.Info); });
+                Ui(delegate { _icon.ShowBalloonTip(4000, _icon.Text, text, ToolTipIcon.Info); });
             };
         }
         catch (Exception error)
@@ -1339,24 +1448,47 @@ internal sealed class TrayApp : ApplicationContext
     {
         _beaconWanted = !_beaconWanted;
         if (_beaconItem != null) _beaconItem.Checked = _beaconWanted;
-        string marker = Path.Combine(_supervisor.Root, "data", "beacon-off");
+        _prefs.SetBeacon(_beaconWanted);
         try
         {
             if (_beaconWanted)
             {
-                if (File.Exists(marker)) File.Delete(marker);
                 StartBeacon();
-                _icon.ShowBalloonTip(4000, "DropBridge", "蓝牙 beacon 已开启，iPhone 更容易发现本机。", ToolTipIcon.Info);
+                _icon.ShowBalloonTip(4000, _icon.Text, "蓝牙 beacon 已开启，iPhone 更容易发现本机。", ToolTipIcon.Info);
             }
             else
             {
                 StopBeacon();
-                File.WriteAllText(marker, DateTime.Now.ToString("o"), Encoding.UTF8);
-                _icon.ShowBalloonTip(4000, "DropBridge", "蓝牙 beacon 已关闭（手机可能看不到本机，直到你打开隔空投送面板）。", ToolTipIcon.Warning);
+                _icon.ShowBalloonTip(4000, _icon.Text, "蓝牙 beacon 已关闭（手机可能看不到本机，直到你打开隔空投送面板）。", ToolTipIcon.Warning);
             }
         }
         catch
         {
+        }
+    }
+
+    /* Q60: the receiver reads {"do": "set", "name": ...} from stdin, so the new
+     * name is announced without restarting the radio (~40 s). The choice is
+     * written to data\settings.ini and reused on the next start. */
+    private void RenameDevice()
+    {
+        string current = _prefs.DeviceName;
+        using (var dialog = new DeviceNameDialog(current))
+        {
+            if (dialog.ShowDialog() != DialogResult.OK) return;
+            string name = dialog.Value;
+            if (name == current) return;
+            string error;
+            bool live = _supervisor.RenameReceiver(name, out error);
+            _prefs.SetDeviceName(name);
+            _nameItem.Text = "设备名称：" + name + "…";
+            _icon.Text = name;
+            AppIdentity.Ensure(name);
+            _supervisor.Log("device name " + current + " -> " + name +
+                            (live ? " (applied live)" : " (receiver restart needed: " + error + ")"));
+            _icon.ShowBalloonTip(4000, _icon.Text,
+                live ? "接收端名称已改为：" + name : "名称已保存，接收端下次启动时生效。",
+                ToolTipIcon.Info);
         }
     }
 
@@ -1375,7 +1507,7 @@ internal sealed class TrayApp : ApplicationContext
             SetAutostart(true);
             _autostart.Checked = true;
             File.WriteAllText(marker, DateTime.Now.ToString("o"), Encoding.UTF8);
-            _icon.ShowBalloonTip(6000, "DropBridge",
+            _icon.ShowBalloonTip(6000, _icon.Text,
                 "已设为开机自启：以后登录就在托盘里等着收文件。想关掉：右键图标 → 开机自启。",
                 ToolTipIcon.Info);
         }
@@ -1399,7 +1531,7 @@ internal sealed class TrayApp : ApplicationContext
             string service = RadioBinding.Service();
             if (service == null)
             {
-                _icon.ShowBalloonTip(6000, "DropBridge",
+                _icon.ShowBalloonTip(6000, _icon.Text,
                     "没找到 RTL8821CU 网卡：请直插机箱后面板的 USB 口。", ToolTipIcon.Warning);
                 return;
             }
@@ -1423,7 +1555,7 @@ internal sealed class TrayApp : ApplicationContext
             int code = RadioBinding.Install(_supervisor.Root, false, DriverLog);
             if (code == 0)
             {
-                _icon.ShowBalloonTip(5000, "DropBridge", "驱动已就绪，正在重新启动后端…", ToolTipIcon.Info);
+                _icon.ShowBalloonTip(5000, _icon.Text, "驱动已就绪，正在重新启动后端…", ToolTipIcon.Info);
                 RequestStart(false);
             }
             else if (code == 2)
@@ -1479,7 +1611,7 @@ internal sealed class TrayApp : ApplicationContext
                     {
                         _gaveUp = true;
                         _status.Text = "状态：多次失败，已停止";
-                        _icon.ShowBalloonTip(10000, "DropBridge",
+                        _icon.ShowBalloonTip(10000, _icon.Text,
                             "后端反复失败，已停止自动重启。请查看日志后从托盘菜单重试。",
                             ToolTipIcon.Error);
                     });
@@ -1502,12 +1634,12 @@ internal sealed class TrayApp : ApplicationContext
                             _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
                             if (automatic)
                             {
-                                _icon.ShowBalloonTip(4000, "DropBridge",
+                                _icon.ShowBalloonTip(4000, _icon.Text,
                                     "后端已自动恢复。", ToolTipIcon.Info);
                             }
                             else
                             {
-                                _icon.ShowBalloonTip(3000, "DropBridge",
+                                _icon.ShowBalloonTip(3000, _icon.Text,
                                     "接收已就绪，可以在手机上发送了。", ToolTipIcon.Info);
                             }
                         }
@@ -1549,7 +1681,7 @@ internal sealed class TrayApp : ApplicationContext
             _masterWarned = true;
             _supervisor.Log("AWDL mastership lost: sync master " + _supervisor.SyncMaster +
                             ", self " + _supervisor.SelfAddress);
-            _icon.ShowBalloonTip(8000, "DropBridge",
+            _icon.ShowBalloonTip(8000, _icon.Text,
                 "同步主控被对方的手机接管，速度会明显下降。可从托盘菜单选“重置链路”后重试。",
                 ToolTipIcon.Warning);
         }
@@ -1571,7 +1703,7 @@ internal sealed class TrayApp : ApplicationContext
         {
             _slowWarned = true;
             _supervisor.Log("low link rate: " + (int)_supervisor.Fps + " frames/s");
-            _icon.ShowBalloonTip(8000, "DropBridge",
+            _icon.ShowBalloonTip(8000, _icon.Text,
                 "链路速率偏低（约 " + (int)_supervisor.Fps +
                 " 帧/s）。可从托盘菜单选“重置链路”后重试。", ToolTipIcon.Warning);
         }
@@ -1596,12 +1728,12 @@ internal sealed class TrayApp : ApplicationContext
         _supervisor.Running = false;
         if (_silentHits >= 2)
         {
-            _icon.ShowBalloonTip(10000, "DropBridge",
+            _icon.ShowBalloonTip(10000, _icon.Text,
                 "网卡没有响应，已经自动重启过两次。请把网卡拔下来、重新插上。", ToolTipIcon.Error);
         }
         else
         {
-            _icon.ShowBalloonTip(5000, "DropBridge", "网卡卡住了，正在自动重启…", ToolTipIcon.Warning);
+            _icon.ShowBalloonTip(5000, _icon.Text, "网卡卡住了，正在自动重启…", ToolTipIcon.Warning);
         }
         RequestStart(true);
     }
@@ -1623,7 +1755,7 @@ internal sealed class TrayApp : ApplicationContext
         if (!_reportedExit)
         {
             _reportedExit = true;
-            _icon.ShowBalloonTip(5000, "DropBridge",
+            _icon.ShowBalloonTip(5000, _icon.Text,
                 "有后端进程退出，正在自动恢复。", ToolTipIcon.Warning);
         }
         if (dead.Count == 1 && dead[0] == "receiver" && RestartReceiverOnly())
@@ -1651,7 +1783,7 @@ internal sealed class TrayApp : ApplicationContext
                     {
                         _reportedExit = false;
                         _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
-                        _icon.ShowBalloonTip(3000, "DropBridge",
+                        _icon.ShowBalloonTip(3000, _icon.Text,
                             "接收端已恢复，无需重新初始化网卡。", ToolTipIcon.Info);
                     }
                     else
@@ -1698,12 +1830,12 @@ internal sealed class TrayApp : ApplicationContext
         try
         {
             Clipboard.SetText(text.ToString());
-            _icon.ShowBalloonTip(3000, "DropBridge",
+            _icon.ShowBalloonTip(3000, _icon.Text,
                 "诊断信息已复制到剪贴板。", ToolTipIcon.Info);
         }
         catch (Exception)
         {
-            _icon.ShowBalloonTip(3000, "DropBridge",
+            _icon.ShowBalloonTip(3000, _icon.Text,
                 "复制失败，可在日志目录自行打包。", ToolTipIcon.Warning);
         }
     }
@@ -1819,6 +1951,122 @@ internal sealed class TrayApp : ApplicationContext
     }
 }
 
+/* Q60: the tray used to remember only the beacon switch (a data\beacon-off
+ * marker) and autostart (the Run key); everything else was forgotten on the
+ * next start. The user-facing choices now live in <package>\data\settings.ini,
+ * so a folder copy and a single-file copy each keep their own file and nothing
+ * is written outside the package. The file is plain text on purpose: it can be
+ * edited by hand and the next start picks it up. */
+internal sealed class Settings
+{
+    public const string DefaultDeviceName = "DropBridge";
+    private const string FileName = "settings.ini";
+    private const int MaxNameChars = 63; // same limit as the receiver's --name
+    private readonly string _path;
+
+    public string DeviceName { get; private set; }
+    public bool Beacon { get; private set; }
+
+    private Settings(string path, string deviceName, bool beacon)
+    {
+        _path = path;
+        DeviceName = deviceName;
+        Beacon = beacon;
+    }
+
+    public static Settings Load(string dataDirectory)
+    {
+        string path = Path.Combine(dataDirectory, FileName);
+        string deviceName = DefaultDeviceName;
+        bool beacon = true;
+        try
+        {
+            if (File.Exists(path))
+            {
+                foreach (string raw in File.ReadAllLines(path, Encoding.UTF8))
+                {
+                    string line = raw.Trim();
+                    if (line.Length == 0 || line[0] == '#' || line[0] == ';') continue;
+                    int at = line.IndexOf('=');
+                    if (at <= 0) continue;
+                    string key = line.Substring(0, at).Trim();
+                    string value = line.Substring(at + 1).Trim();
+                    if (key.Equals("deviceName", StringComparison.OrdinalIgnoreCase))
+                    {
+                        string clean = CleanName(value);
+                        if (clean != null) deviceName = clean;
+                    }
+                    else if (key.Equals("beacon", StringComparison.OrdinalIgnoreCase))
+                    {
+                        bool on;
+                        if (bool.TryParse(value, out on)) beacon = on;
+                    }
+                }
+            }
+            else if (File.Exists(Path.Combine(dataDirectory, "beacon-off")))
+            {
+                // Migration: builds before Q60 recorded "off" as a marker file.
+                beacon = false;
+            }
+        }
+        catch (Exception)
+        {
+        }
+        return new Settings(path, deviceName, beacon);
+    }
+
+    public void SetDeviceName(string name)
+    {
+        DeviceName = name;
+        Save();
+    }
+
+    public void SetBeacon(bool enabled)
+    {
+        Beacon = enabled;
+        Save();
+    }
+
+    private void Save()
+    {
+        try
+        {
+            string directory = Path.GetDirectoryName(_path);
+            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+            var text = new StringBuilder();
+            text.AppendLine("# DropBridge 设置（关闭托盘后可直接改，下一个启动生效）");
+            text.AppendLine("# deviceName: iPhone 隔空投送里显示的名字，1-63 个字符");
+            text.AppendLine("# beacon: 是否周期性发蓝牙 beacon 帮 iPhone 发现本机");
+            text.AppendLine("deviceName=" + DeviceName);
+            text.AppendLine("beacon=" + (Beacon ? "true" : "false"));
+            File.WriteAllText(_path, text.ToString(), new UTF8Encoding(false));
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    /* Mirrors the receiver's valid_name(): 1-63 characters, no separators, no
+     * control characters, no bidi overrides that could disguise the name. */
+    public static string CleanName(string value)
+    {
+        if (value == null) return null;
+        string name = value.Trim().TrimEnd('.');
+        if (name.Length == 0 || name.Length > MaxNameChars) return null;
+        foreach (char c in name)
+        {
+            if (c < 0x20 || (c >= 0x7f && c <= 0x9f)) return null;
+            if (c == '/' || c == '\\' || c == ':' || c == '*' || c == '?' ||
+                c == '"' || c == '<' || c == '>' || c == '|') return null;
+            if (c >= '\u200b' && c <= '\u200f') return null;
+            if (c >= '\u202a' && c <= '\u202e') return null;
+            if (c >= '\u2066' && c <= '\u2069') return null;
+            if (c == '\ufeff') return null;
+        }
+        return name;
+    }
+}
+
 /* Q59d: a portable exe has no application identity, so Windows renders the
  * notification header with its generic tile and the raw file name
  * ("DropBridge.exe"). An AppUserModelID plus the per-user registration under
@@ -1828,7 +2076,7 @@ internal static class AppIdentity
 {
     private const string AppId = "DropBridge.Tray";
 
-    public static void Ensure()
+    public static void Ensure(string displayName)
     {
         try
         {
@@ -1838,6 +2086,7 @@ internal static class AppIdentity
         {
         }
 
+        if (string.IsNullOrEmpty(displayName)) displayName = Settings.DefaultDeviceName;
         try
         {
             // Windows resolves the toast icon from IconUri; it has to be an image
@@ -1849,7 +2098,7 @@ internal static class AppIdentity
                        @"Software\Classes\AppUserModelId\" + AppId))
             {
                 if (key == null) return;
-                key.SetValue("DisplayName", "DropBridge", RegistryValueKind.String);
+                key.SetValue("DisplayName", displayName, RegistryValueKind.String);
                 key.SetValue("IconUri", File.Exists(icon) ? icon : Application.ExecutablePath,
                     RegistryValueKind.String);
             }
@@ -2045,12 +2294,13 @@ internal static class Program
         using (var mutex = new Mutex(true, @"Local\DropBridge-tray", out created))
         {
             if (!created) return 0;
+            Application.EnableVisualStyles();
+            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence, tcpMerge);
             // Q59d: only the tray instance owns the notification identity. Doing it
             // in Main would let "--check" from a scratch copy point IconUri at that
             // copy; the identity has to name the package the user actually runs.
-            AppIdentity.Ensure();
-            Application.EnableVisualStyles();
-            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence, tcpMerge);
+            // Q60: the display name follows the configured device name.
+            AppIdentity.Ensure(supervisor.Prefs.DeviceName);
             using (var context = new TrayApp(supervisor, autoExitSeconds))
             {
                 Application.Run(context);

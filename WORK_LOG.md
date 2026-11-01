@@ -1,5 +1,23 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-01 22:35：Q60 设置持久化（settings.ini）+ 自定义设备名称
+
+- 用户要两件事：托盘里的选择要**本地持久化**；再加一个改**设备名称**的入口
+  （iPhone 隔空投送里显示的那个名字）。确认后按「只做三项 / 立即生效 / 托盘跟随」实现。
+- 新增 `Settings`：`<包目录>\data\settings.ini`（纯文本、可手改），键为
+  `deviceName` 与 `beacon`；启动读、改动写，没改过不落盘。旧版 `data\beacon-off`
+  标记作为迁移路径读取。开机自启仍走注册表 Run 项（本来就持久）。
+- 托盘菜单新增「设备名称：<当前名字>…」对话框：校验后写 settings.ini、更新托盘提示、
+  更新通知身份（AUMID DisplayName），并通过 receiver 的 stdin 发
+  `{"do": "set", "name": ...}` **立即改名**（不重启射频）；receiver 没跑就下次启动生效。
+- 18 处气泡标题改成当前设备名；`--check` 增加 `device:` 行。
+- 验证：`-Test` 新增 `src\supervisor\settings_test.cs`（PASS settings，覆盖默认值、
+  不落盘、迁移、中文名往返、非法名拒绝）；成品文件夹写 `deviceName=客厅的电脑`、
+  `beacon=false` 重启后 receiver 公告 `receiving as 客厅的电脑`、没有 beacon.log、
+  通知身份 DisplayName 也跟着变；删掉文件重启恢复默认且不再自动创建。
+- 未验证：菜单对话框与"立即生效"要人工点一次（无 GUI 环境只能验证到"写文件→下次启动"）。
+- 证据：`evidence/settings-device-name-2026-11-01.log`。
+
 ## 2026-11-01 14:35：Q59 通知图标——IconUri 要给图像文件，并只在托盘里注册
 
 - 用户反馈：应用身份生效后标题变成 `DropBridge`，但头部图标位置**空了**。

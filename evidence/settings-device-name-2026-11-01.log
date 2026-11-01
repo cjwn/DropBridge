@@ -1,0 +1,71 @@
+DropBridge Q60 —— 设置持久化 + 自定义设备名称
+================================================
+
+时间：2026-11-01 22:10–22:35（Asia/Hong_Kong）
+机器：WES-COMPUTER / ndpyz，Windows 11（175 %）
+范围：文件夹版与单文件版共用同一个托盘程序，设置跟着各自的 data\ 走。
+
+1. 改动
+-------
+- 新增 `Settings`（src/supervisor/Program.cs）：读写 `<包目录>\data\settings.ini`。
+  纯文本、可手改，启动时读取；文件不存在时用默认值，且**不会**在启动时创建
+  （只有用户真的改过才写盘）。
+     deviceName=DropBridge      # iPhone 隔空投送里显示的名字，1–63 字符
+     beacon=true                # 蓝牙 beacon 开关
+  旧版把 beacon 关闭记在 `data\beacon-off` 标记文件里；现在读到该标记且没有
+  settings.ini 时按关闭处理（迁移路径）。
+- 托盘菜单新增「设备名称：<当前名字>…」，弹一个小对话框（保存/取消 + 校验），
+  保存后：写 settings.ini、更新托盘提示文字、更新通知身份（AUMID DisplayName）、
+  并通过 receiver 的 stdin 发 `{"do": "set", "name": ...}` **立即改名**，不重启射频。
+  接收端没在跑时只保存，下次启动生效。
+- 蓝牙 beacon 的开关改由 settings.ini 记录，不再写标记文件。
+- 开机自启仍走注册表 Run 项（本来就是持久的），没有重复存一份。
+- 所有气泡标题改用当前设备名（18 处）；计划输出 `--check` 增加 `device:` 一行。
+- 名称校验镜像接收端的 `valid_name()`：1–63 字符；禁止 `/ \ : * ? " < > |`、
+  控制字符（0x00–0x1F、0x7F–0x9F）、双向覆盖字符与 BOM；首尾空白去掉、末尾点去掉。
+
+2. 离线测试
+-----------
+`powershell -File tools\Build-Supervisor.ps1 -Test`：
+    PASS: fixed child environment, ...
+    PASS: social child environment, ...
+    PASS: invalid mode rejected; no radio process started
+    ok tray-light.ico 16x16 (14199 B)
+    ok tray-dark.ico 16x16 (16184 B)
+    physical tray size: 28 px
+    ok ForTaskbar(light)=28x28 ForTaskbar(dark)=28x28
+    ok taskbar light=False -> tray-dark.ico
+    PASS settings
+
+`src\supervisor\settings_test.cs` 覆盖：默认值、加载不落盘、beacon-off 迁移、
+中文名与 beacon=false 的往返、空/超长/斜杠/冒号/控制字符/双向覆盖被拒、
+手改文件里非法名字回退默认而其余键仍生效。
+
+`--check` 输出（默认设置）：
+    receiver: ...\backend\python\python.exe -u ...\backend\airdrop\receiver.py
+    device: DropBridge (beacon on)
+
+3. 真机/成品文件夹验证（22:22–22:34）
+--------------------------------------
+- 默认启动：receiver 日志 `receiving as DropBridge (MacBookPro18,3) ...`。
+- 手动写 `dist\DropBridge\data\settings.ini`：
+      deviceName=客厅的电脑
+      beacon=false
+  重启成品文件夹后：
+    · receiver 日志 `22:23:00 INFO receiving as 客厅的电脑 (MacBookPro18,3) on proxy 127.0.0.1:8771 ...`
+    · 会话目录里没有 `beacon.log`（beacon 关闭生效）
+    · `HKCU\Software\Classes\AppUserModelId\DropBridge.Tray` 的 `DisplayName`
+      变成 `客厅的电脑`（通知标题跟随）
+    · `settings.ini` 全文以 UTF-8（无 BOM）写入，中文正常
+- 删除 settings.ini 重启：恢复 `DropBridge` + beacon on，`settings.ini` 不被自动创建。
+- 现场：每次重打包都把 `data\` 备份到 `build\_preserve\` 再原样放回，文件数一致。
+
+4. 未验证 / 说明
+----------------
+- 托盘菜单里的「设备名称…」对话框和"立即生效"这条交互路径需要人工点一次：
+  自动化这边只能在无 GUI 的情况下验证到"写 settings.ini → 下次启动按新名字公告"。
+  立即生效发的是上游接收端支持的 stdin 命令 `{"do": "set", "name": ...}`
+  （`engine.py:576` 的 `set()`，上游测试 `tests/test_engine.py:317` 用的同一条命令）；
+  接收端没启动时会回退为"下次启动生效"。
+- 名字长度上限来自接收端 `MAX_NAME_CHARS = 63`；Windows 托盘提示文字同样是 63 字符上限。
+- 未做：把信道/带宽/时隙/合并这些参数也纳入设置（按用户要求本轮只做三项）。
