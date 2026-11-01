@@ -1,5 +1,27 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-01 14:20：Q59 收尾——清掉旧蓝图标，给通知加应用身份
+
+- 用户指出两处残留：资源管理器里的**旧蓝色图标**、通知左上角的**橙色通用图标**。
+- 蓝色：全仓扫了 25 个 `DropBridge.exe` 的 32 px 图标（ExtractIconEx + 像素哈希）。
+  旧蓝图标只在旧副本里：`dist\app\20261030-135002\backend\DropBridge.exe` 和
+  `build\diagnostics\*` 的历史解压。删掉 `dist\app` 下除最新外的三个旧解压目录
+  （无 data\，单文件 stub 会重解压）；用 `SHGetFileInfo` 复核 dist 两个 exe 的 shell
+  图标已是新的黑线条图。diagnostics 里的历史副本保留不删。
+- 橙色：进程没有 AppUserModelID，Windows 只能显示通用橙色方块 + 文件名。
+  新增 `AppIdentity.Ensure()`（Main 第一行调用）：`SetCurrentProcessExplicitAppUserModelID`
+  + `HKCU\Software\Classes\AppUserModelId\DropBridge.Tray`（DisplayName=DropBridge、
+  IconUri=exe 全路径）。
+- 弯路（别重走）：先试"开始菜单快捷方式 + IPropertyStore 写 AUMID"，PowerShell 对
+  WScript 创建的 .lnk 能写进去，但应用内创建的 .lnk 写入静默不生效（文件不增长、
+  字节里搜不到 AUMID）。放弃快捷方式，改用注册表；遗留的快捷方式已删。
+- 未验证：通知头部是否真的换了图标。这台机器前台是全屏应用，Windows 在全屏下抑制
+  toast；两次 14 s 截屏（含触发"收到文件"气泡）都没抓到，通知库里也没有记录。
+  需要用户不全屏时看一次。
+- 重打包：单文件 16,898,560 B（882d290e…）、portable 22,232,102 B（9231202d…）；
+  `--check` 全部 exit 0 无 MISSING。
+- 证据：`evidence/icon-refresh-2026-11-01.log` 第 9 节。
+
 ## 2026-11-01 13:25：Q59 再修——根因是 DPI，恢复原图按 28 px 帧取图
 
 - 用户反馈「还是细条，优先别重绘」。查到真根因：托盘进程是 **DPI 不感知**的进程，

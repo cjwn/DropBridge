@@ -175,3 +175,42 @@ fd52bfe79b3dd306a7c963bf4acf036c22320122a841597656cae8beb190fdc2，即黑色线�
 仍然存在的限制：100 % DPI（16 px）下，用户提供的素材本身就是 256 的缩小版，
 没有实心像素，看起来会偏软——这是素材在这个尺寸的固有表现，不是取帧错误；
 175 % 这一档现在是 1:1。
+
+9. 追加（2026-11-01 14:00–14:20）：两处残留图标——蓝色旧图标与通知通用图标
+----------------------------------------------------------------------------
+现象（用户截图）：
+  A. 某个 DropBridge.exe 在资源管理器里仍显示**旧的蓝色方块图标**。
+  B. Windows 通知左上角显示**橙色通用方块**，标题是 "DropBridge.exe"。
+
+A. 蓝色旧图标
+  全仓扫描 25 个 DropBridge.exe（用 Shell32!ExtractIconEx 取 32 px 图标、按像素 SHA-256 比对旧蓝色图标）：
+    - 旧蓝图标只出现在旧副本里：dist\app\20261030-135002\backend\DropBridge.exe
+      以及 build\diagnostics\{accept,dist-check-34a9e6f,dist-check3,driver-test,final*,
+      postmerge-check,radio-34a9e6f,setup-check,ux-final}\...\DropBridge.exe。
+    - dist\DropBridge\DropBridge.exe、dist\DropBridge.exe、dist\DropBridge-headless\...、
+      build\supervisor\Release\DropBridge.exe 都已是新图标（32 px 像素哈希 8270F97CDDB9）。
+  处理：删除 dist\app 下除最新（20261101-130415）外的三个旧解压目录（都是 334 文件、
+  无 data\，单文件 stub 会自动重解压）；build\diagnostics 下的历史副本保留作证据，
+  不删。用 SHGetFileInfo 复核：dist 里两个 exe 的 shell 图标都是新的黑线条图。
+
+B. 通知通用图标
+  原因：进程没有"应用身份"（AppUserModelID），Windows 只能显示通用橙色方块 + exe 文件名。
+  修复：`AppIdentity.Ensure()`（src\supervisor\Program.cs，Main 一开始调用）：
+    - `SetCurrentProcessExplicitAppUserModelID("DropBridge.Tray")`
+    - 写 `HKCU\Software\Classes\AppUserModelId\DropBridge.Tray`：
+      `DisplayName=DropBridge`、`IconUri=<exe 全路径>`（每次启动刷新路径）。
+  验证：
+    - 运行 `--check` 后注册表为 `DisplayName=DropBridge`、
+      `IconUri=J:\...\dist\DropBridge\DropBridge.exe`；通知设置里出现 `DropBridge.Tray` 项。
+    - 走过的弯路（记录以免下一位重复）：先试"开始菜单快捷方式 + IPropertyStore 写
+      System.AppUserModel.ID"，PowerShell 对 WScript 创建的 .lnk 能写进去，
+      但 IShellLink/WScript 在应用内创建出来的 .lnk 写入静默不生效（文件不增长、
+      字节里搜不到 AUMID），因此放弃快捷方式，改用上面的注册表方式；
+      实验遗留的 `Start Menu\Programs\DropBridge.lnk` 已删除。
+  未验证：通知头部是否已换成本项目图标。这台机器的前台窗口处于全屏，Windows 在全屏
+  应用下会抑制 toast；连续两次 14 s 截屏（含主动写入 data\received 触发"收到文件"气泡）
+  都没有抓到通知，`wpndatabase.db` 里也没有对应 toast 记录。需要用户在不全屏时看一次。
+
+重新打包（含本轮修改）：headless 16.1 MB、单文件 16,898,560 B（882d290e…）、
+portable 22,232,102 B（9231202d…，343 文件 41.7 MB）；解压后 `--check` exit 0、
+单文件 `--extract` 后 `--check` exit 0，均无 MISSING。

@@ -1819,6 +1819,44 @@ internal sealed class TrayApp : ApplicationContext
     }
 }
 
+/* Q59d: a portable exe has no application identity, so Windows renders the
+ * notification header with its generic tile and the raw file name
+ * ("DropBridge.exe"). An AppUserModelID plus the per-user registration under
+ * Software\Classes\AppUserModelId gives toasts the app name and the icon that
+ * sits in the exe, without installing anything. */
+internal static class AppIdentity
+{
+    private const string AppId = "DropBridge.Tray";
+
+    public static void Ensure()
+    {
+        try
+        {
+            SetCurrentProcessExplicitAppUserModelID(AppId);
+        }
+        catch (Exception)
+        {
+        }
+
+        try
+        {
+            using (RegistryKey key = Registry.CurrentUser.CreateSubKey(
+                       @"Software\Classes\AppUserModelId\" + AppId))
+            {
+                if (key == null) return;
+                key.SetValue("DisplayName", "DropBridge", RegistryValueKind.String);
+                key.SetValue("IconUri", Application.ExecutablePath, RegistryValueKind.String);
+            }
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("shell32.dll", CharSet = System.Runtime.InteropServices.CharSet.Unicode)]
+    private static extern int SetCurrentProcessExplicitAppUserModelID(string appId);
+}
+
 internal static class Program
 {
     private static string ResolveRoot(string argument)
@@ -1842,6 +1880,10 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
+        // Q59d: before any window or balloon exists, so toasts carry the app
+        // name and the exe icon instead of the generic tile.
+        AppIdentity.Ensure();
+
         string rootArgument = null;
         string output = null;
         bool check = false;
