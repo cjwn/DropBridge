@@ -59,6 +59,11 @@ foreach ($dir in 'backend', 'backend\airdrop', 'backend\python', 'tools', 'licen
 }
 
 Copy-Item $supervisor (Join-Path $stage 'DropBridge.exe') -Force
+
+# Q59e: Windows resolves the toast header icon from the AppUserModelId registration,
+# whose IconUri has to point at an image file; the exe path is not enough.
+$icon = Join-Path $root 'assets\dropbridge.ico'
+if (Test-Path $icon) { Copy-Item $icon (Join-Path $stage 'DropBridge.ico') -Force }
 foreach ($file in @($radio, $bridge, $netd, $awdld, $libusb)) {
     Copy-Item $file (Join-Path $stage 'backend') -Force
 }

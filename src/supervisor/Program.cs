@@ -1840,12 +1840,18 @@ internal static class AppIdentity
 
         try
         {
+            // Windows resolves the toast icon from IconUri; it has to be an image
+            // file, so prefer the .ico shipped next to the exe and fall back to
+            // the exe itself only if the file is missing.
+            string icon = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath) ?? string.Empty,
+                "DropBridge.ico");
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(
                        @"Software\Classes\AppUserModelId\" + AppId))
             {
                 if (key == null) return;
                 key.SetValue("DisplayName", "DropBridge", RegistryValueKind.String);
-                key.SetValue("IconUri", Application.ExecutablePath, RegistryValueKind.String);
+                key.SetValue("IconUri", File.Exists(icon) ? icon : Application.ExecutablePath,
+                    RegistryValueKind.String);
             }
         }
         catch (Exception)
@@ -1880,10 +1886,6 @@ internal static class Program
     [STAThread]
     private static int Main(string[] args)
     {
-        // Q59d: before any window or balloon exists, so toasts carry the app
-        // name and the exe icon instead of the generic tile.
-        AppIdentity.Ensure();
-
         string rootArgument = null;
         string output = null;
         bool check = false;
@@ -2043,6 +2045,10 @@ internal static class Program
         using (var mutex = new Mutex(true, @"Local\DropBridge-tray", out created))
         {
             if (!created) return 0;
+            // Q59d: only the tray instance owns the notification identity. Doing it
+            // in Main would let "--check" from a scratch copy point IconUri at that
+            // copy; the identity has to name the package the user actually runs.
+            AppIdentity.Ensure();
             Application.EnableVisualStyles();
             var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence, tcpMerge);
             using (var context = new TrayApp(supervisor, autoExitSeconds))

@@ -50,6 +50,11 @@ foreach ($file in @($radio, $bridge, $netd, $awdld, $libusb, $supervisor)) {
     Copy-Item $file (Join-Path $stage 'backend') -Force
 }
 
+# Q59e: the toast icon is resolved from this file (see AppIdentity.IconFile),
+# so the single-file payload has to carry it next to the supervisor.
+$icon = Join-Path $root 'assets\dropbridge.ico'
+if (Test-Path $icon) { Copy-Item $icon (Join-Path $stage 'backend\DropBridge.ico') -Force }
+
 # robocopy copies the contents of build\python-embed into backend\python; a
 # plain Copy-Item -Recurse would nest it as backend\python\python-embed.
 robocopy $python (Join-Path $stage 'backend\python') /E /NJH /NJS /NFL /NDL /NP | Out-Null

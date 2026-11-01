@@ -1,5 +1,18 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-01 14:35：Q59 通知图标——IconUri 要给图像文件，并只在托盘里注册
+
+- 用户反馈：应用身份生效后标题变成 `DropBridge`，但头部图标位置**空了**。
+- 原因：`IconUri` 指向 exe 时 Windows 解析不出图像，必须指向图像文件。
+- 修复：打包时把 `assets\dropbridge.ico` 放进包（文件夹版根目录、单文件 payload 的
+  `backend\`），`AppIdentity` 优先用 exe 同目录的 `DropBridge.ico`；并把 `Ensure()`
+  从 `Main` 开头移到托盘分支——否则 `--check` 在临时副本里跑会把 IconUri 指到那个副本
+  （本轮实测踩到，注册表一度指向 `build\diagnostics\dist-check-*\...`）。
+- 验证：注册表 IconUri 指向 `dist\DropBridge\DropBridge.ico` 且文件存在；portable
+  解压 344 文件含图标、`--check` exit 0 无 MISSING；单文件解压后 `backend\DropBridge.ico` 在。
+- 仍未验证：通知头部是否真的显示图标（全屏下 toast 被抑制，抓不到）。
+- 证据：`evidence/icon-refresh-2026-11-01.log` 第 10 节。
+
 ## 2026-11-01 14:20：Q59 收尾——清掉旧蓝图标，给通知加应用身份
 
 - 用户指出两处残留：资源管理器里的**旧蓝色图标**、通知左上角的**橙色通用图标**。

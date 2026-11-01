@@ -214,3 +214,26 @@ B. 通知通用图标
 重新打包（含本轮修改）：headless 16.1 MB、单文件 16,898,560 B（882d290e…）、
 portable 22,232,102 B（9231202d…，343 文件 41.7 MB）；解压后 `--check` exit 0、
 单文件 `--extract` 后 `--check` exit 0，均无 MISSING。
+
+10. 追加（2026-11-01 14:20–14:35）：通知标题对了，但图标位置空了
+----------------------------------------------------------------
+现象：应用身份生效后，通知标题从 `DropBridge.exe` 变成 `DropBridge`，
+但头部图标位置变空（既不是橙色通用块，也不是我们的图标）。
+
+原因：`IconUri` 指向 **exe** 时 Windows 解析不出图像——它要的是图像文件。
+
+修复：
+- 打包时把 `assets\dropbridge.ico` 一并放进包：文件夹版放根目录 `DropBridge.ico`，
+  headless/单文件 payload 放 `backend\DropBridge.ico`（`Package-*.ps1` 各加一行）。
+- `AppIdentity.Ensure()` 优先用 exe 同目录的 `DropBridge.ico`，文件不存在才回退 exe。
+- 同时把 `Ensure()` 从 `Main` 开头移到**托盘分支**（拿到单实例互斥之后）。原因：
+  `--check` 跑在临时副本里也会调用，结果把 IconUri 指到那个副本（本轮实测踩到，
+  注册表一度指向 `build\diagnostics\dist-check-*\DropBridge\DropBridge.ico`）。
+- 包内文件数 343 → 344（多一个 DropBridge.ico）。
+
+验证：
+- 启动成品文件夹后注册表为 `DisplayName=DropBridge`、
+  `IconUri=J:\...\dist\DropBridge\DropBridge.ico`，文件存在。
+- portable 解压后根目录有 `DropBridge.ico`（344 文件）、`--check` exit 0、无 MISSING；
+  单文件 `--extract` 后 `backend\DropBridge.ico` 存在。
+- 未验证：通知头部是否真的显示图标（原因同上，全屏下 toast 被抑制，抓不到）。
