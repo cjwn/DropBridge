@@ -960,10 +960,70 @@ internal static class RadioBinding
     }
 }
 
+/* Q59: the notification area is light or dark depending on Settings >
+ * Personalisation > Colours ("System mode"), and one set of pixels cannot stay
+ * readable on both: black strokes vanish on a dark taskbar, white strokes vanish
+ * on a light one. Both variants are embedded as manifest resources at build
+ * time (tools\Build-Supervisor.ps1), so the exe stays self-contained and the
+ * tray can swap icons when the user changes the system theme. A checkout that
+ * built without the art falls back to the icon the exe carries. */
+internal static class TrayIcons
+{
+    // Resources embedded by Build-Supervisor.ps1. The light-taskbar variant is
+    // the black line art, and the same file is the exe icon.
+    private const string ForLightTaskbar = "tray-light.ico";
+    private const string ForDarkTaskbar = "tray-dark.ico";
+
+    public static bool TaskbarIsLight()
+    {
+        try
+        {
+            using (RegistryKey key = Registry.CurrentUser.OpenSubKey(
+                       @"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"))
+            {
+                if (key != null)
+                {
+                    object value = key.GetValue("SystemUsesLightTheme");
+                    if (value != null) return Convert.ToInt32(value) != 0;
+                }
+            }
+        }
+        catch (Exception)
+        {
+        }
+        // Windows 11 ships with the light taskbar and that is also the variant
+        // the exe carries, so an unreadable key is not a fatal condition.
+        return true;
+    }
+
+    public static Icon ForTaskbar(bool lightTaskbar, Size size)
+    {
+        return Load(lightTaskbar ? ForLightTaskbar : ForDarkTaskbar, size);
+    }
+
+    private static Icon Load(string name, Size size)
+    {
+        try
+        {
+            using (Stream stream = typeof(TrayIcons).Assembly.GetManifestResourceStream(name))
+            {
+                if (stream == null) return null;
+                return new Icon(stream, size);
+            }
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+}
+
 internal sealed class TrayApp : ApplicationContext
 {
     private readonly Supervisor _supervisor;
     private readonly NotifyIcon _icon;
+    private Icon _trayIcon;
+    private bool _taskbarLight;
     private readonly ToolStripMenuItem _status;
     private readonly ToolStripMenuItem _autostart;
     private readonly System.Windows.Forms.Timer _watchdog;
@@ -1013,14 +1073,17 @@ internal sealed class TrayApp : ApplicationContext
         }));
         menu.Items.Add(new ToolStripMenuItem("退出", null, delegate { Exit(); }));
 
+        _taskbarLight = TrayIcons.TaskbarIsLight();
+        _trayIcon = TrayIcons.ForTaskbar(_taskbarLight, SystemInformation.SmallIconSize) ?? AppIcon();
         _icon = new NotifyIcon
         {
-            Icon = AppIcon(),
+            Icon = _trayIcon,
             Text = "DropBridge",
             ContextMenuStrip = menu,
             Visible = true,
         };
         _icon.DoubleClick += delegate { OpenFolder(_supervisor.ReceivedDirectory); };
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
         _icon.ShowBalloonTip(3000, "DropBridge", "正在启动后端…", ToolTipIcon.Info);
 
         Application.Idle += CaptureContext;
@@ -1058,6 +1121,29 @@ internal sealed class TrayApp : ApplicationContext
         SynchronizationContext context = _ui;
         if (context == null) return;
         context.Post(delegate { action(); }, null);
+    }
+
+    /* SystemEvents raises this for the WM_SETTINGCHANGE Windows broadcasts when
+     * the user flips light/dark mode. It arrives on a broadcast thread, so the
+     * actual icon swap is posted to the UI thread. */
+    private void OnUserPreferenceChanged(object sender, UserPreferenceChangedEventArgs e)
+    {
+        if (e.Category != UserPreferenceCategory.General &&
+            e.Category != UserPreferenceCategory.Color) return;
+        bool light = TrayIcons.TaskbarIsLight();
+        if (light == _taskbarLight) return;
+        _taskbarLight = light;
+        Ui(ApplyTrayIcon);
+    }
+
+    private void ApplyTrayIcon()
+    {
+        Icon next = TrayIcons.ForTaskbar(_taskbarLight, SystemInformation.SmallIconSize);
+        if (next == null) return;
+        Icon previous = _trayIcon;
+        _trayIcon = next;
+        _icon.Icon = next;
+        if (previous != null && !ReferenceEquals(previous, SystemIcons.Application)) previous.Dispose();
     }
 
     private void StartWatcher()
@@ -1664,6 +1750,7 @@ internal sealed class TrayApp : ApplicationContext
     private void Exit()
     {
         _watchdog.Stop();
+        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         if (_watcher != null) _watcher.EnableRaisingEvents = false;
         _icon.Visible = false;
         StopBeacon();
@@ -1673,6 +1760,11 @@ internal sealed class TrayApp : ApplicationContext
             Ui(delegate
             {
                 _icon.Dispose();
+                if (_trayIcon != null && !ReferenceEquals(_trayIcon, SystemIcons.Application))
+                {
+                    _trayIcon.Dispose();
+                    _trayIcon = null;
+                }
                 ExitThread();
             });
         });

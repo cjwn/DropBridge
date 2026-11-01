@@ -1,5 +1,32 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-01 12:45：Q59 图标换成用户提供的明暗两版（exe + 托盘）
+
+- 用户给了两张同图 ICO（显示器 + 手机 + 双向箭头，16–256 七档）：黑色线条版作
+  `assets\dropbridge.ico`（exe 图标 + 浅色任务栏托盘），白色线条版作
+  `assets\dropbridge-tray-white.ico`（深色任务栏托盘）。旧的蓝色方块图连生成脚本
+  `tools\make_icon.py` 一起删掉，免得以后误运行把图标画回去。
+- 托盘不再靠 `Icon.ExtractAssociatedIcon` 从 exe 取图：编译时两版都作为清单资源嵌入
+  （`tray-light.ico` / `tray-dark.ico`），运行时读
+  `HKCU\...\Themes\Personalize\SystemUsesLightTheme` 选版本，并订阅
+  `SystemEvents.UserPreferenceChanged` 跟随系统明暗切换；资源缺失才回退 exe 图标。
+  `Build-Sfx.ps1` 同时给单文件 stub 补了 `/win32icon`（之前 stub 根本没有图标）。
+- 离线验证：`Build-Supervisor.ps1 -Test` 全过，新增 `src\supervisor\tray_icon_test.cs`
+  检查两份资源都能按 16×16 读出、明暗两版都取得到；本机 `SystemUsesLightTheme=0`
+  （深色任务栏）→ 实际取白色版。build / 文件夹版 / 单文件三个 exe 提取出的图标
+  PNG 哈希一致（黑色线条图）。
+- 重新打包：headless 16,871,628 B、portable 22,228,055 B（343 文件 41.7 MB）、单文件
+  16,892,928 B。portable 解压后 `--check` exit 0 无 MISSING；单文件 `--extract` 后在解压
+  目录里 `--check` 同样通过。
+- 现场：打包前 dist\DropBridge 正在运行（用户同意后停掉托盘，6 秒内进程与端口全清），
+  `data\`（21 文件 3,369,659 B）备份后原样放回；重打完成于 12:33:53 重新启动，
+  约 60 秒后 6 个进程齐全、49876/49877/8771 都在听。
+- 踩到的坑（既有行为，未修）：单文件 stub 只认 `--where` / `--extract`，`--check` 会被
+  忽略并直接拉起托盘；验证单文件包必须先 `--extract`。
+- 未验证：真的切换系统明暗设置看托盘换图（会改用户桌面）；黑色线条 exe 图标在深色
+  资源管理器背景上对比度偏低，这是单色素材的固有取舍。
+- 证据：`evidence/icon-refresh-2026-11-01.log`。
+
 ## 2026-11-01 01:46：Q55 收口——强杀托盘不再留残留、网卡也不再楔死
 
 - 三层修复：

@@ -1,0 +1,100 @@
+DropBridge 图标更换（Q59）—— 离线验证与重新打包
+=================================================
+
+时间：2026-11-01 12:20–12:45（Asia/Hong_Kong）
+机器：WES-COMPUTER / 用户 ndpyz，Windows 11
+仓库：J:\New soft project\DropBridge（分支 main，HEAD 见提交记录）
+
+1. 输入与落位
+-------------
+用户放入项目根目录的两个 ICO（均为 RGBA，含 16/20/24/32/48/64/256 七个尺寸）：
+
+  WinDrop_tray_black.ico   13,029 B  黑色线条（显示器 + 手机 + 双向箭头）
+  WinDrop_tray.ico         14,765 B  白色线条（同一张图）
+
+处理：
+  assets\dropbridge.ico                  ← 黑色版（exe 图标，同时用于浅色任务栏托盘）
+  assets\dropbridge-tray-white.ico       ← 白色版（深色任务栏托盘）
+  旧的 assets\dropbridge.ico（26,007 B，蓝色圆角方块）被替换；
+  tools\make_icon.py（生成那张蓝色图的脚本）删除，避免以后误运行把图标画回去。
+
+2. 代码
+-------
+- src/supervisor/Program.cs
+  · 新增 `TrayIcons`：读 HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize\
+    SystemUsesLightTheme（缺失按浅色处理），选清单资源 `tray-light.ico` / `tray-dark.ico`，
+    用 SystemInformation.SmallIconSize 取当前 DPI 的托盘尺寸。
+  · `TrayApp` 建托盘时按当前主题取图；订阅 SystemEvents.UserPreferenceChanged，系统切换
+    明暗后重新取图（跨线程投递回 UI 线程，旧图标 Dispose，SystemIcons 不碰）。
+  · 资源缺失（只编译了源码、没带 assets）时回退到 exe 自带图标，再回退系统图标。
+- tools/Build-Supervisor.ps1
+  · `/win32icon:assets\dropbridge.ico`
+  · `/resource:assets\dropbridge.ico,tray-light.ico`
+  · `/resource:assets\dropbridge-tray-white.ico,tray-dark.ico`
+  · `-Test` 额外编译运行 src/supervisor/tray_icon_test.cs。
+- tools/Build-Sfx.ps1：单文件 stub 也加 `/win32icon`（此前 stub 完全没有图标）。
+- src/supervisor/tray_icon_test.cs：新增离线检查（资源存在、能按 16×16 读出、
+  明暗两版都取得到）。
+
+3. 编译与离线测试
+-----------------
+$ powershell -File tools\Build-Supervisor.ps1 -Test
+supervisor: J:\New soft project\DropBridge\build\supervisor\Release\DropBridge.exe (85 KB)
+PASS: fixed child environment, inherited follow removed, only join argument changed
+PASS: social child environment, inherited follow removed, only join argument changed
+PASS: invalid mode rejected; no radio process started
+ok tray-light.ico 16x16 (13029 B)
+ok tray-dark.ico 16x16 (14765 B)
+ok ForTaskbar(light)=16x16 ForTaskbar(dark)=16x16
+ok taskbar light=False -> tray-dark.ico
+
+本机 SystemUsesLightTheme=0（深色任务栏），所以实际用的是白色版 tray-dark.ico。
+
+exe 图标提取（Icon.ExtractAssociatedIcon → PNG，32×32，三者 PNG SHA-256 均为
+fd52bfe79b3dd306a7c963bf4acf036c22320122a841597656cae8beb190fdc2，即黑色线条图）：
+  build\supervisor\Release\DropBridge.exe   86,528 B  e5093ecce382a26de579323662fe1d4bba01435e6fbd3d580a94dcd7a4341bd7
+  dist\DropBridge\DropBridge.exe            86,528 B  e5093ecc…（同上）
+  dist\DropBridge.exe（单文件）          16,892,928 B  ca87e571a732b7219740c8fb5b5dda79bf0b84035a5cdd840d4a35536399eb21
+
+4. 重新打包（产物在 dist\，全部 git 忽略）
+-------------------------------------------
+  dist\DropBridge-headless.zip   16,871,628 B  a30c046883634228f9099e3ee1236c665c15c906f208413beac3e04ab09623ef
+  dist\DropBridge-portable.zip   22,228,055 B  d3d77ea9289925ccc9b4134b29209be02815579fb0533bb11058e61af222764d
+  dist\DropBridge.exe            16,892,928 B  ca87e571…（stub 开销 21 KB）
+  文件夹形态：dist\DropBridge 343 文件 41.7 MB
+
+验证：
+- 把 portable.zip 解到 build\diagnostics\dist-check-20261101-icon\DropBridge：
+  顶层只有 backend / licenses / setup / tools / DropBridge.exe / README.txt / VERSION.txt，
+  343 文件；`DropBridge.exe --check` exit 0，data\check.txt 里 MISSING 计数 0，
+  计划为 radio 149 20、awdld -c 149 -s 1 -j 400、tcp_merge on、chanseq social。
+- 单文件：`dist\DropBridge.exe --extract` → dist\app\20261101-122820；
+  在该目录跑 `backend\DropBridge.exe --check --root <目录> --data build\diagnostics\sfx-check-data
+  --out build\diagnostics\sfx-check.txt` exit 0、无 MISSING；payload 里的 supervisor 86,528 B，
+  图标哈希同为 fd52bfe7…。
+
+注意：单文件 stub 只认 `--where` / `--extract`，其它参数会被忽略并直接进托盘
+（src/sfx/Program.cs:117-157）。所以 `dist\DropBridge.exe --check` 不会“检查”，
+它会把托盘链路拉起来——本次实测踩到一次，随即强杀托盘（6 秒内进程与端口全清）。
+单文件包的正确验证方式是先 `--extract` 再在解压目录里跑 `--check`。
+
+5. 打包现场（用户数据）
+-----------------------
+- 打包前 dist\DropBridge 正在运行（11:42 启动，6 个进程，占 49876/49877/8771）。
+  经用户同意停掉托盘：6 秒内本包进程与端口全部消失（Q55 的作业对象 + radio 父进程
+  监视按设计生效）。
+- 用户数据 dist\DropBridge\data（21 文件 3,369,659 B：keys / received / logs /
+  awdl_netd.addr / autostart-offered）先备份到
+  build\_preserve\DropBridge-data-20261101-123125\，重打后原样放回，
+  文件数与字节数与备份一致。
+- 重打完成后重新启动 dist\DropBridge\DropBridge.exe：
+  12:33:53 托盘与 radio 起来，约 60 秒后 6 个进程齐全，
+  49876（radio）/ 49877（netd）/ 8771（receiver）都在听，数据面就绪。
+
+6. 未验证 / 已知限制
+--------------------
+- 没有真的去改 Windows 明暗设置看托盘图标切换（会动用户桌面），只验证了资源、
+  选择逻辑与本机当前主题下的实际取图。
+- 黑色线条 exe 图标在深色资源管理器背景上对比度偏低；这是单色素材的固有取舍，
+  没有改动用户提供的素材。需要的话可以再做一版“白底圆角方块 + 黑色线条”的 exe 图标。
+- 单文件 stub 的参数透传问题（见第 4 节）是既有行为，本次未修改，只在文档里写清楚。

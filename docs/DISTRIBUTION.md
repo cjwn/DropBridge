@@ -58,8 +58,12 @@ data\awdl_netd.addr
    exe 不需要任何参数。
 2. 同一文件的 `AutostartValue`：文件夹形态下开机自启直接注册根目录 exe 自身；
    自解压形态仍注册外层 stub（升级后路径不变）。
-3. 托盘图标：`assets\dropbridge.ico` 由 `tools/make_icon.py` 生成，编译时用
-   `/win32icon:` 嵌入，运行时 `Icon.ExtractAssociatedIcon` 取用，取不到就回退系统图标。
+3. 托盘图标：`assets\dropbridge.ico`（黑色线条，同时是 exe 图标）和
+   `assets\dropbridge-tray-white.ico`（白色线条，深色任务栏用）编译时一起嵌入：
+   前者用 `/win32icon:` 写进 exe，两者各作一个清单资源；运行时 `TrayApp`
+   读 `HKCU\...\Themes\Personalize\SystemUsesLightTheme` 选版本，并监听
+   `SystemEvents.UserPreferenceChanged` 跟随系统明暗切换；资源缺失时回退到
+   exe 自带图标。
 4. 新增 `tools/Package-Distributable.ps1`：可重复地生成上面的文件夹与 zip（含
    `README.txt`、`VERSION.txt`、许可证、Python 的 `._pth` 修正）；拒绝在非 `dist\`
    路径上删除，拒绝覆盖含 `data\` 的目录。
@@ -110,5 +114,7 @@ powershell -File tools\Package-Distributable.ps1   # → dist\DropBridge + zip
 powershell -File tools\Build-Sfx.ps1 -SkipPayload  # 可选：单文件 exe 形态
 ```
 
-`tools\make_icon.py` 只在需要改图标时运行（依赖 Pillow，产物 `assets\dropbridge.ico`
-已提交，构建不依赖 Pillow）。
+`assets\dropbridge.ico` 与 `assets\dropbridge-tray-white.ico` 是已提交的原始
+素材（多尺寸 ICO，构建不依赖任何图像库）；换图标就是替换这两个文件后重新编译，
+`tools\Build-Supervisor.ps1 -Test` 会编译并运行 `src\supervisor\tray_icon_test.cs`
+检查两份资源都能按 16×16 读出来。

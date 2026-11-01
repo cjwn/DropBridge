@@ -15,6 +15,7 @@ $source = Join-Path $root 'src\supervisor\Program.cs'
 $outDir = Join-Path $root 'build\supervisor\Release'
 $out = Join-Path $outDir 'DropBridge.exe'
 $icon = Join-Path $root 'assets\dropbridge.ico'
+$trayDark = Join-Path $root 'assets\dropbridge-tray-white.ico'
 $csc = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 
 if (-not (Test-Path $csc)) { throw "in-box C# compiler missing: $csc" }
@@ -26,7 +27,14 @@ New-Item -ItemType Directory -Force $outDir | Out-Null
 $iconArgument = @()
 if (Test-Path $icon) { $iconArgument = @("/win32icon:$icon") }
 
-& $csc /nologo /target:winexe /optimize+ "/out:$out" @iconArgument `
+# Q59: both tray variants are embedded so the notification icon can follow the
+# taskbar theme without shipping loose files next to the exe. The black art is
+# the exe icon too, so it doubles as the light-taskbar resource.
+$resourceArgument = @()
+if (Test-Path $icon) { $resourceArgument += "/resource:$icon,tray-light.ico" }
+if (Test-Path $trayDark) { $resourceArgument += "/resource:$trayDark,tray-dark.ico" }
+
+& $csc /nologo /target:winexe /optimize+ "/out:$out" @iconArgument @resourceArgument `
     /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source
 if ($LASTEXITCODE -ne 0) { throw "csc failed with $LASTEXITCODE" }
 
@@ -45,4 +53,12 @@ if ($Test) {
     if ($LASTEXITCODE -ne 0) { throw "test compile failed: $LASTEXITCODE" }
     & $testExe
     if ($LASTEXITCODE -ne 0) { throw "offline test failed: $LASTEXITCODE" }
+
+    $trayTest = Join-Path $outDir 'tray_icon_test.exe'
+    & $csc /nologo /target:exe /main:TrayIconTest "/out:$trayTest" @resourceArgument `
+        /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source `
+        (Join-Path $root 'src\supervisor\tray_icon_test.cs')
+    if ($LASTEXITCODE -ne 0) { throw "tray icon test compile failed: $LASTEXITCODE" }
+    & $trayTest
+    if ($LASTEXITCODE -ne 0) { throw "tray icon test failed: $LASTEXITCODE" }
 }

@@ -18,6 +18,7 @@ $stage = Join-Path $dist 'DropBridge-headless'
 $payload = Join-Path $dist 'payload.zip'
 $exe = Join-Path $dist 'DropBridge.exe'
 $source = Join-Path $root 'src\sfx\Program.cs'
+$icon = Join-Path $root 'assets\dropbridge.ico'
 $csc = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\csc.exe'
 
 if (-not (Test-Path $csc)) { throw "in-box C# compiler missing: $csc" }
@@ -33,7 +34,14 @@ if (Test-Path $payload) { Remove-Item $payload -Force }
 Compress-Archive -Path (Join-Path $stage '*') -DestinationPath $payload -Force
 
 if (Test-Path $exe) { Remove-Item $exe -Force }
-& $csc /nologo /target:exe /optimize+ "/out:$exe" "/resource:$payload,payload.zip" `
+
+# Q59: the icon is optional (a checkout without assets\ still builds), but the
+# single-file exe is what most users keep, so it should not fall back to the
+# generic stub icon.
+$iconArgument = @()
+if (Test-Path $icon) { $iconArgument = @("/win32icon:$icon") }
+
+& $csc /nologo /target:exe /optimize+ "/out:$exe" "/resource:$payload,payload.zip" @iconArgument `
     /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll $source
 if ($LASTEXITCODE -ne 0) { throw "csc failed with $LASTEXITCODE" }
 
