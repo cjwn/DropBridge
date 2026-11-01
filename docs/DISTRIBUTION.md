@@ -73,9 +73,8 @@ data\awdl_netd.addr
    receiver 的 stdin 发 `{"do":"set","name":...}` 立即生效（不重启射频）；
    beacon 开关改由这里记录，旧版的 `data\beacon-off` 标记仍会被读取（迁移）。
    开机自启仍走注册表 `Run` 项。
-6. 收到图片时（Q61）：右下角弹一个自绘小窗，含缩略图与「复制图片」「打开文件夹」；
-   复制会把位图和文件同时放进剪贴板。系统通知给未安装的 exe 加不了按钮，所以用自绘窗；
-   非图片文件仍是普通通知。窗口定位做了 DPI 换算（进程不感知 DPI）。
+6. 收到图片时（Q61/Q63）：走系统 toast（Q62，带「复制到剪贴板」按钮与缩略图）；
+   toast 不可用时退回普通气泡通知。原先的自绘小窗已按用户要求删除。
 7. 系统通知按钮（Q62）：`tools\toast.ps1` 用 Windows PowerShell 5.1 的 WinRT 支持发
    带 `<actions>` 的 toast，`tools\register.ps1` 在 HKCU 写
    `AppUserModelId\DropBridge.Tray` + `dropbridge://` 协议 + 开始菜单快捷方式（AUMID）。

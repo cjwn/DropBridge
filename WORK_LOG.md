@@ -1,5 +1,15 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-01 23:20：Q63 弃用自绘弹窗，收图只走系统 toast
+
+- 用户不要 Q61 那个右下角自绘小窗了。删掉 `ReceivedPopup` 与 `AppIdentity.IconForPopup`
+  （约 250 行），`ShowReceived` 的兜底从"弹窗"改成"普通气泡通知"——toast 不可用时仍会
+  提示收到照片，只是没有复制按钮。
+- 验证：放入 `_popup_gone_test.png` 后日志 `received picture (toast): _popup_gone_test.png`，
+  没有任何自绘窗口；exe 从 107 KB 降到 102 KB。
+- 保留：`ClipboardBridge`（toast 按钮回调仍在用）、`HandleActivation`、命名管道转发。
+- 证据：`evidence/toast-button-2026-11-01.log` 第 6 节。
+
 ## 2026-11-01 23:25：Q62 真正的系统通知按钮（toast + dropbridge:// 回调）
 
 - 用户要「系统通知里带一个确认/复制按钮」，并同意为此写 HKCU 注册（包里仍是一个 zip）。
