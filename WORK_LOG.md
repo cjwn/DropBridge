@@ -1,5 +1,21 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-02 12:55：Q66 修「改完没生效」——receiver.py 根本不读 stdin
+
+- 用户反馈改名/改接收文件夹没生效。根因：supervisor 跑的是 `receiver.py`，而
+  `{"do":"set",...}` 的命令循环只在 `engine.py`（另一个入口）里，`receiver.py` 不读 stdin。
+  所以 Q60 的改名、Q65 的改文件夹的"热更新"从来没生效，日志却写了成功。
+- 证据：12:44:42 改到 Desktop 后，12:44:54 的 `IMG_3579-1.PNG` 仍落在 `data\received`，
+  receiver 日志里没有任何 settings 事件。
+- 修法：`RenameReceiver` / `SetReceivedFolder` 改为「写设置 + 只重启 receiver」
+  （射频不动，1–2 秒）；改文件夹失败时如实报错，不再假成功。
+- 验证：设置指向 `build\_folder_live` 启动，receiver `--outdir` 正确；杀掉 python 让看门狗
+  重启 receiver，新进程 `--outdir` 仍是新目录。已按用户选择把接收目录恢复为
+  `C:\Users\ndpyz\Desktop\test` 并重启（receiver 命令行已确认）。
+- 另：同一时段的「发送被拒绝 / 卡等待」是链路问题——`/Ask` 请求体 30 s 读超时 → 408，
+  同时 `low link rate: 2 frames/s`、radio 在 149↔6 反复重调；与接收文件夹无关。
+- 证据：`evidence/received-folder-2026-11-02.log` 第 5、6 节。
+
 ## 2026-11-02 12:45：Q65 自定义接收文件夹
 
 - 用户要能改「收到的文件存哪」。托盘菜单新增「接收文件夹：<当前路径>…」→ 系统文件夹选择框。

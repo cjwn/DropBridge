@@ -410,9 +410,10 @@ internal sealed class Supervisor
     public string LogDirectory { get { return _log.DirectoryPath; } }
     public string Root { get { return _root; } }
 
-    /* Q65: point received files at another folder. The receiver accepts a live
-     * {"do":"set","folder":...} command, so the radio keeps running; the caller
-     * restarts the file watcher. An empty value restores the default. */
+    /* Q65/Q66: point received files at another folder. The old live-stdin path
+     * never worked (receiver.py has no command loop), so the receiver is
+     * restarted with the new --outdir; the radio keeps running. An empty value
+     * restores the default. The caller restarts the file watcher. */
     public bool SetReceivedFolder(string folder, out string error)
     {
         error = null;
@@ -437,20 +438,23 @@ internal sealed class Supervisor
         }
         _received = target;
         Prefs.SetReceivedFolder(clean);
+        bool running = false;
         foreach (Child child in _children)
         {
-            if (child.Name != "receiver") continue;
-            string json = "{\"do\": \"set\", \"folder\": \"" +
-                          target.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}";
-            if (!child.SendLine(json))
-            {
-                Log("received folder saved; receiver will use it on its next start");
-                return true;
-            }
-            Log("received folder -> " + target);
+            if (child.Name == "receiver") running = true;
+        }
+        if (!running)
+        {
+            Log("received folder -> " + target + " (receiver not running yet)");
             return true;
         }
-        Log("received folder -> " + target + " (receiver not running yet)");
+        string restartError;
+        if (!RestartReceiver(out restartError))
+        {
+            error = "设置已保存，但接收端重启失败：" + restartError;
+            return false;
+        }
+        Log("received folder -> " + target + " (receiver restarted)");
         return true;
     }
 
@@ -664,29 +668,28 @@ internal sealed class Supervisor
     }
 
     /// <summary>
-    /// Rename the receiver in place. The Python receiver reads JSON commands from
-    /// stdin ({"do": "set", "name": ...}) and re-announces itself, so the radio
-    /// and the rest of the chain stay untouched. Returns false when the receiver
-    /// is not running -- the name then takes effect on its next start.
+    /// Rename the receiver. Q66: the shipped entry point is receiver.py, which
+    /// does NOT read the stdin command loop (that one lives in engine.py), so the
+    /// old {"do":"set"} path silently did nothing. The name is stored in settings
+    /// and applied by restarting only the receiver -- the radio keeps running.
     /// </summary>
     public bool RenameReceiver(string name, out string error)
     {
         error = null;
+        bool running = false;
         foreach (Child child in _children)
         {
-            if (child.Name != "receiver") continue;
-            string json = "{\"do\": \"set\", \"name\": \"" +
-                          name.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}";
-            if (!child.SendLine(json))
-            {
-                error = "receiver is not accepting commands";
-                return false;
-            }
-            Log("receiver renamed to " + name);
-            return true;
+            if (child.Name == "receiver") running = true;
         }
-        error = "receiver is not running";
-        return false;
+        Prefs.SetDeviceName(name);
+        if (!running)
+        {
+            error = "receiver is not running";
+            return false;
+        }
+        if (!RestartReceiver(out error)) return false;
+        Log("receiver restarted as " + name);
+        return true;
     }
 
     // The receiver is the only backend that can be replaced without touching the

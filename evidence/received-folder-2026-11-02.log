@@ -38,11 +38,34 @@ DropBridge Q65 —— 自定义接收文件夹
   `receivedFolder` 往返持久化、空值 = 默认、`CleanFolder(null)` 被拒。
 - 打包：只重打 portable（`dist` 仍然只留 zip + 解压目录两项），346 文件 41.7 MB。
 
-4. 未验证 / 说明
+5. 追加（2026-11-02 12:50）：原来的"热更新"是假的，已改成重启 receiver（Q66）
+----------------------------------------------------------------------------
+用户反馈"改完没生效"。查下来是根因级的问题：
+
+- 我们的 supervisor 跑的是 `backend\airdrop\receiver.py`，而
+  `{"do":"set",...}` 的命令循环只存在于 `engine.py`（另一个入口）。`receiver.py` 根本不读
+  stdin —— 所以改名和改接收文件夹的"热更新"从来没有生效过，只是日志写了成功。
+- 证据：12:44:42 把接收目录改到 `C:\Users\ndpyz\Desktop`，12:44:54 收到的
+  `IMG_3579-1.PNG` 仍然落在 `data\received`；receiver 日志里也没有任何 settings 事件。
+- 修法：`RenameReceiver` 与 `SetReceivedFolder` 都改为"写设置 + 只重启 receiver"
+  （射频不动，约 1–2 秒）；`SetReceivedFolder` 失败时如实报错而不是假成功。
+- 验证：把设置指向 `build\_folder_live` 启动，receiver 命令行 `--outdir` 正确；
+  杀掉 python 触发看门狗重启，新 receiver 的 `--outdir` 仍是新目录
+  （`12:52:02 backends exited: receiver` → `restarting receiver only`）。
+- 现状：已按用户的选择把 `receivedFolder` 设为 `C:\Users\ndpyz\Desktop\test` 并重启，
+  receiver 命令行确认 `--outdir "C:\Users\ndpyz\Desktop\test"`。
+
+6. 附：同一时段的"发送被拒绝"不是这个功能引起的
+-----------------------------------------------
+receiver 日志显示 `POST /Ask` 的请求体 30 秒读超时 → `408`（12:48:26），
+同时 supervisor 报 `low link rate: 2 frames/s`，radio 日志在 149↔6 之间反复重调。
+这是射频/链路退化（项目历史里同样的现象靠拔插网卡或冷启动恢复），与接收文件夹无关。
+
+7. 未验证 / 说明
 ----------------
-- 菜单里的文件夹选择框与"立即生效"要人工点一次（无 GUI 会话只能验证到
-  "写设置 → 重启后生效" 与 receiver 参数正确）。
+- 菜单里的文件夹选择框、改名、改文件夹三条 UI 路径仍需人工点一次确认
+  （无 GUI 会话只能验证到"写设置 → 重启后生效"与 receiver 参数正确）。
 - 换到没有写权限/不存在的盘符时，会弹「接收文件夹没有改：无法写入：…」，设置保持原值。
 - 接收文件从此可以落在包外，与"数据都在包内"的默认策略不一致——这是用户显式选择，
   默认为空时仍全部在包内。
-- 旧的 `data\received` 不会被自动搬迁；已收到的文件留在原处。
+- 旧的 data\received 不会被自动搬迁；已收到的文件留在原处。
