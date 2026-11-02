@@ -1,5 +1,16 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-02 13:35：Q67 去掉上传临时文件的误报，通知更短
+
+- 用户收到「收到文件：tmpXXXX (0 KB)」通知——那是 receiver 上传过程中在目标目录建的
+  Python `tempfile` 临时文件，被文件监视器当成“收到的文件”。
+- 改法：监视器忽略无扩展名且（以 `tmp` 开头，或 8–12 位小写随机名且此刻 0 字节）的条目；
+  300 ms 观察窗内已消失的文件也跳过。普通文件兜底气泡 4000→2000 ms，图片兜底 5000→3000 ms。
+- 验证：建 `tmpt3mujtn` 不再有任何提示；建 `_normal2.txt` 仍出现
+  `received file (balloon): _normal2.txt`。
+- 说明：系统 toast 的横幅时长由 Windows 控制（short ≈ 5 s），无法再短。
+- 证据：`evidence/temp-file-noise-2026-11-02.log`。
+
 ## 2026-11-02 12:55：Q66 修「改完没生效」——receiver.py 根本不读 stdin
 
 - 用户反馈改名/改接收文件夹没生效。根因：supervisor 跑的是 `receiver.py`，而

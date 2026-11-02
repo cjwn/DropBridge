@@ -1420,6 +1420,23 @@ internal sealed class TrayApp : ApplicationContext
         if (previous != null && !ReferenceEquals(previous, SystemIcons.Application)) previous.Dispose();
     }
 
+    /* Q67: python's tempfile.TemporaryFile() creates "tmp" + random lowercase
+     * chars in the destination folder, and the receiver uses one per upload.
+     * They showed up as "收到文件：tmpXXXX (0 KB)". Names vary in length, so also
+     * treat a dotless 8-12 char lowercase name that is still empty as a temp. */
+    private static readonly System.Text.RegularExpressions.Regex TemporaryReceive =
+        new System.Text.RegularExpressions.Regex("^[a-z0-9]{8,12}$",
+            System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static bool IsTemporaryReceiveName(string name, long size)
+    {
+        if (string.IsNullOrEmpty(name)) return false;
+        if (name.IndexOf('.') >= 0) return false;
+        bool tempPrefix = name.StartsWith("tmp", StringComparison.OrdinalIgnoreCase);
+        bool emptyRandom = size == 0 && TemporaryReceive.IsMatch(name);
+        return tempPrefix || emptyRandom;
+    }
+
     private void StartWatcher()
     {
         try
@@ -1443,15 +1460,22 @@ internal sealed class TrayApp : ApplicationContext
                 string name = args.Name;
                 // Q64: our own still copies must not bounce back as "new files".
                 if (name.EndsWith("-still.jpg", StringComparison.OrdinalIgnoreCase)) return;
+                // Q67: the receiver writes each upload through a tempfile in the
+                // destination folder (dotless random name, empty while uploading).
+                // Those appeared as "收到文件：tmpXXXX (0 KB)" toasts; ignore them,
+                // and ignore anything that vanished while we slept.
                 long size = 0;
                 try
                 {
                     var info = new FileInfo(args.FullPath);
-                    if (info.Exists) size = info.Length;
+                    if (!info.Exists) return;
+                    size = info.Length;
                 }
                 catch (IOException)
                 {
                 }
+                // A still-empty dotless random name is the receiver's upload temp.
+                if (IsTemporaryReceiveName(name, size)) return;
                 Ui(delegate { ShowReceived(args.FullPath, name, size); });
                 // Q64: the still copy is I/O bound (WIC decode + re-encode), so it
                 // runs on its own STA thread; WPF imaging prefers STA.
@@ -1489,7 +1513,9 @@ internal sealed class TrayApp : ApplicationContext
             // own toast, so do not add a second notification for it.
             if (Array.IndexOf(MotionExtensions, extension) >= 0 && HasStillSibling(path, name)) return;
             LogLine("received file (balloon): " + name);
-            _icon.ShowBalloonTip(4000, _icon.Text,
+            // Q67: keep this short; the file is already on disk and the toast was
+            // only telling the user that something arrived.
+            _icon.ShowBalloonTip(2000, _icon.Text,
                 "收到文件：" + name + " (" + (bytes / 1024) + " KB)", ToolTipIcon.Info);
             return;
         }
@@ -1509,7 +1535,7 @@ internal sealed class TrayApp : ApplicationContext
             return;
         }
         LogLine("toast unavailable (" + toastError + "), using balloon: " + name);
-        _icon.ShowBalloonTip(5000, _icon.Text,
+        _icon.ShowBalloonTip(3000, _icon.Text,
             "收到照片：" + name + " (" + SizeText(bytes) + ")", ToolTipIcon.Info);
     }
 
