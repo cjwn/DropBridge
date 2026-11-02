@@ -369,6 +369,7 @@ internal sealed class Supervisor
     private readonly LogSink _log;
     private readonly List<Child> _children = new List<Child>();
     public readonly Settings Prefs;
+    private string _received;
     public volatile bool Running;
     public string LastError = "";
 
@@ -392,17 +393,77 @@ internal sealed class Supervisor
             : Path.GetFullPath(dataDirectory);
         _log = new LogSink(Path.Combine(_data, "logs", sessionStamp), prepareDirectories);
         Prefs = Settings.Load(_data);
+        // Q65: the user may point the received files somewhere else; empty means
+        // the portable default inside the package.
+        _received = string.IsNullOrWhiteSpace(Prefs.ReceivedFolder)
+            ? Path.Combine(_data, "received")
+            : Prefs.ReceivedFolder;
         if (prepareDirectories)
         {
-            Directory.CreateDirectory(ReceivedDirectory);
+            TryCreateDirectory(ReceivedDirectory);
             Directory.CreateDirectory(Path.Combine(_data, "keys"));
             PruneOldSessions(Path.Combine(_data, "logs"), 10);
         }
     }
 
-    public string ReceivedDirectory { get { return Path.Combine(_data, "received"); } }
+    public string ReceivedDirectory { get { return _received; } }
     public string LogDirectory { get { return _log.DirectoryPath; } }
     public string Root { get { return _root; } }
+
+    /* Q65: point received files at another folder. The receiver accepts a live
+     * {"do":"set","folder":...} command, so the radio keeps running; the caller
+     * restarts the file watcher. An empty value restores the default. */
+    public bool SetReceivedFolder(string folder, out string error)
+    {
+        error = null;
+        string clean = Settings.CleanFolder(folder);
+        if (clean == null)
+        {
+            error = "路径无效";
+            return false;
+        }
+        string target = clean.Length == 0 ? Path.Combine(_data, "received") : clean;
+        try
+        {
+            TryCreateDirectory(target);
+            string probe = Path.Combine(target, ".dropbridge-write-test");
+            File.WriteAllText(probe, "ok");
+            File.Delete(probe);
+        }
+        catch (Exception problem)
+        {
+            error = "无法写入：" + problem.Message;
+            return false;
+        }
+        _received = target;
+        Prefs.SetReceivedFolder(clean);
+        foreach (Child child in _children)
+        {
+            if (child.Name != "receiver") continue;
+            string json = "{\"do\": \"set\", \"folder\": \"" +
+                          target.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"}";
+            if (!child.SendLine(json))
+            {
+                Log("received folder saved; receiver will use it on its next start");
+                return true;
+            }
+            Log("received folder -> " + target);
+            return true;
+        }
+        Log("received folder -> " + target + " (receiver not running yet)");
+        return true;
+    }
+
+    private static void TryCreateDirectory(string path)
+    {
+        try
+        {
+            Directory.CreateDirectory(path);
+        }
+        catch (Exception)
+        {
+        }
+    }
 
     public Dictionary<string, string> AwdldEnvironment()
     {
@@ -1216,6 +1277,7 @@ internal sealed class TrayApp : ApplicationContext
     private ToolStripMenuItem _beaconItem;
     private ToolStripMenuItem _nameItem;
     private ToolStripMenuItem _stillCopyItem;
+    private ToolStripMenuItem _folderItem;
     private string _beaconLog;
     private readonly Settings _prefs;
 
@@ -1228,7 +1290,9 @@ internal sealed class TrayApp : ApplicationContext
         menu.Items.Add(_status);
         menu.Items.Add(new ToolStripMenuItem("打开接收文件夹", null,
             delegate { OpenFolder(_supervisor.ReceivedDirectory); }));
-        menu.Items.Add(new ToolStripMenuItem("打开日志", null,
+        _folderItem = new ToolStripMenuItem("接收文件夹：" + ShortPath(_supervisor.ReceivedDirectory) + "…", null,
+            delegate { ChooseReceivedFolder(); }) { ToolTipText = "选择收到的文件保存到哪个目录；改完立即生效并记住" };
+        menu.Items.Add(_folderItem);        menu.Items.Add(new ToolStripMenuItem("打开日志", null,
             delegate { OpenFolder(_supervisor.LogDirectory); }));
         menu.Items.Add(new ToolStripMenuItem("复制诊断信息", null,
             delegate { CopyDiagnostics(); }));
@@ -1357,6 +1421,14 @@ internal sealed class TrayApp : ApplicationContext
     {
         try
         {
+            // Q65: the received folder can be anywhere, and may not exist yet.
+            try
+            {
+                Directory.CreateDirectory(_supervisor.ReceivedDirectory);
+            }
+            catch (Exception)
+            {
+            }
             _watcher = new FileSystemWatcher(_supervisor.ReceivedDirectory)
             {
                 IncludeSubdirectories = false,
@@ -1713,7 +1785,60 @@ internal sealed class TrayApp : ApplicationContext
             ToolTipIcon.Info);
     }
 
-    /* Q60: the receiver reads {"do": "set", "name": ...} from stdin, so the new
+    /* Q65: pick another folder for received files. */
+    private void ChooseReceivedFolder()
+    {
+        using (var dialog = new FolderBrowserDialog
+        {
+            Description = "选择收到的文件保存到哪个文件夹",
+            ShowNewFolderButton = true,
+            SelectedPath = _supervisor.ReceivedDirectory,
+        })
+        {
+            if (dialog.ShowDialog() != DialogResult.OK) return;
+            string error;
+            if (!_supervisor.SetReceivedFolder(dialog.SelectedPath, out error))
+            {
+                MessageBox.Show("接收文件夹没有改：" + error, "接收文件夹",
+                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            RestartWatcher();
+            _folderItem.Text = "接收文件夹：" + ShortPath(_supervisor.ReceivedDirectory) + "…";
+            _icon.ShowBalloonTip(4000, _icon.Text,
+                "接收文件夹已改为：" + _supervisor.ReceivedDirectory, ToolTipIcon.Info);
+        }
+    }
+
+    private static string ShortPath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return "";
+        if (path.Length <= 42) return path;
+        string leaf = Path.GetFileName(path.TrimEnd('\\'));
+        if (string.IsNullOrEmpty(leaf)) leaf = path;
+        string root = Path.GetPathRoot(path) ?? "";
+        string shortened = root + "…\\" + leaf;
+        return shortened.Length <= 42 ? shortened : "…\\" + leaf;
+    }
+
+    private void RestartWatcher()
+    {
+        try
+        {
+            if (_watcher != null)
+            {
+                _watcher.EnableRaisingEvents = false;
+                _watcher.Dispose();
+                _watcher = null;
+            }
+        }
+        catch (Exception)
+        {
+        }
+        StartWatcher();
+    }
+
+    /* Q62: the receiver reads {"do": "set", "name": ...} from stdin, so the new
      * name is announced without restarting the radio (~40 s). The choice is
      * written to data\settings.ini and reused on the next start. */
     private void RenameDevice()
@@ -2214,13 +2339,16 @@ internal sealed class Settings
     public bool Beacon { get; private set; }
     // Q64: write a plain still copy for Live Photos / HEIC files.
     public bool StillCopy { get; private set; }
+    // Q65: where received files land; empty means <data>\received.
+    public string ReceivedFolder { get; private set; }
 
-    private Settings(string path, string deviceName, bool beacon, bool stillCopy)
+    private Settings(string path, string deviceName, bool beacon, bool stillCopy, string receivedFolder)
     {
         _path = path;
         DeviceName = deviceName;
         Beacon = beacon;
         StillCopy = stillCopy;
+        ReceivedFolder = receivedFolder;
     }
 
     public static Settings Load(string dataDirectory)
@@ -2229,6 +2357,7 @@ internal sealed class Settings
         string deviceName = DefaultDeviceName;
         bool beacon = true;
         bool stillCopy = true;
+        string receivedFolder = "";
         try
         {
             if (File.Exists(path))
@@ -2256,6 +2385,11 @@ internal sealed class Settings
                         bool on;
                         if (bool.TryParse(value, out on)) stillCopy = on;
                     }
+                    else if (key.Equals("receivedFolder", StringComparison.OrdinalIgnoreCase))
+                    {
+                        // An unusable path in a hand-edited file falls back to the default.
+                        receivedFolder = CleanFolder(value) ?? "";
+                    }
                 }
             }
             else if (File.Exists(Path.Combine(dataDirectory, "beacon-off")))
@@ -2267,7 +2401,7 @@ internal sealed class Settings
         catch (Exception)
         {
         }
-        return new Settings(path, deviceName, beacon, stillCopy);
+        return new Settings(path, deviceName, beacon, stillCopy, receivedFolder);
     }
 
     public void SetDeviceName(string name)
@@ -2288,6 +2422,29 @@ internal sealed class Settings
         Save();
     }
 
+    public void SetReceivedFolder(string folder)
+    {
+        ReceivedFolder = folder ?? "";
+        Save();
+    }
+
+    /* Returns the normalised absolute path, or null when the text cannot be a
+     * usable folder (empty is a valid value and means "use the default"). */
+    public static string CleanFolder(string value)
+    {
+        if (value == null) return null;
+        string folder = value.Trim().Trim('"');
+        if (folder.Length == 0) return "";
+        try
+        {
+            return Path.GetFullPath(folder);
+        }
+        catch (Exception)
+        {
+            return null;
+        }
+    }
+
     private void Save()
     {
         try
@@ -2299,9 +2456,11 @@ internal sealed class Settings
             text.AppendLine("# deviceName: iPhone 隔空投送里显示的名字，1-63 个字符");
             text.AppendLine("# beacon: 是否周期性发蓝牙 beacon 帮 iPhone 发现本机");
             text.AppendLine("# stillCopy: 收到的实况图/HEIC 是否自动生成一份单图 JPG 副本");
+            text.AppendLine("# receivedFolder: 接收文件保存到哪个目录（留空 = 包内 data\\received）");
             text.AppendLine("deviceName=" + DeviceName);
             text.AppendLine("beacon=" + (Beacon ? "true" : "false"));
             text.AppendLine("stillCopy=" + (StillCopy ? "true" : "false"));
+            text.AppendLine("receivedFolder=" + ReceivedFolder);
             File.WriteAllText(_path, text.ToString(), new UTF8Encoding(false));
         }
         catch (Exception)

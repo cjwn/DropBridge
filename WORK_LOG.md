@@ -1,5 +1,18 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-02 12:45：Q65 自定义接收文件夹
+
+- 用户要能改「收到的文件存哪」。托盘菜单新增「接收文件夹：<当前路径>…」→ 系统文件夹选择框。
+- `settings.ini` 新增 `receivedFolder`（空 = 包内 `data\received`，非法路径回退默认）；
+  `Supervisor.ReceivedDirectory` 改成可变，`SetReceivedFolder()` 建目录 + 写探针验证可写 +
+  写设置 + 通过 receiver stdin 发 `{"do":"set","folder":...}`（热更新，不重启射频）；
+  托盘改完重建 FileSystemWatcher，菜单文字与「打开接收文件夹」同步。
+- 验证：设置指向 `build\_custom_received` 后重启，receiver 命令行 `--outdir` 已是新目录；
+  往该目录丢图，日志 `received picture (toast)`；`-Test` 全过（settings 覆盖 receivedFolder
+  往返、空值=默认、null 被拒）。只重打 portable，`dist` 仍只留 zip + 解压目录两项。
+- 未验证：菜单里的文件夹选择与"立即生效"要人工点一次。
+- 证据：`evidence/received-folder-2026-11-02.log`。
+
 ## 2026-11-02 00:55：Q64 实况图自动生成单图副本（带开关）
 
 - 需求：收到苹果实况图自动生成一份「单图片副本」，要可选开关。

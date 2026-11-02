@@ -84,6 +84,9 @@ data\awdl_netd.addr
 8. 实况图（Q64）：收到 `X.HEIC/.JPG/.PNG + X.MOV`（或单独的 `.HEIC`）时，在同目录生成
    `X-still.jpg` 单图副本；JPG 直接复制，PNG/HEIC 走 WIC 解码后存 JPEG。
    `settings.ini` 的 `stillCopy`（默认 true）与托盘勾选项控制开关。
+9. 接收文件夹（Q65）：托盘「接收文件夹：<路径>…」可选任意目录；值存在
+   `settings.ini` 的 `receivedFolder`（空 = 包内 `data\received`）。改完立即生效：
+   receiver 通过 stdin 换保存目录、文件监视器同步切换；路径不可写时拒绝并保持原值。
 
 ## 4. 本机验证（2026-10-29 00:36–00:41）
 

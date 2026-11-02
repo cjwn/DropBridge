@@ -1,0 +1,48 @@
+DropBridge Q65 —— 自定义接收文件夹
+===================================
+
+时间：2026-11-02 12:30–12:45（Asia/Hong_Kong）
+机器：WES-COMPUTER / ndpyz，Windows 11（175 %）
+
+1. 做什么
+---------
+收到文件的保存位置不再写死为 `<包目录>\data\received`，可以在托盘里改：
+
+- 托盘菜单「接收文件夹：<当前路径>…」→ 系统文件夹选择框；
+- 选完立即生效：写 `settings.ini`、通知 receiver 改保存目录、文件监视器切到新目录；
+- 菜单里「打开接收文件夹」永远打开当前目录；
+- 选「留空/默认」时（`settings.ini` 里 `receivedFolder=` 空值）回到包内 `data\received`。
+
+2. 实现
+-------
+- `settings.ini` 新增 `receivedFolder=<绝对路径>`（空 = 默认）。路径按
+  `Path.GetFullPath` 规范化；手改文件里写了非法路径会退回默认，不会让程序起不来。
+- `Supervisor`：`ReceivedDirectory` 改为可变的 `_received`（构造时从设置读）；
+  新增 `SetReceivedFolder(path)`：建目录 → 写一个探针文件验证可写 → 更新设置 →
+  通过 receiver 的 stdin 发 `{"do": "set", "folder": "..."}`（上游 `engine.set()` 支持，
+  跟改名一样是热更新，不重启射频）；receiver 没跑就只保存，下次启动生效。
+- `TrayApp`：菜单项 + `FolderBrowserDialog`；改完 `RestartWatcher()` 重建
+  `FileSystemWatcher`，菜单文字与气泡同步更新；路径过长时菜单里显示
+  `盘符\…\末级目录`（完整路径在气泡和设置文件里）。
+- `StartWatcher` 会先尝试建目录，避免指向一个不存在的路径时直接抛异常。
+
+3. 验证（本机）
+---------------
+- 把 `settings.ini` 写成 `receivedFolder=J:\...\build\_custom_received` 并重启：
+  receiver 的实际命令行（`Win32_Process.CommandLine`）为
+  `... receiver.py --name "DropBridge" --listen 127.0.0.1 ... --outdir "J:\...\build\_custom_received" ...`
+  ——保存目录已经跟过去了。
+- 往该目录丢一张 `_folder_test.png`：日志
+  `12:40:55.142 received picture (toast): _folder_test.png`，即文件监视器也在新目录上。
+- `Build-Supervisor.ps1 -Test` 全过；`settings_test.cs` 新增：
+  `receivedFolder` 往返持久化、空值 = 默认、`CleanFolder(null)` 被拒。
+- 打包：只重打 portable（`dist` 仍然只留 zip + 解压目录两项），346 文件 41.7 MB。
+
+4. 未验证 / 说明
+----------------
+- 菜单里的文件夹选择框与"立即生效"要人工点一次（无 GUI 会话只能验证到
+  "写设置 → 重启后生效" 与 receiver 参数正确）。
+- 换到没有写权限/不存在的盘符时，会弹「接收文件夹没有改：无法写入：…」，设置保持原值。
+- 接收文件从此可以落在包外，与"数据都在包内"的默认策略不一致——这是用户显式选择，
+  默认为空时仍全部在包内。
+- 旧的 `data\received` 不会被自动搬迁；已收到的文件留在原处。

@@ -37,6 +37,14 @@ internal static class SettingsTest
             again.SetStillCopy(false);
             Check(ref failures, !Settings.Load(root).StillCopy, "stillCopy=off persists");
 
+            // Q65: the received folder round-trips and bad paths are rejected.
+            string custom = Path.Combine(root, "photos");
+            again.SetReceivedFolder(custom);
+            Check(ref failures, Settings.Load(root).ReceivedFolder == custom, "receivedFolder persists");
+            Check(ref failures, Settings.CleanFolder("") == "", "empty folder means default");
+            Check(ref failures, Settings.CleanFolder(null) == null, "null folder rejected");
+            Check(ref failures, Settings.CleanFolder("   ") == "", "blank folder means default");
+
             Check(ref failures, Settings.CleanName("DropBridge") == "DropBridge", "plain name accepted");
             Check(ref failures, Settings.CleanName("  小林 的电脑  ") == "小林 的电脑", "trimmed");
             Check(ref failures, Settings.CleanName("") == null, "empty rejected");
