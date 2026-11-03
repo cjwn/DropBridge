@@ -37,12 +37,14 @@ if (Test-Path $trayDark) { $resourceArgument += "/resource:$trayDark,tray-dark.i
 # Q64: WIC through WPF is used to decode HEIC/HEIF stills (GDI+ cannot), so the
 # build references the in-box WPF assemblies.
 $wpf = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319\WPF'
-$wpfArgument = @()
 $framework = Join-Path $env:SystemRoot 'Microsoft.NET\Framework64\v4.0.30319'
-if (Test-Path (Join-Path $wpf 'PresentationCore.dll')) {
-    $wpfArgument = @("/r:`"$wpf\PresentationCore.dll`"", "/r:`"$wpf\WindowsBase.dll`"",
-                     "/r:`"$framework\System.Xaml.dll`"")
+# Program.cs always uses System.Windows.Media.Imaging, so these are required:
+# fail here with a clear message instead of a CS0234 from csc.
+if (-not (Test-Path (Join-Path $wpf 'PresentationCore.dll'))) {
+    throw "WPF assemblies not found in $wpf (needed for HEIC still copies)"
 }
+$wpfArgument = @("/r:`"$wpf\PresentationCore.dll`"", "/r:`"$wpf\WindowsBase.dll`"",
+                 "/r:`"$framework\System.Xaml.dll`"")
 
 & $csc /nologo /target:winexe /optimize+ "/out:$out" @iconArgument @resourceArgument @wpfArgument `
     /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Management.dll $source

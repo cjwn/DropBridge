@@ -413,7 +413,10 @@ internal sealed class Supervisor
     /* Q65/Q66: point received files at another folder. The old live-stdin path
      * never worked (receiver.py has no command loop), so the receiver is
      * restarted with the new --outdir; the radio keeps running. An empty value
-     * restores the default. The caller restarts the file watcher. */
+     * restores the default. The caller restarts the file watcher.
+     * Returns false only when nothing was changed. Once the folder is saved it
+     * returns true; a failed receiver restart is then reported in `error` as a
+     * warning, because the new folder is already in effect for the next start. */
     public bool SetReceivedFolder(string folder, out string error)
     {
         error = null;
@@ -452,7 +455,8 @@ internal sealed class Supervisor
         if (!RestartReceiver(out restartError))
         {
             error = "设置已保存，但接收端重启失败：" + restartError;
-            return false;
+            Log("received folder -> " + target + " (receiver restart failed: " + restartError + ")");
+            return true;
         }
         Log("received folder -> " + target + " (receiver restarted)");
         return true;
@@ -634,13 +638,46 @@ internal sealed class Supervisor
         return text.ToString();
     }
 
+    /* Quote one argument for the MSVC/CommandLineToArgvW rules. A plain
+     * "\"" + path + "\"" breaks on a trailing backslash (a drive root such as
+     * D:\ turns the closing quote into \"), and on embedded quotes. */
+    internal static string QuoteArgument(string value)
+    {
+        value = value ?? "";
+        var text = new StringBuilder("\"");
+        int slashes = 0;
+        foreach (char c in value)
+        {
+            if (c == '\\')
+            {
+                slashes++;
+                continue;
+            }
+            if (c == '"')
+            {
+                text.Append('\\', slashes * 2 + 1);
+                text.Append('"');
+            }
+            else
+            {
+                text.Append('\\', slashes);
+                text.Append(c);
+            }
+            slashes = 0;
+        }
+        text.Append('\\', slashes * 2);
+        text.Append('"');
+        return text.ToString();
+    }
+
     private Child NewReceiver()
     {
         return new Child("receiver", PythonPath(),
-            "-u \"" + ReceiverPath() + "\" --name \"" + Prefs.DeviceName + "\" --listen 127.0.0.1" +
-            " --mdns-address-file \"" + AddressFile() + "\"" +
-            " --outdir \"" + ReceivedDirectory + "\"" +
-            " --keys \"" + Path.Combine(_data, "keys") + "\" --trace",
+            "-u " + QuoteArgument(ReceiverPath()) + " --name " + QuoteArgument(Prefs.DeviceName) +
+            " --listen 127.0.0.1" +
+            " --mdns-address-file " + QuoteArgument(AddressFile()) +
+            " --outdir " + QuoteArgument(ReceivedDirectory) +
+            " --keys " + QuoteArgument(Path.Combine(_data, "keys")) + " --trace",
             new Dictionary<string, string> { { "PYTHONUNBUFFERED", "1" } },
             _root, "receiving as", _log);
     }
@@ -697,9 +734,14 @@ internal sealed class Supervisor
     // full restart.
     public bool RestartReceiver(out string error)
     {
+        // Rename / folder changes call this while the old receiver is alive; it
+        // holds the listen and mDNS ports, so it must be gone before the new one
+        // starts. (A dead receiver makes Stop a no-op.)
         for (int index = _children.Count - 1; index >= 0; index--)
         {
-            if (_children[index].Name == "receiver") _children.RemoveAt(index);
+            if (_children[index].Name != "receiver") continue;
+            _children[index].Stop(5000);
+            _children.RemoveAt(index);
         }
         Child receiver = NewReceiver();
         _children.Add(receiver);
@@ -1456,43 +1498,90 @@ internal sealed class TrayApp : ApplicationContext
             };
             _watcher.Created += delegate(object sender, FileSystemEventArgs args)
             {
-                Thread.Sleep(300);
-                string name = args.Name;
-                // Q64: our own still copies must not bounce back as "new files".
-                if (name.EndsWith("-still.jpg", StringComparison.OrdinalIgnoreCase)) return;
-                // Q67: the receiver writes each upload through a tempfile in the
-                // destination folder (dotless random name, empty while uploading).
-                // Those appeared as "收到文件：tmpXXXX (0 KB)" toasts; ignore them,
-                // and ignore anything that vanished while we slept.
-                long size = 0;
-                try
-                {
-                    var info = new FileInfo(args.FullPath);
-                    if (!info.Exists) return;
-                    size = info.Length;
-                }
-                catch (IOException)
-                {
-                }
-                // A still-empty dotless random name is the receiver's upload temp.
-                if (IsTemporaryReceiveName(name, size)) return;
-                Ui(delegate { ShowReceived(args.FullPath, name, size); });
-                // Q64: the still copy is I/O bound (WIC decode + re-encode), so it
-                // runs on its own STA thread; WPF imaging prefers STA.
-                if (_prefs.StillCopy)
-                {
-                    string file = args.FullPath;
-                    string shown = name;
-                    var worker = new Thread(delegate() { MaybeCreateStillCopy(file, shown); });
-                    worker.IsBackground = true;
-                    worker.SetApartmentState(ApartmentState.STA);
-                    worker.Start();
-                }
+                // Created fires when the file is opened, not when it is done;
+                // waiting for the upload must not block the watcher's own
+                // callback thread, so each file gets its own short-lived thread.
+                var waiter = new Thread(delegate() { OnFileCreated(args.FullPath, args.Name); });
+                waiter.IsBackground = true;
+                waiter.Start();
             };
         }
         catch (Exception error)
         {
             _supervisor.LastError = "cannot watch received folder: " + error.Message;
+        }
+    }
+
+    /* Wait until a newly created file has stopped growing and no writer holds it
+     * open. Returns its size, or -1 if it vanished (e.g. a temp file that was
+     * renamed or deleted). Gives up after `limit` and reports what is there. */
+    private static long WaitUntilWritten(string path, TimeSpan limit)
+    {
+        DateTime deadline = DateTime.UtcNow + limit;
+        long last = -1;
+        Thread.Sleep(300);
+        while (true)
+        {
+            long size;
+            try
+            {
+                var info = new FileInfo(path);
+                if (!info.Exists) return -1;
+                size = info.Length;
+            }
+            catch (IOException)
+            {
+                size = last;
+            }
+            if (size == last && size >= 0)
+            {
+                try
+                {
+                    // Succeeds only once the receiver has closed its write handle.
+                    using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read)) { }
+                    return size;
+                }
+                catch (FileNotFoundException)
+                {
+                    return -1;
+                }
+                catch (IOException)
+                {
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    return size;
+                }
+            }
+            if (DateTime.UtcNow >= deadline) return size;
+            last = size;
+            Thread.Sleep(500);
+        }
+    }
+
+    private void OnFileCreated(string fullPath, string name)
+    {
+        // Q64: our own still copies must not bounce back as "new files".
+        if (name.EndsWith("-still.jpg", StringComparison.OrdinalIgnoreCase)) return;
+        // Q67: the receiver writes each upload through a tempfile in the
+        // destination folder (dotless random name, empty while uploading).
+        // Those appeared as "收到文件：tmpXXXX (0 KB)" toasts. A dotless tmp*
+        // name is always one; skip it before waiting on it.
+        if (name.IndexOf('.') < 0 && name.StartsWith("tmp", StringComparison.OrdinalIgnoreCase)) return;
+        long size = WaitUntilWritten(fullPath, TimeSpan.FromMinutes(30));
+        // Vanished while we waited (renamed temp, deleted) -> nothing to show.
+        if (size < 0) return;
+        // A still-empty dotless random name is the receiver's upload temp.
+        if (IsTemporaryReceiveName(name, size)) return;
+        Ui(delegate { ShowReceived(fullPath, name, size); });
+        // Q64: the still copy is I/O bound (WIC decode + re-encode), so it
+        // runs on its own STA thread; WPF imaging prefers STA.
+        if (_prefs.StillCopy)
+        {
+            var worker = new Thread(delegate() { MaybeCreateStillCopy(fullPath, name); });
+            worker.IsBackground = true;
+            worker.SetApartmentState(ApartmentState.STA);
+            worker.Start();
         }
     }
 
@@ -1515,8 +1604,10 @@ internal sealed class TrayApp : ApplicationContext
             LogLine("received file (balloon): " + name);
             // Q67: keep this short; the file is already on disk and the toast was
             // only telling the user that something arrived.
+            string sizeText = SizeText(bytes);
             _icon.ShowBalloonTip(2000, _icon.Text,
-                "收到文件：" + name + " (" + (bytes / 1024) + " KB)", ToolTipIcon.Info);
+                "收到文件：" + name + (sizeText.Length > 0 ? " (" + sizeText + ")" : ""),
+                ToolTipIcon.Info);
             return;
         }
 
@@ -1548,6 +1639,13 @@ internal sealed class TrayApp : ApplicationContext
             LogLine("activation without a file: " + uri);
             return;
         }
+        // dropbridge:// is a registered protocol any page or document can open;
+        // only hand files from the received folder to the clipboard.
+        if (!IsInsideReceivedFolder(file))
+        {
+            LogLine("activation refused, outside received folder: " + file);
+            return;
+        }
         string error;
         if (ClipboardBridge.Copy(file, out error))
         {
@@ -1559,6 +1657,21 @@ internal sealed class TrayApp : ApplicationContext
         {
             LogLine("clipboard: failed " + file + ": " + error);
             _icon.ShowBalloonTip(4000, _icon.Text, "复制失败：" + error, ToolTipIcon.Warning);
+        }
+    }
+
+    private bool IsInsideReceivedFolder(string file)
+    {
+        try
+        {
+            string folder = Path.GetFullPath(_supervisor.ReceivedDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string full = Path.GetFullPath(file);
+            return string.Equals(Path.GetDirectoryName(full), folder, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception)
+        {
+            return false;
         }
     }
 
@@ -1605,6 +1718,8 @@ internal sealed class TrayApp : ApplicationContext
      * Either way, write "<name>-still.jpg" next to it once. */
     private static readonly string[] StillExtensions = { ".heic", ".heif", ".jpg", ".jpeg", ".png" };
     private static readonly string[] MotionExtensions = { ".mov", ".mp4" };
+    private static readonly HashSet<string> StillCopyTargets =
+        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
     private void MaybeCreateStillCopy(string path, string name)
     {
@@ -1653,11 +1768,32 @@ internal sealed class TrayApp : ApplicationContext
             if (!live) Thread.Sleep(300);
         }
         if (!live && !heic) return;
+        // A JPEG still already opens in any Windows viewer; a byte-for-byte
+        // -still.jpg would only double the disk use.
+        if (source.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase) ||
+            source.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
 
         string target = Path.Combine(directory, stem + "-still.jpg");
-        if (File.Exists(target)) return;
+        // The still and the movie of one Live Photo each start a worker; only
+        // one may write the target, or the loser's cleanup deletes the winner's.
+        lock (StillCopyTargets)
+        {
+            if (File.Exists(target) || !StillCopyTargets.Add(target)) return;
+        }
         string error;
-        if (StillCopy.TryCreate(source, target, out error))
+        bool created;
+        try
+        {
+            created = StillCopy.TryCreate(source, target, out error);
+        }
+        finally
+        {
+            lock (StillCopyTargets) StillCopyTargets.Remove(target);
+        }
+        if (created)
         {
             LogLine("still copy: " + Path.GetFileName(target) + " from " + Path.GetFileName(source) +
                     (live ? " (live photo)" : " (heic)"));
@@ -1825,18 +1961,66 @@ internal sealed class TrayApp : ApplicationContext
         })
         {
             if (dialog.ShowDialog() != DialogResult.OK) return;
-            string error;
-            if (!_supervisor.SetReceivedFolder(dialog.SelectedPath, out error))
+            string folder = dialog.SelectedPath;
+            // The receiver restart can take up to a minute; run it off the UI
+            // thread and behind the same guard as the watchdog/full restarts so
+            // they never edit the child list at the same time.
+            if (!RunReceiverChange(delegate
+                {
+                    string error;
+                    bool saved = _supervisor.SetReceivedFolder(folder, out error);
+                    Ui(delegate
+                    {
+                        if (!saved)
+                        {
+                            MessageBox.Show("接收文件夹没有改：" + error, "接收文件夹",
+                                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+                        // Saved: the setting is live even if the restart failed.
+                        RestartWatcher();
+                        _folderItem.Text = "接收文件夹：" + ShortPath(_supervisor.ReceivedDirectory) + "…";
+                        if (error != null)
+                        {
+                            MessageBox.Show(error, "接收文件夹",
+                                MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                            return;
+                        }
+                        _icon.ShowBalloonTip(4000, _icon.Text,
+                            "接收文件夹已改为：" + _supervisor.ReceivedDirectory, ToolTipIcon.Info);
+                    });
+                }))
             {
-                MessageBox.Show("接收文件夹没有改：" + error, "接收文件夹",
-                    MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                MessageBox.Show("后端正在启动或重启，请稍后再试。", "接收文件夹",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
-            RestartWatcher();
-            _folderItem.Text = "接收文件夹：" + ShortPath(_supervisor.ReceivedDirectory) + "…";
-            _icon.ShowBalloonTip(4000, _icon.Text,
-                "接收文件夹已改为：" + _supervisor.ReceivedDirectory, ToolTipIcon.Info);
         }
+    }
+
+    /* Run a receiver-restarting change on a worker thread, sharing the
+     * _starting guard with RequestStart and RestartReceiverOnly. Returns false
+     * (and does nothing) when a start/restart is already in progress. */
+    private bool RunReceiverChange(Action change)
+    {
+        if (Interlocked.CompareExchange(ref _starting, 1, 0) != 0) return false;
+        var worker = new Thread(delegate()
+        {
+            try
+            {
+                lock (_startGate) change();
+            }
+            catch (Exception problem)
+            {
+                LogLine("receiver change failed: " + problem.Message);
+            }
+            finally
+            {
+                Interlocked.Exchange(ref _starting, 0);
+            }
+        });
+        worker.IsBackground = true;
+        worker.Start();
+        return true;
     }
 
     private static string ShortPath(string path)
@@ -1878,17 +2062,27 @@ internal sealed class TrayApp : ApplicationContext
             if (dialog.ShowDialog() != DialogResult.OK) return;
             string name = dialog.Value;
             if (name == current) return;
-            string error;
-            bool live = _supervisor.RenameReceiver(name, out error);
-            _prefs.SetDeviceName(name);
-            _nameItem.Text = "设备名称：" + name + "…";
-            _icon.Text = name;
-            AppIdentity.Ensure(name);
-            _supervisor.Log("device name " + current + " -> " + name +
-                            (live ? " (applied live)" : " (receiver restart needed: " + error + ")"));
-            _icon.ShowBalloonTip(4000, _icon.Text,
-                live ? "接收端名称已改为：" + name : "名称已保存，接收端下次启动时生效。",
-                ToolTipIcon.Info);
+            if (!RunReceiverChange(delegate
+                {
+                    string error;
+                    bool live = _supervisor.RenameReceiver(name, out error);
+                    Ui(delegate
+                    {
+                        _prefs.SetDeviceName(name);
+                        _nameItem.Text = "设备名称：" + name + "…";
+                        _icon.Text = name;
+                        AppIdentity.Ensure(name);
+                        _supervisor.Log("device name " + current + " -> " + name +
+                                        (live ? " (applied live)" : " (receiver restart needed: " + error + ")"));
+                        _icon.ShowBalloonTip(4000, _icon.Text,
+                            live ? "接收端名称已改为：" + name : "名称已保存，接收端下次启动时生效。",
+                            ToolTipIcon.Info);
+                    });
+                }))
+            {
+                MessageBox.Show("后端正在启动或重启，请稍后再试。", "设备名称",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
         }
     }
 
@@ -2520,8 +2714,8 @@ internal sealed class Settings
 
 /* Q64: turn a received Live Photo (still + .MOV) or a plain HEIC into one
  * ordinary still JPEG, so it opens in any Windows viewer without the HEIF
- * codec. A JPEG still is copied byte-for-byte; everything else is decoded
- * through WIC (WPF's BitmapDecoder) and re-encoded. */
+ * codec. JPEG stills are skipped by the caller (already viewable); everything
+ * else is decoded through WIC (WPF's BitmapDecoder) and re-encoded. */
 internal static class StillCopy
 {
     public static bool TryCreate(string source, string target, out string error)
@@ -2533,12 +2727,6 @@ internal static class StillCopy
             {
                 error = "missing " + source;
                 return false;
-            }
-            string extension = Path.GetExtension(source).ToLowerInvariant();
-            if (extension == ".jpg" || extension == ".jpeg")
-            {
-                File.Copy(source, target, true);
-                return true;
             }
             var decoder = System.Windows.Media.Imaging.BitmapDecoder.Create(
                 new Uri(source), System.Windows.Media.Imaging.BitmapCreateOptions.None,
