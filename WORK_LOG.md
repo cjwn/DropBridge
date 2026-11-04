@@ -1,5 +1,14 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-04：Q48 终止（发送方向确认无法实现）；README 名称说明后移
+
+- 用户确认：Windows → iPhone 发送无法实现。WORK_QUEUE Q48 改为 ⛔ 终止，原记录保留；
+  SEND_PATH 标题和开头加上结论；README、STATUS 和包内 README 改为「只做接收」，
+  README 的「发布前还缺什么」去掉发送一项。
+- README：AirBridge32 → DropBridge 的改名说明从开头挪到文末新增的「名称」一节；
+  STATUS 已在本日重写为当前快照，从「历史快照」列表移到正式文档。
+- 只改了文档，没有编译，也没有运行硬件。
+
 ## 2026-11-04：补登 Q68，重写 README / STATUS / 包内 README
 
 - WORK_QUEUE 补上 Q68（提交 `8c00d85`，Supervisor 审查修复）。仓库里找不到它的编译、测试或真机证据，

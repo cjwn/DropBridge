@@ -2,9 +2,7 @@
 
 让 Windows 电脑直接接收 iPhone 系统自带的「隔空投送」（AirDrop）。不用在 iPhone 上装 App，也不依赖 WSL2 或虚拟机。前提是插一张 **RTL8821CU 芯片的 USB 无线网卡**，DropBridge 只用这张卡。
 
-项目最初暂定名为 AirBridge32，2026-10-30 起对用户显示的名字统一为 DropBridge。内部组件（`airbridge_radio.exe` 等）的名字没有改。
-
-> **状态：内部测试版。** iPhone → Windows 已经能真机传文件；Windows → iPhone 还没打通。不能对外分发，原因见[发布前还缺什么](#发布前还缺什么)。
+> **状态：内部测试版。** iPhone → Windows 已经能真机传文件。Windows → iPhone 已确认无法实现，本项目只做接收。目前还不能对外分发，原因见[发布前还缺什么](#发布前还缺什么)。
 
 ## 现在能做到什么
 
@@ -13,7 +11,7 @@
 | iPhone → Windows 传文件 | ✅ 真机通过。29,456,959 B 视频 26.84 s（**1.10 MB/s**），哈希一致；1.2 MB 图片 1.23 s | WORK_QUEUE Q46、Q45、Q54 |
 | 最好成绩 | 1121 KB/s（29.46 MB / 26.3 s） | `evidence/q15-master-mode.log` |
 | 连续稳定 | ⚠️ 没有完全解决。第一次传完以后可能找不到设备；两台手机同时在线时会降到约 0.1 MB/s（Q51，原因还没查清） | `evidence/discovery-recovery-2026-10-30.log` |
-| Windows → iPhone | ⛔ 卡住了。TLS 握手能走通，但 iPhone 拒绝我们的自签证书（Q48） | `docs/SEND_PATH.md` |
+| Windows → iPhone | ⛔ 已确认无法实现，不再推进（Q48）。发现、出站 TCP 和 TLS 握手都已走通，但 iPhone 以 TLS alert 拒收本项目的自签证书 | `docs/SEND_PATH.md` |
 
 速度都是按真实文件字节数除以墙钟时间算的，不是 PHY 速率。
 
@@ -124,8 +122,7 @@ python .\tools\check_project.py     # 检查文档、证据和版本锁是否一
 2. **代码签名**：没有签名，SmartScreen 会弹警告。
 3. **干净机器验收**（Q13）：在全新的 Windows 11 上，从解压到收到文件完整走一遍。
 4. **稳定性**：Q51 第一次传完后找不到设备、多台手机同时在线时降速；还要跑 24 h 常驻测试（Q7）。
-5. **Windows → iPhone 发送**（Q48）。
-6. **WinUSB 回滚演练。**
+5. **WinUSB 回滚演练。**
 
 另外，网卡同一复合设备上的蓝牙接口（MI_00）在 2026-10-28 以后一直是 Problem 31。AirDrop 不受影响，因为 beacon 走的是本机自带的蓝牙。
 
@@ -139,10 +136,15 @@ python .\tools\check_project.py     # 检查文档、证据和版本锁是否一
 - [docs/BINDING_RUNBOOK.md](docs/BINDING_RUNBOOK.md)：驱动绑定和恢复。
 - [docs/LICENSE_MATRIX.md](docs/LICENSE_MATRIX.md)：许可证核查。
 - [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md)：构建细节。
-- [docs/SEND_PATH.md](docs/SEND_PATH.md)：发送方向的进展。
+- [docs/STATUS.md](docs/STATUS.md)：当前状态快照。
+- [docs/SEND_PATH.md](docs/SEND_PATH.md)：发送方向的排查记录（结论：无法实现）。
 - 排障记录：[STALL_DIAGNOSIS](docs/STALL_DIAGNOSIS.md)、[LWIP_INPUT_QUEUE](docs/LWIP_INPUT_QUEUE.md)、[TCP_DIAGNOSTICS](docs/TCP_DIAGNOSTICS.md)。
-- 历史快照（可能已过时）：[HANDOFF.md](HANDOFF.md)、[docs/STATUS.md](docs/STATUS.md)、[docs/HANDOFF_2026-10-28.md](docs/HANDOFF_2026-10-28.md)。
+- 历史快照（可能已过时）：[HANDOFF.md](HANDOFF.md)、[docs/HANDOFF_2026-10-28.md](docs/HANDOFF_2026-10-28.md)。
 - [AGENTS.md](AGENTS.md)：开发约定。
+
+## 名称
+
+项目最初暂定名为 AirBridge32，2026-10-30 起对用户显示的名字统一为 DropBridge（Q49）。内部组件（如 `airbridge_radio.exe`）的名字没有改，所以日志和进程列表里仍会看到 airbridge。
 
 ## 许可证
 
