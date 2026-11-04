@@ -20,7 +20,7 @@
 1. 把 `DropBridge-portable.zip` 解压到任意可写目录，不要放进 Program Files。
 2. 插上网卡，双击 `DropBridge.exe`。第一次运行时，程序会把网卡的 **MI_02（Wi-Fi）接口**换成 WinUSB 驱动，过程中弹一次 UAC 管理员确认。MI_00（蓝牙）接口不动。也可以手动换：包里带了 `setup\Bind-WinUSB.cmd` 和 Zadig。
 3. 托盘出现图标后等待 40–90 秒，网卡初始化完成就会显示就绪。
-4. 在 iPhone 上把隔空投送设为「所有人（10 分钟）」，分享时选 DropBridge。
+4. 在 iPhone 上分享文件时选 DropBridge 即可，隔空投送的接收范围不需要特别设置。
 
 收到文件后会弹出系统通知，图片通知带「复制图片」按钮。默认开机自启，可以在托盘菜单里关掉。
 
