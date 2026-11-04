@@ -1,167 +1,141 @@
-# 当前状态与交接（2026-10-28 14:05）
+# 当前状态（2026-11-04，截至 Q68）
 
-> **Q31–Q36 后续（最新，全部仅本机）**：soak 台暴露 lwIP 输入队列 `MEMP_NUM_TCPIP_MSG_INPKT` 默认只有 8 槽，约 11 KB 在途即丢帧、16 KB 在途塌到 0.01 MB/s；改为 64 后满窗 240 KB 在途零丢帧、256 MB 单连接 23 MB/s、100 个连接反复建立无泄漏，CTest 7/7。另加会话冻结脚本与分析工具的 netd 丢帧汇总。**未经真机**，只换 netd 的 Q31 测试包已备好。见 [lwIP 输入队列](LWIP_INPUT_QUEUE.md)。
-
-> **当前完整交接快照：[2026-10-28](HANDOFF_2026-10-28.md)**，整合到 `240f88c`，含 21:38 只读现场、最新测试包哈希与下一次单变量入口；下方正文保留为早前状态。
-
-> Q25/Q29 后续：逐连接 TCP 观测与代理异常清理完成，真实 lwIP 本机回归 5/5；独立测试目录仅换 netd、未启动真机、未替换旧包。见 [TCP 诊断](TCP_DIAGNOSTICS.md)、[代理修复](TCP_PROXY_CLEANUP.md)。
-
-> **最新完整交接：[HANDOFF.md](../HANDOFF.md)**，已汇总正常/异常时间线、蓝牙异常边界、代码和证据入口。以下正文为较早快照，遇到冲突优先核查新交接及工作队列。
-
-> Q27 后续：关闭 TCP 合并两次完整但仅约 114/104 KB/s，默认保持开启；链路已停止，未证明稳定性修复。见 [关闭合并测试](TCP_MERGE_TEST.md)。
-
-> Q28 后续：IPC 失败伪报成功、断链假活已修复，新增丢弃计数和发送超时；本机真实回环/缓冲池回归通过，旧版假活有对照复现。新组件仅在 build，原测试包未替换，未做手机实验。见 [本机修复](NETD_OFFLINE_FIX.md)。
-
-> **后续更新优先看 [失败会话复盘与真机结果](STALL_DIAGNOSIS.md)**：最新 fixed 测试 1/2 完成（成功 0.323 MB/s，第二次 408），social 未发现接收端，未完成有效 A/B。链路已停止，下一步采集 TCP 载荷/ACK/窗口。下文“射频退化、需要冷复位”等旧判断尚未被最新证据证实；历史记录见 [14:44 简报](RESEARCH_2026-10-28.md)。
-
-> 给接手的人看：这份文档回答“现在是什么、能做什么、卡在哪、怎么复现”。历史过程见 `WORK_LOG.md`，任务队列见 `WORK_QUEUE.md`，最终形态决定见 `FINAL_PLAN.md`。
+> 这份文档是给接手的人看的，回答四个问题：现在是什么样、能做什么、卡在哪里、怎么复现。
+> 进度和证据以 [WORK_QUEUE.md](WORK_QUEUE.md) 为准，过程记录见 [WORK_LOG.md](../WORK_LOG.md)，为什么这样设计见 [FINAL_PLAN.md](FINAL_PLAN.md)。
+> 本文只摘录要点。遇到冲突时，以队列里的证据为准。
 
 ## 1. 一句话
 
-DropBridge（原名 AirBridge32）现在是一个**单文件 exe + 原生托盘**的 Windows AirDrop 接收端：双击后全部数据留在 exe 所在文件夹内，iPhone 用系统隔空投送即可传文件。**最好实测 1121 KB/s（29.46 MB / 26.3 s），传输起步 930 帧/s**（约 1.2 MB/s）。已修复“主控被抢、序列不跟随、换台太慢”三个确定性速度问题；剩下的不稳定来自射频状态退化，需要一次冷复位才能恢复，自动化恢复尚未完成。
+DropBridge 是 Windows 上的 AirDrop 接收端，交付形态是一个文件夹加一个托盘程序。iPhone 用系统自带的隔空投送，通过专用的 RTL8821CU USB 网卡把文件传到电脑上。**iPhone → Windows 已在真机上稳定达到约 1.1 MB/s**（29,456,959 B 视频 26.84 s / 26.89 s，Q46 / Q54），最好成绩 1121 KB/s。还没解决的有三件事：传完一次以后有时发现不了设备、多台手机同时在线时降速，以及 Windows → iPhone 发送。
+
+每项结论的验证层级不同，下表分开列出，彼此不能替代：
+
+| 层级 | 现状 |
+| --- | --- |
+| 源码实现 | 接收链路、托盘监管、设置、通知、自动装驱动、beacon 均已完成；Q68 只有源码改动 |
+| 本机编译 | 最近一次完整编译和打包是 Q50（2026-10-30）及 Q59–Q67 的托盘重编。**Q68 没有编译证据** |
+| 本机硬件 | 网卡初始化、RX/TX、起停与楔死修复（Q55/Q57/Q58）已在真机验证 |
+| 真实文件传输 | Q45（1.2 MB 图片 1.23 s）、Q46（29 MB 1.0975 MB/s）、Q54（1.10 / 1.09 MB/s）的落盘哈希都与源文件一致 |
 
 ## 2. 交付形态
 
-**主形态（2026-10-29 起）：一个文件夹 + 压缩包，托盘常驻**
-
 ```text
-DropBridge\                 ← 解压后就是这个文件夹，压缩包里也是它
-  DropBridge.exe            唯一入口：托盘监管（无控制台窗口）
-  backend\                   radio / bridge / awdl_netd / awdld / python / airdrop
-  setup\                     一次性驱动绑定：Bind-WinUSB.cmd + Check-Binding.ps1
-                             + zadig-2.9.exe（GPLv3，含许可证与源码要约）
-  tools\Start-Chain.ps1      控制台调试入口（dry-run 默认）
-  licenses\
-  README.txt、VERSION.txt
-  data\                      ← 首次运行在同级生成，全部数据都在这里
-    keys\                    TLS 自签证书、airdrop-service-id（实例 ID 持久化）
-    received\                收到的文件
-    logs\<会话>\             各进程日志
-    awdl_netd.addr
+DropBridge\                唯一形态：一个文件夹，外加同样内容的压缩包 DropBridge-portable.zip
+  DropBridge.exe           托盘监管程序（C# WinForms，用系统自带的 .NET Framework 4.8）
+  backend\                 radio / bridge / awdld / awdl_netd / python / receiver / beacon.ps1
+  setup\                   driver\：自建 WinUSB 驱动包（自签证书 + .cat），首次运行时自动安装
+                           备用的手动绑定方案：Bind-WinUSB.cmd + Zadig 2.9（GPLv3）
+  tools\                   toast.ps1 / register.ps1 / Start-Chain.ps1
+  licenses\  README.txt  VERSION.txt
+  data\                    首次运行时生成
+    settings.ini           deviceName / receivedFolder / beacon / stillCopy
+    keys\                  TLS 自签证书、airdrop-service-id（保证重启后实例 ID 不变）
+    received\              默认的接收目录
+    logs\<会话>\           各进程日志、driver-install.txt
 ```
 
-- 产出：`dist\DropBridge\`（333 文件，36.5 MB）与 `dist\DropBridge-portable.zip`（16.1 MB）；
-- 不在 `%LOCALAPPDATA%` 或其它机器目录写任何东西；无服务、无安装程序、无需管理员
-  （唯一需要管理员的是**一次性** WinUSB 绑定，见 `docs/BINDING_RUNBOOK.md`）；
-- 升级 = 覆盖 `DropBridge.exe` 与 `backend\`，保留 `data\`；卸载 = 托盘退出后删文件夹；
-- 旧名兼容：历史单文件 `dist\AirBridge32.exe` 仍可运行（内部解压到 `app\<时间戳>`），新名字是 `dist\DropBridge.exe`。
-  两种形态不要混用同一个 `data\`。
+- 程序数据都在 `data\` 里。写到系统中的只有这几样：开机自启项（HKCU Run）、通知按钮需要的开始菜单快捷方式、`dropbridge://` 协议和 AUMID（HKCU\Software\Classes），以及首次运行时装的 WinUSB 驱动包和签名证书（Root / TrustedPublisher，需要一次 UAC）。
+- 升级时覆盖 `DropBridge.exe` 和 `backend\`，保留 `data\`。卸载步骤：关掉开机自启，点「清理通知注册信息」，退出后删除文件夹；驱动回滚见 [BINDING_RUNBOOK.md](BINDING_RUNBOOK.md)。
+- 用户可见的名字从 Q49 起统一为 DropBridge，内部组件仍叫 airbridge_*。
 
-细节与验证记录见 [分发形态](DISTRIBUTION.md)。
+分发细节见 [DISTRIBUTION.md](DISTRIBUTION.md)，用户说明是 `packaging/README.txt`。
 
 ## 3. 进程与数据路径
 
 | 进程 | 许可证 | 职责 |
 | --- | --- | --- |
-| `DropBridge.exe`（托盘/监管） | MIT | 单实例、按序拉起后端、健康检查、低速/主控告警、开机自启、退出清理 |
-| `airbridge_radio.exe` | GPL-2.0 | RTL8821CU（devourer/libusb），USB 独占，`radio_link` TCP 49876 |
-| `radio_pipe_bridge.exe` | MIT | 命名管道 ↔ radio TCP |
-| `awdld.exe` | GPL-3.0 | OWL 的 AWDL 控制面，原始 IPv6 到 49877 |
-| `awdl_netd.exe` | MIT | lwIP、mDNS 代理、TCP 8771 代理 |
-| `python.exe` + `receiver.py` | MIT | AirDrop TLS/HTTP/DVZip 接收端 |
+| `DropBridge.exe` | MIT | 单实例；按顺序拉起后端；看门狗（进程死亡、radio 静默超过 30 s 判死）；低速告警；作业对象清理；设置；通知；开机自启；装驱动 |
+| `airbridge_radio.exe` | GPL-2.0 | devourer + libusb 驱动 RTL8821CU，独占 USB，`radio_link` 端口 TCP 49876 |
+| `radio_pipe_bridge.exe` | MIT | 命名管道 ↔ radio 的 TCP |
+| `awdld.exe` | GPL-3.0 | OWL 的 AWDL 控制面：选举、时隙、信道序列 |
+| `awdl_netd.exe` | MIT | lwIP 用户态网络栈、mDNS 代理、TCP 8771 代理 |
+| `python.exe` + `receiver.py` | MIT | AirDrop 的 TLS/HTTP/DVZip 接收，通过 stdin 接收改名、改文件夹的指令 |
+| `beacon.ps1` | MIT（上游原样） | 通过本机自带的蓝牙发 AirDrop BLE 广播 |
 
-数据路径：iPhone → AWDL → radio → bridge → awdld → awdl_netd(lwIP) → receiver → `data\received`。
+数据路径：iPhone → AWDL 空口 → radio → bridge → awdld → awdl_netd（lwIP）→ receiver → 接收目录。GPL-2.0-only 和 GPL-3.0 的组件分在不同进程里运行，互不混合。
 
-## 4. 关键配置（都由监管进程固定，不需要环境变量）
+## 4. 关键配置（由监管程序固定）
 
-| 项 | 值 | 原因 |
+| 项目 | 值 | 原因 |
 | --- | --- | --- |
-| 信道/带宽 | 149 / 20 MHz | 40 MHz 实测更慢（172–190 KB/s）且会退化，已弃用 |
-| 选举 | `AWDL_ELECTION_METRIC=200`、`AWDL_ELECTION_COUNTER=100000` | counter/metric 更高者当同步主控；不设会被 iPhone 在几分钟后抢走，速度掉到 200 KB/s 档 |
-| 信道序列 | `AWDL_CHANSEQ=social`：第 8 时隙 6 信道，其余 149 | 与 Apple 的序列形状一致，iPhone 一加入就跟随 |
-| 换台 | `fastretune_fw=2`（固件 H2C 0x1D）+ 一律 `FastRetune` | 跨频段 65–90 ms → 0.22–0.28 ms |
-| 实例 ID | `<data>\keys\airdrop-service-id` | 否则每次启动换 ID，iPhone 列表里越积越多 AirBridge32 |
-| 低速检测 | 连续两个 5 s 样本 < 300 帧/s → 托盘告警 + “重置链路” | 阈值来自实测：健康 750–930 帧/s，慢速 15–280 帧/s |
+| 信道 / 带宽 | 149 / 20 MHz | 40 MHz 实测只有 172–190 KB/s，用久了还会退化，已弃用 |
+| 同步主控 | `AWDL_ELECTION_METRIC=200`、`AWDL_ELECTION_COUNTER=100000` | 主控被 iPhone 抢走后速度会掉到约 200 KB/s |
+| 信道序列 | `social`：第 8 时隙用信道 6，其余用 149 | iPhone 加入后会立即跟随 |
+| TCP 合并 | 开启（`join_us`） | 和 social 序列搭配最快（Q41）；在 fixed 模式下开启反而有害（Q39/Q40） |
+| 空口流数 | `-s 1` | 网卡是 1T1R；真机 A/B 中 `-s 1` 与 `-s 2` 差 0.9%，属于噪声（Q54） |
+| lwIP 输入队列 | `MEMP_NUM_TCPIP_MSG_INPKT=64`，满了等待重投，不丢帧 | Q31 / Q38：8 槽时会丢帧，速度塌到 0.38 MB/s，改后升到 0.85 MB/s |
+| devourer | 升级到 `34a9e6f`，固件就绪轮询放宽到 1 s | Q50 / Q51：0.32 → 0.81 MB/s，并消除 78 s 的固件重下 |
+| 换台 | 固件快切 H2C 0x1D | 跨频段换台从 65–90 ms 降到 0.22–0.28 ms |
 
-## 5. 速度实测（同一张 29.46 MB 视频，除注明外）
+## 5. 速度里程碑（同一个 29,456,959 B 视频）
 
-| 场景 | 速率 | 备注 |
-| --- | --- | --- |
-| 默认（从属，未修正选举） | 202 KB/s | 149/20 基线 |
-| 跟随对端序列 | 101 KB/s | 否定：手机只在它的 149 时隙发数据 |
-| 我们当主控（metric 200） | 336 → 363 → 970 → 952 KB/s | 方差大，counter 未修正时会被抢主控 |
-| counter 修正后 | **1121 KB/s**（26.26 s） | 目前最好 |
-| 社交时隙 + 固件快切 | 起步 930 帧/s，约 20 s 后发送方静默、408 超时 | 软件侧已验证，失败原因是射频退化 |
-| 40 MHz（各种组合） | 172–190 KB/s | 已弃用 |
+| 时间 | 配置 | 结果 | 出处 |
+| --- | --- | --- | --- |
+| 10-28 | 从属、未修正选举 | 202 KB/s | Q15 |
+| 10-28 | 当同步主控 + 修正 counter | **1121 KB/s** | Q15 |
+| 10-28 | 关闭合并（旧 netd） | 114 / 104 KB/s | Q27 |
+| 10-29 | Q31 netd（8→64 槽） | 0.3836 MB/s | Q37 |
+| 10-29 | Q38 背压不丢帧 | 0.8518 MB/s | Q38 |
+| 10-29 | 默认 social + 合并 | 0.9231 MB/s | Q41 |
+| 10-29 | 成品文件夹 | 1.0975 MB/s | Q46 |
+| 10-31 | devourer 34a9e6f，旧版对照 | 0.32 → 0.81 MB/s | Q50 |
+| 10-31 | `-s 2` / `-s 1`（beacon 开） | 1.10 / 1.09 MB/s | Q54 |
 
-## 6. 今天修掉的问题（均有提交）
+所有速度都是落盘字节数除以墙钟时间。
 
-| 问题 | 修法 | 提交 |
-| --- | --- | --- |
-| iPhone 用 election counter 抢主控，速度掉档 | `AWDL_ELECTION_COUNTER=100000` | `1cedcdf` |
-| iPhone 不跟随我们的信道序列（要 2–3 分钟才切） | 第 8 时隙留 6 信道 | `3037619` |
-| 跨频段换台 65–90 ms 吃掉时隙 | 固件快切 + 统一 `FastRetune` | `3037619` |
-| 每次启动换实例 ID，AirDrop 列表出现多个 AirBridge32 | ID 持久化 | `cc3b026` |
-| 数据写到 `%LOCALAPPDATA%` | `app\` + `data\` 全部留在文件夹内 | `53074ee` |
-| 慢速时无感知 | 低速检测 + 托盘“重置链路” | `416b6f8` |
-| 主控被抢无感知 | 主控监控 + 告警 | `9a30bac` |
-| Flutter 壳 328 MB | 删除 `app/` 与旧打包脚本 | `8468332` |
+## 6. 托盘功能（Q53–Q68）
+
+- **首次使用一键完成**（Q53）：自动安装 WinUSB 驱动，首次运行默认打开开机自启。
+- **蓝牙 beacon**（Q56）：带看门狗，菜单里可以开关。
+- **故障自愈**：radio 静默超过 30 s 判死并整链重启，3 分钟内第二次触发时提示拔插（Q57）；强杀父进程不会残留端口（Q55）；停止时不会楔死网卡（Q58）。
+- **明暗两版图标**（Q59）：按真实 DPI 取图标帧。
+- **设置持久化**（Q60）：`data\settings.ini`。改设备名、改接收文件夹立即生效（Q65）；这两项此前从未真正生效，Q66 修复。
+- **通知**：系统 toast 带「复制到剪贴板」按钮，靠 `dropbridge://` 协议回调（Q62）；自绘弹窗已弃用（Q63）。
+- **实况图**：自动生成 `-still.jpg` 副本（Q64）。
+- **误报修复**（Q67）：上传临时文件不再触发「收到文件」通知。
+- **Q68 审查修复（仅源码）**：启动参数按 CommandLineToArgvW 规则转义、重启 receiver 前先停掉旧进程、文件写完再通知。
 
 ## 7. 未解决
 
-1. **射频状态退化**（最重要）：用一段时间后 RSSI 掉约 8 个单位、数据帧归零只剩保活帧，传输中断。进程重启无效；软件 USB 复位（`pnputil /restart-device` MI_02）能复位 WiFi，但会弄坏同复合设备的蓝牙（Problem 31），且蓝牙无法软件恢复。已加温度遥测（`thermal=raw/delta`）用于定位，恢复阶梯尚未实现。
-2. **蓝牙接口当前是 Error（Problem 31 / CM_PROB_FAILED_ADD，未恢复）**：2026-10-30 复查修正——
-   重启与重新插拔都**没能**恢复。事件日志显示 2026-10-29 13:22:56 是一次真实启动，
-   设备仍是 Problem 31；设备自身记录是 10/28 13:48:47 被重新枚举后**启动即失败**
-   （`oem154.inf` / BTHUSB）。剩余手段：删除该设备节点后重新扫描、卸载并重装蓝牙驱动包、
-   关掉快速启动后冷断电再插拔。**不影响 AirDrop**：链路只用 Realtek 的 Wi-Fi（MI_02，OK），
-   蓝牙 beacon 走机器的 Intel 蓝牙（OK）。
-3. **修复后的稳定性没跑够**：社交时隙 + 快切之后只跑过一次（起步 930 帧/s 后因退化中断），尚未完成“连续 3 次 ≥ 700 KB/s”的验收。
-4. **固件再分发授权**：radio 静态链接 Realtek 固件，对外发布前必须三选一（取得许可 / 运行时由用户提供 / 只发源码）。
-5. **代码签名、干净 VM 验收**：未做。
+1. **Q51 发现丢失和多机降速**：一次传输成功后，手机再发起的 TCP/TLS 连接会反复失败，重启链路能恢复；两台手机同时在线时降到 0.08–0.12 MB/s，慢传窗口里 CRC 错误占约 67–70%。根因尚未查清。
+2. **Q48 Windows → iPhone 发送**：发现、出站 TCP 和 TLS 握手都已走通，但 iPhone 用 TLS alert 拒绝了自签证书。
+3. **Q68 待验证**：需要在 Windows 上运行 `Build-Supervisor.ps1 -Test`，并在 `D:\`、含空格的路径、含引号的设备名下各收一次文件。
+4. **Q43**：receiver 解析 `/Discover` 的分块格式过严，已有 WARNING 但还没修。
+5. **Q7**：radio 假死检测已由 Q57 实现，24 h 常驻测试还没跑完。
+6. **发布前**：Realtek 固件再分发授权（三选一）、代码签名、干净 VM 验收（Q13）、WinUSB 回滚演练、真正从「未绑定」到「已绑定」的转换（Q53 未验证）。
+7. **网卡蓝牙接口 MI_00 一直是 Problem 31**：重启和重新插拔都没能恢复。不影响 AirDrop，因为 beacon 用的是本机的 Intel 蓝牙。
 
-## 8. 常驻采样（1 小时，跨 4 次链路重启）
+10-28 时曾判断「射频状态退化，需要冷复位」，但后续证据没有证实这一点（见 [STALL_DIAGNOSIS.md](STALL_DIAGNOSIS.md)），已不作为当前结论。
 
-`tools/Monitor-Soak.ps1` 每 60 s 采样一次，`build/soak/soak.csv`：
-
-| 进程 | 工作集 | 私有 | 句柄 |
-| --- | --- | --- | --- |
-| DropBridge | 33–37 MB | 75–79 MB | ~421 |
-| airbridge_radio | 7.4 MB | 1.8 MB | 125 |
-| awdl_netd | 7.1 MB | 2.2 MB | 131 |
-| awdld | 4.5 MB | 9.1 MB | 88 |
-| receiver (python) | 26.6 MB | 16.7 MB | 201 |
-
-1 小时内没有增长趋势；句柄与内存随进程重启归零，未见泄漏。端口 49876/49877/8771 全程在听。
-
-## 9. 怎么跑、怎么验
+## 8. 怎么跑、怎么验
 
 ```powershell
 # 构建（一次性依赖见 docs/BUILD_WINDOWS.md）
-D:\VSBuildTools\...\cmake.exe --build build\radio_usb --config Release
-powershell -File tools\Build-Awdl.ps1
-powershell -File tools\Build-Supervisor.ps1
-powershell -File tools\Package-Headless.ps1
-powershell -File tools\Build-Sfx.ps1 -SkipPayload     # 产出 dist\DropBridge.exe
+.\tools\Setup-BuildDeps.ps1 -WithOpenSsl
+.\tools\Build-Devourer.ps1; .\tools\Build-Radio.ps1; .\tools\Build-Awdl.ps1
+.\tools\Build-Supervisor.ps1 -Test
+.\tools\Package-Distributable.ps1        # 输出 dist\DropBridge\ 和 portable zip
 
-# 运行：双击 dist\DropBridge.exe（或复制到任意可写文件夹再双击）
+# 不启动链路的自检
+dist\DropBridge\DropBridge.exe --check   # 路径解析，应输出 exit 0、无 MISSING
+.\tools\Check-Binding.ps1                # 只读检查 MI_02 当前驱动
+python .\tools\check_project.py          # 检查文档、证据、版本锁（需要 upstream/ 已恢复）
 
-# 观测
-python tools\analyze_session.py --latest dist          # 传输速率与帧率
-Get-Content dist\data\logs\<会话>\radio.log            # 每 5 s：cb/crc/frames/rssi/thermal
-select-string dist\data\logs\<会话>\awdld.log -pattern 'sync master','channel sequence'
-
-# 自检
-python tools\check_project.py
-powershell -File tools\Check-Binding.ps1               # 只读检查 WinUSB 绑定
+# 一次真实传输后
+.\tools\Collect-Session.ps1              # 冻结日志和哈希
+python .\tools\analyze_session.py --latest dist\DropBridge   # MB/s、帧率、netd 丢帧
 ```
 
-## 10. 建议的下一步
+发射无线帧要在授权范围内进行（见 WORK_QUEUE 第 1 节）。换驱动、改网络或改防火墙仍需单独授权。
 
-1. **健康状态机**：传输中帧率 < 50 帧/s 持续 10 s → 判退化 → 恢复阶梯（整链重启 → 冷却后重启 → 提示用户），并记录哪一级有效。
-2. **抓一次带温度曲线的退化**：确认是热、USB 电源还是固件状态；再决定预防策略（降温/禁用选择性挂起/周期重校准）。
-3. **稳定性验收**：连续 3 次 29 MB ≥ 700 KB/s、零人工干预；把中位数写进 `FINAL_PLAN` 的验收表。
-4. **蓝牙 Error 不是重启能解决的**（2026-10-30 已验证：真实重启后仍是 Problem 31）；
-   先试删除设备节点/重装驱动，冷断电是最后手段，且与 AirDrop 无关。
-5. 分发收尾：固件授权决策、代码签名、干净 VM。
+## 9. 证据索引（节选）
 
-## 11. 证据索引
-
-- `evidence/transfer-970kbs.log`：970 / 251 / 952 / 1121 KB/s 多次实测与帧率
-- `evidence/q15-master-mode.log`：主控 vs 从属 vs 跟随 vs 40 MHz
-- `evidence/awdl-sequence-and-fastretune.log`：社交时隙、0.25 ms 快切、930 帧/s 起步与 408
-- `evidence/software-usb-reset.log`：软件 USB 复位的副作用与五种失败恢复
-- `evidence/supervisor-tray.log`、`evidence/supervisor-recovery.log`：托盘、恢复、日志
-- `evidence/data-stays-in-folder.log`、`evidence/single-exe-any-folder.log`：便携布局与分发
-- `evidence/bench-receiver.md`：接收端离线 228 MB/s（证明 Python 不是瓶颈）
-- `evidence/lwip-input-queue-2026-10-28.log`、`.json`：Q31 输入队列 8→64 的扫表、塌速明细、CTest 6/6 与两份计划检查
+- `evidence/q15-master-mode.log`、`evidence/transfer-970kbs.log`：主控和 1121 KB/s
+- `evidence/lwip-input-queue-2026-10-28.log`：Q31 输入队列
+- `evidence/q38-phone-fixed-*.log`：背压不丢帧和合并 A/B（Q38–Q40）
+- `evidence/discovery-recovery-2026-10-30.log`、`evidence/two-phones-16pm-2026-10-30.log`：Q51
+- `evidence/inapp-driver-install-2026-10-31.log`：Q53
+- `evidence/beacon-in-tray-2026-10-31.log`：Q56
+- `evidence/settings-device-name-2026-11-01.log`、`evidence/toast-button-2026-11-01.log`：Q60、Q62
+- `evidence/still-copy-2026-11-02.log`、`evidence/received-folder-2026-11-02.log`、`evidence/temp-file-noise-2026-11-02.log`：Q64、Q65/Q66、Q67
+- `evidence/bench-receiver.md`：receiver 离线测得 228 MB/s，Python 不是瓶颈
