@@ -1,95 +1,130 @@
-# DropBridge（原暂定名 AirBridge32）
+# DropBridge
 
-> 后续 Q25/Q29：逐连接 TCP/代理观测及异常清理已完成，真实 lwIP 本机回归 5/5；独立测试目录的 334 后端文件仅换 netd，未启动真机或替换旧包，手机改善仍未验证。见 [TCP 诊断](docs/TCP_DIAGNOSTICS.md)、[代理修复](docs/TCP_PROXY_CLEANUP.md)。
+让 Windows 电脑直接接收 iPhone 系统自带的「隔空投送」（AirDrop）。不用在 iPhone 上装 App，也不依赖 WSL2 或虚拟机。前提是插一张 **RTL8821CU 芯片的 USB 无线网卡**，DropBridge 只用这张卡。
 
-> 最新排障（2026-10-28）：固定 149 仍复现断流（首个 29.46 MB 视频 0.323 MB/s 成功，第二个 408）；社交时隙组未发现接收端，尚无有效性能 A/B。下述 1 MB/s 是历史最好结果，稳定性验收未通过。详情见 [失败会话复盘与真机结果](docs/STALL_DIAGNOSIS.md)。
+项目最初暂定名为 AirBridge32，2026-10-30 起对用户显示的名字统一为 DropBridge。内部组件（`airbridge_radio.exe` 等）的名字没有改。
 
-> 后续关闭 TCP 合并测试：同一视频两次完整接收，约 114/104 KB/s，明显低速；默认仍开启合并，不能认定断流已修复。见 [Q27 实测](docs/TCP_MERGE_TEST.md)。
+> **状态：内部测试版。** iPhone → Windows 已经能真机传文件；Windows → iPhone 还没打通。不能对外分发，原因见[发布前还缺什么](#发布前还缺什么)。
 
-> 后续本机修复：netd 的 IPC 错误回报、断链退出和丢弃计数已通过回环故障测试，无需手机；新二进制尚未替换旧测试包，未验证真实传输改善。见 [Q28 本机修复](docs/NETD_OFFLINE_FIX.md)。
+## 现在能做到什么
 
-Windows 11 原生 AirDrop 接收端。产品原名 AirBridge32（任务书暂定名），2026-10-30 起用户可见名称统一为 **DropBridge**；没有 ESP32 固件要求。
+| 项目 | 情况 | 证据 |
+| --- | --- | --- |
+| iPhone → Windows 传文件 | ✅ 真机通过。29,456,959 B 视频 26.84 s（**1.10 MB/s**），哈希一致；1.2 MB 图片 1.23 s | WORK_QUEUE Q46、Q45、Q54 |
+| 最好成绩 | 1121 KB/s（29.46 MB / 26.3 s） | `evidence/q15-master-mode.log` |
+| 连续稳定 | ⚠️ 没有完全解决。第一次传完以后可能找不到设备；两台手机同时在线时会降到约 0.1 MB/s（Q51，原因还没查清） | `evidence/discovery-recovery-2026-10-30.log` |
+| Windows → iPhone | ⛔ 卡住了。TLS 握手能走通，但 iPhone 拒绝我们的自签证书（Q48） | `docs/SEND_PATH.md` |
 
-**当前：一文件夹 + 托盘，已达 1.1 MB/s 量级。** 用户侧只有一个 `DropBridge.exe`：解压到同目录的 `app\`，数据（证书、实例 ID、接收文件、日志）全部留在同目录的 `data\`，不写 `%LOCALAPPDATA%`。后端是 radio（devourer/RTL8821CU）+ awdld（OWL）+ awdld 用户态网络栈 + Python 接收端，托盘负责启动、监控、低速告警与自恢复。**实测吞吐 1121 KB/s（29.46 MB / 26.3 s）**，配置为 149 / 20 MHz 且让 Windows 当 AWDL 同步主控；40 MHz 已实测更慢且会退化，不再使用。Dart/Flutter 壳已删除。固件再分发授权、代码签名与干净机器验收仍未完成。
+速度都是按真实文件字节数除以墙钟时间算的，不是 PHY 速率。
 
-目标是让 iPhone 系统原生隔空投送通过专用 RTL8821CU USB 网卡把文件交给 Windows，不依赖 WSL2、虚拟机或 iPhone 第三方应用。
+## 使用方法
 
-## 阅读入口
+1. 把 `DropBridge-portable.zip` 解压到任意可写目录，不要放进 Program Files。
+2. 插上网卡，双击 `DropBridge.exe`。第一次运行时，程序会把网卡的 **MI_02（Wi-Fi）接口**换成 WinUSB 驱动，过程中弹一次 UAC 管理员确认。MI_00（蓝牙）接口不动。也可以手动换：包里带了 `setup\Bind-WinUSB.cmd` 和 Zadig。
+3. 托盘出现图标后等待 40–90 秒，网卡初始化完成就会显示就绪。
+4. 在 iPhone 上把隔空投送设为「所有人（10 分钟）」，分享时选 DropBridge。
 
-- [当前交接快照（2026-10-28，含最新 netd 与测试入口）](docs/HANDOFF_2026-10-28.md)
-- [给下一位 AI 的完整交接（最新汇总）](HANDOFF.md)
-- [当前状态与交接（给人看的一份）](docs/STATUS.md)
-- [工作队列：下一步做什么（跨会话）](docs/WORK_QUEUE.md)
-- [最终方案：AirBridge32 V1（决定）](docs/FINAL_PLAN.md)
-- [原始任务书](docs/用户任务书.md)
-- [源码审计及 Go / No-Go](docs/PHASE0_AUDIT.md)
-- [阶段计划与验收](docs/PLAN.md)
-- [Windows 构建记录](docs/BUILD_WINDOWS.md)
-- [USB radio 后端状态](docs/RADIO_USB.md)
-- [Phase 3：AWDL/AirDrop 实测](docs/PHASE3_AWDL.md)
-- [历史：便携版 ZIP 与 Flutter 壳（已移除）](docs/PORTABLE.md)
-- [历史：Dart 应用架构（已废弃，现行方案见最终方案）](docs/ARCHITECTURE.md)
-- [无线层契约对照](docs/RADIO_CONTRACT.md)
-- [硬件接入与驱动绑定检查单](docs/HARDWARE_INTAKE.md)
-- [WinUSB 绑定运行手册（Zadig）](docs/BINDING_RUNBOOK.md)
-- [许可证与再分发核查](docs/LICENSE_MATRIX.md)
-- [版本锁定](docs/sources.lock.json)
-- [工作记录及交接](WORK_LOG.md)
-- [开发约定](AGENTS.md)
+收到文件后会弹出系统通知，图片通知带「复制图片」按钮。默认开机自启，可以在托盘菜单里关掉。
 
-## 现在可运行的工具
+托盘菜单还提供这些功能：
 
-在项目根目录的 PowerShell 执行：
+- **设备名称**：iPhone 列表里显示的名字，改了马上生效。
+- **接收文件夹**：默认是 `data\received`，可以改成任意目录。
+- **实况图单图副本**：收到实况照片时，自动多存一张 `-still.jpg`。
+- **蓝牙 beacon**：通过本机蓝牙广播，帮助 iPhone 发现这台电脑。
+- **重启后端、复制诊断信息、打开日志。**
 
-```powershell
-.\tools\Inspect-Hardware.ps1      # 只读 USB 枚举，识别 0bda:c811 / c820 / 1a2b
-.\tools\Check-Binding.ps1         # 只读检查 MI_02 当前驱动（WinUSB / 厂商驱动）
-.\tools\Setup-BuildDeps.ps1 -WithOpenSsl   # 一次性：vcpkg + libusb + pkgconf + OpenSSL
-.\tools\Build-Devourer.ps1        # 配置、编译 C8821C-only 并跑无硬件自检
-.\tools\Build-UsbProbe.ps1        # 编译只读 USB 探针（open/claim，不初始化芯片）
-.\tools\Start-Chain.ps1           # 无 Flutter 起停整条链路；默认 dry-run，加 -Run 才发帧
-.\tools\Build-Supervisor.ps1      # 编译托盘监管（C#，系统自带 csc）
-.\tools\Package-Headless.ps1      # 打无 Dart 的包：dist\DropBridge-headless.zip（16 MB）
-.\tools\Monitor-Soak.ps1          # 24 h 常驻采样：内存/句柄/进程/端口，CSV 落 build\soak
-.\tools\Build-Sfx.ps1             # 打成单文件 dist\DropBridge.exe（16 MB）
-python .\tools\analyze_session.py --latest dist\DropBridge-headless   # 从日志算真实 MB/s 与帧率
-python .\tools\bench_receiver.py --mb 20 --runs 3   # receiver 离线吞吐（不涉及射频）
-python .\tools\check_project.py   # 文档、证据与版本锁一致性
+所有数据都留在程序文件夹里，不写 `%LOCALAPPDATA%`，也不安装服务：
+
+```text
+DropBridge\
+  DropBridge.exe     托盘监管程序，唯一入口
+  backend\           radio / bridge / awdld / awdl_netd / python / receiver
+  setup\             手动绑定驱动用的工具（Zadig + 引导脚本）
+  data\              首次运行时生成
+    settings.ini     设备名、接收文件夹、开关
+    keys\            TLS 自签证书、AirDrop 实例 ID
+    received\        收到的文件
+    logs\<会话>\     各进程日志
 ```
 
-- 硬件检查只枚举当前 USB 设备，生成 `evidence/usb-devices.local.json`；完整设备实例路径与序列号不提交。它不会初始化无线芯片、替换驱动或发射无线帧。
-- `Check-Binding.ps1` 只读；驱动绑定本身需要管理员权限和你的确认，步骤见 [BINDING_RUNBOOK.md](docs/BINDING_RUNBOOK.md)。
-- 构建依赖全部在 `build/deps`（git 忽略），不执行 `vcpkg integrate install`、不改 PATH、不改驱动。
-- 本轮构建结果：`devourer.lib`、`rxdemo`、`txdemo` 均生成，`ctest` 74/74 通过（3 项跳过，含 3 项 OpenSSL 加密自检），日志在 `evidence/build-8821c-*.log`。
+升级时覆盖 `DropBridge.exe` 和 `backend\`，保留 `data\`。卸载时先在托盘里退出，再删掉整个文件夹。想换回原来的网卡驱动，按 [docs/BINDING_RUNBOOK.md](docs/BINDING_RUNBOOK.md) 操作。
 
-上游源码位于 `upstream/`，不作为主仓库代码发布；恢复时按 `sources.lock.json` 中 URL 克隆并 checkout 对应完整 commit。WinAWDL 的无线依赖还需 `git -C upstream/winawdl submodule update --init upstream/devourer`，版本固定在 `8d936de2a3805ce126e5236349afe40e645aaf9b`。
+## 工作原理
 
-## 已建立的证据
+```text
+iPhone ──AWDL 空口──▶ RTL8821CU (WinUSB)
+  └▶ airbridge_radio   devourer 用户态驱动，libusb          GPL-2.0
+  └▶ radio_pipe_bridge 命名管道 ↔ TCP                        MIT
+  └▶ awdld             OWL 的 AWDL 控制面（选举/时隙/信道）  GPL-3.0
+  └▶ awdl_netd         lwIP 用户态网络栈 + mDNS/TCP 代理     MIT
+  └▶ receiver.py       AirDrop TLS/HTTP/DVZip 接收           MIT
+  └▶ data\received
+```
 
-- 五个上游源码已下载并锁定 SHA；WinAWDL 专用 devourer 子模块也已取回。
-- `evidence/hardware-identity.json`：目标网卡身份 —— `0bda:c820`，复合设备，MI_00 蓝牙、MI_02 Wi-Fi（vendor class `ff/ff/ff`）；MI_02 已由 `netrtwlanu.inf` 换为 WinUSB（`oem155.inf`，libwdi）；芯片 ID 明确标记为未验证。
-- `evidence/binding-result.log`：绑定后 `Check-Binding.ps1` 与 `usb_probe.exe` 的验证记录（open OK、claim interface 2、端点列表）。
-- `evidence/chip-id-read.log`：只读读取 `SYS_CFG2 0x00FC = 0x09`，确认 RTL8821C；没有 Init、没有固件下载、没有发帧。
-- `evidence/init-first.log`：第一次完整 bring-up（频道 6）：固件下载、BB/RF 表、IQK、RX 使能、`cut=4 (UMC) 1T1R`；零发帧。
-- `evidence/rx-first.log`、`evidence/rx-second-5g.log`：两次限时被动 RX（频道 6 / 36）的帧数、FCS 正常/CRC 错与 `HEALTHY` 判定；零发帧。
-- `evidence/tx-witness-summary.json`：ESP32-S3 对 2.4 GHz 空口 TX 的见证汇总；3/3 完整 reset 轮次收到 20/20 唯一序号。
-- `evidence/esp32-witness-tx{2,3,4,5,6}.log`、`evidence/tx-{second,third,fourth,fifth,sixth}.log`：各轮原始串口与驱动日志（含一次 skip-reset 失败对照）。
-- `evidence/build-8821c-*.log`：本机 MSVC 19.44 + libusb 1.0.30 + OpenSSL 3.6.5 的配置、编译和 74 项自检记录。
-- `evidence/usb-open-baseline.log`：绑定 WinUSB 之前，libusb 找不到设备接口（`LIBUSB_ERROR_NOT_FOUND`）的基线记录。
-- `evidence/build-configure.log`：首次配置因缺 PkgConfig 失败的原始记录，保留作历史。
-- `evidence/upstream-issues.json`：近期 Issue/PR 摘要快照，每库最多八条，不代表全面审计全部历史。
-- `docs/RADIO_CONTRACT.md`：管道 v3 契约与 8821C 的 BlockAck 接收缺口。
-- `docs/LICENSE_MATRIX.md`：许可证矩阵；Realtek 固件再分发仍未解决。
+`DropBridge.exe`（C# WinForms，用系统自带的 .NET Framework 4.8）负责按顺序拉起各进程，并做健康检查、静默判死、低速告警、作业对象清理和通知。各组件分成独立进程运行，是为了让 GPL-2.0-only 和 GPL-3.0 的代码互不混合。
 
-- `evidence/airdrop-first-transfer.txt`：Phase 3 首次真实 AirDrop 传输（iPhone → Windows，2,911,531 字节 PNG，1290×2796，SHA-256 已记录；原始接收日志含个人信息，未提交）。
-- `docs/PHASE3_AWDL.md`：`awdld`/Wintun/桥/接收服务的运行顺序、首次实测结果与 v2ray TUN 阻塞说明。
+| 关键配置 | 值 | 原因 |
+| --- | --- | --- |
+| 信道 / 带宽 | 149 / 20 MHz | 实测 40 MHz 更慢，用久了还会退化 |
+| 同步主控 | 由 Windows 担任（metric 200，counter 100000） | 主控被 iPhone 抢走后速度会掉到约 200 KB/s |
+| 信道序列 | social：第 8 时隙用信道 6，其余用 149 | 这样 iPhone 加入后会立刻跟随 |
+| 空口流数 | `-s 1` | 网卡是 1T1R，`-s 1` 和 `-s 2` 真机测试结果相同 |
 
-## 仍未完成
+## 从源码构建
 
-1. **固件再分发授权**：radio 静态链接了 Realtek 固件，发布前必须三选一（取得许可 / 运行时由用户提供 / 只发源码）。
-2. **代码签名**：未签名 exe 会触发 SmartScreen；分发包需要签名证书。
-3. **干净机器验收**：全新 Windows 11 VM 上从单个 exe 到接收文件的全流程（Q13）。
-4. **长时间常驻**：24 h 内存/句柄无泄漏、异常自恢复（Q7 剩余，采样已启动）。
-5. **WinUSB 回滚演练**：仍保留为发布前必须完成的恢复路径。
+需要 Windows 10/11 x64、Visual Studio（MSVC）和 PowerShell。在仓库根目录执行：
 
-本轮不复制上游实现，不赋予第三方代码统一许可证。产品发布许可证将在复用范围确定后处理。
+```powershell
+.\tools\Setup-BuildDeps.ps1 -WithOpenSsl   # 一次性：vcpkg + libusb + OpenSSL，全部放在 build\deps
+.\tools\Build-Devourer.ps1                 # devourer（只编 8821C）+ 无硬件自检
+.\tools\Build-Radio.ps1
+.\tools\Build-Awdl.ps1
+.\tools\Build-Supervisor.ps1 -Test         # 托盘程序 + 单元测试
+.\tools\Package-Distributable.ps1          # 输出 dist\DropBridge\ 和 portable zip
+```
+
+上游源码放在 `upstream/`，不纳入主仓库。按 [docs/sources.lock.json](docs/sources.lock.json) 里的 URL 和 commit 克隆，再执行 `tools\Apply-AwdlPatches.ps1` 应用 `patches/`。
+
+常用的诊断工具：
+
+```powershell
+.\tools\Inspect-Hardware.ps1        # 只读：枚举 USB，识别网卡
+.\tools\Check-Binding.ps1           # 只读：检查 MI_02 当前用的是哪个驱动
+.\tools\Start-Chain.ps1             # 用控制台起整条链路；默认 dry-run，加 -Run 才会发射无线帧
+.\tools\Collect-Session.ps1         # 冻结一次会话的日志和哈希
+python .\tools\analyze_session.py --latest <包目录>   # 从日志算真实 MB/s、帧率和丢帧
+python .\tools\check_project.py     # 检查文档、证据和版本锁是否一致
+```
+
+只读工具不会初始化网卡、换驱动或发射无线帧。会发射无线帧的操作需要用户授权，范围见 [AGENTS.md](AGENTS.md) 和 WORK_QUEUE 第 1 节。
+
+## 发布前还缺什么
+
+1. **Realtek 固件的再分发授权**：radio 静态链接了这份固件。对外发布前只能三选一：取得授权、改为运行时由用户自己提供、或者只发布源码。
+2. **代码签名**：没有签名，SmartScreen 会弹警告。
+3. **干净机器验收**（Q13）：在全新的 Windows 11 上，从解压到收到文件完整走一遍。
+4. **稳定性**：Q51 第一次传完后找不到设备、多台手机同时在线时降速；还要跑 24 h 常驻测试（Q7）。
+5. **Windows → iPhone 发送**（Q48）。
+6. **WinUSB 回滚演练。**
+
+另外，网卡同一复合设备上的蓝牙接口（MI_00）在 2026-10-28 以后一直是 Problem 31。AirDrop 不受影响，因为 beacon 走的是本机自带的蓝牙。
+
+## 文档
+
+- [docs/WORK_QUEUE.md](docs/WORK_QUEUE.md)：**进度以这里为准**，每一项都附有证据。
+- [WORK_LOG.md](WORK_LOG.md)：完整的工作记录。
+- [docs/FINAL_PLAN.md](docs/FINAL_PLAN.md)：最终方案和验收指标。
+- [docs/PLAN.md](docs/PLAN.md)、[docs/PHASE0_AUDIT.md](docs/PHASE0_AUDIT.md)：阶段计划、源码审计和 Go / No-Go 结论。
+- [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)：分发形态。
+- [docs/BINDING_RUNBOOK.md](docs/BINDING_RUNBOOK.md)：驱动绑定和恢复。
+- [docs/LICENSE_MATRIX.md](docs/LICENSE_MATRIX.md)：许可证核查。
+- [docs/BUILD_WINDOWS.md](docs/BUILD_WINDOWS.md)：构建细节。
+- [docs/SEND_PATH.md](docs/SEND_PATH.md)：发送方向的进展。
+- 排障记录：[STALL_DIAGNOSIS](docs/STALL_DIAGNOSIS.md)、[LWIP_INPUT_QUEUE](docs/LWIP_INPUT_QUEUE.md)、[TCP_DIAGNOSTICS](docs/TCP_DIAGNOSTICS.md)。
+- 历史快照（可能已过时）：[HANDOFF.md](HANDOFF.md)、[docs/STATUS.md](docs/STATUS.md)、[docs/HANDOFF_2026-10-28.md](docs/HANDOFF_2026-10-28.md)。
+- [AGENTS.md](AGENTS.md)：开发约定。
+
+## 许可证
+
+本仓库没有给第三方代码套用统一的许可证，各组件的许可证见上方工作原理里的进程图和 [docs/LICENSE_MATRIX.md](docs/LICENSE_MATRIX.md)。`upstream/` 里是原样保留的研究副本，不随本仓库发布。
