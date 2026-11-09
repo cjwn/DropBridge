@@ -21,6 +21,7 @@ void local_tcp_shutdown_both(intptr_t handle);
 void local_tcp_close(intptr_t handle);
 
 intptr_t local_udp_bind(int port);
+// -2 is a per-datagram error (e.g. ICMP port unreachable); keep reading.
 int local_udp_recv(intptr_t handle, void *data, int len, uint32_t *peer_ip,
                    uint16_t *peer_port);
 int local_udp_send(intptr_t handle, const void *data, int len, uint32_t peer_ip,

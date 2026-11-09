@@ -1,5 +1,15 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-09：Q69 全仓代码审查问题复核与修复
+
+- `/code-review` 审查报告了 10 项主要问题和 4 项次要候选，逐条对照源码复核，全部属实，都已修复。明细见 WORK_QUEUE Q69。
+  涉及 `src/supervisor/Program.cs`、`src/awdl_netd/{local_io.cpp,local_io.h,lwip_proxy.cpp,main.cpp}`、`src/radio_usb/main.cpp`。
+- 影响最大的两项：radio 停止事件停一次后一直处于触发状态（托盘内任何重启都会让新 radio 立刻退出）；
+  receiver 重启后 netd 的 mDNS 转发线程因 `WSAECONNRESET` 永久退出（iPhone 看不到本机）。
+- 复核中发现并顺带处理：如果在 `StartAll` 开头就复位停止事件，可能抹掉退出时刚发出的停止信号，所以改为在子进程列表锁内、确认未进入退出后再复位。
+- 验证：本机为 Linux，没有 csc/MSVC/MinGW，**没有编译**；只人工通读了 diff（C# 按 csc 4.x 的 C# 5 语法写，没有使用 `?.`、`$""` 等新语法）。
+  没有运行硬件，也没有传输文件。MAC 修正依据 RFC 4291 的 EUI-64 布局，`upstream/` 不在本机，未能对照 OWL 源码。
+
 ## 2026-11-04：去掉「隔空投送设为所有人」的使用要求
 
 - 用户确认：经验证，iPhone 端不需要把隔空投送设为「所有人（10 分钟）」。README 使用步骤、

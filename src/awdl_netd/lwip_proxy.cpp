@@ -148,7 +148,14 @@ void mdns_from_local() {
         uint32_t ip = 0;
         uint16_t port = 0;
         int n = local_udp_recv(g_mdns_local, buffer, sizeof(buffer), &ip, &port);
-        if (n <= 0) return;
+        // -2: a per-datagram error (e.g. the old receiver's port is gone).
+        // Leaving here would stop all local->AWDL mDNS until a full restart.
+        if (n == -2 || n == 0) continue;
+        if (n < 0) {
+            std::fprintf(stderr, "awdl_netd: mDNS local recv failed (%d); forwarding stopped\n",
+                         local_socket_error());
+            return;
+        }
         const bool query = mdns_is_query(buffer, n);
         {
             std::lock_guard<std::mutex> lock(g_peer_mu);

@@ -714,9 +714,12 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         }
     }
     queue.stop();
-    if (writer.joinable()) writer.join();
-
+    // Shut the socket down before joining: the read loop can end (protocol
+    // error, failed retune) while the client is alive but not reading, and a
+    // writer blocked in send() would then hold the join forever. The handle
+    // stays open until the writer is gone, so it cannot be reused under it.
     shutdown(client, SD_BOTH);
+    if (writer.joinable()) writer.join();
     closesocket(client);
     logger->info("radio: waiting for next client");
     }

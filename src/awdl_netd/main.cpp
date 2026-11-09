@@ -139,8 +139,16 @@ err_t awdl_netif_init(struct netif *netif) {
 
 void configure_address(const uint8_t address[16]) {
     memcpy(g_address, address, 16);
-    memcpy(g_netif.hwaddr, address + 8, 6);
-    g_netif.hwaddr[0] ^= 0x02;
+    // The address is an EUI-64 link-local (RFC 4291 appendix A): bytes 8-10
+    // carry MAC[0..2] (U/L bit flipped), 11-12 are the ff:fe filler and 13-15
+    // carry MAC[3..5]. Copying bytes 8-13 put ff:fe inside the MAC that lwIP
+    // advertises in its NDP link-layer address options.
+    g_netif.hwaddr[0] = static_cast<uint8_t>(address[8] ^ 0x02);
+    g_netif.hwaddr[1] = address[9];
+    g_netif.hwaddr[2] = address[10];
+    g_netif.hwaddr[3] = address[13];
+    g_netif.hwaddr[4] = address[14];
+    g_netif.hwaddr[5] = address[15];
 
     ip6_addr_t addr;
     memset(&addr, 0, sizeof(addr));

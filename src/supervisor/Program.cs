@@ -284,7 +284,15 @@ internal sealed class Child
     public bool WaitReady(int timeoutMilliseconds, out string error)
     {
         error = null;
-        if (Ready.Wait(timeoutMilliseconds)) return true;
+        // Poll instead of one long wait: a child that dies (or that StopAll
+        // kills during an exit) never prints its ready line, and waiting the
+        // full timeout for it held the start for up to 300 s.
+        DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMilliseconds);
+        while (!Ready.Wait(500))
+        {
+            if (HasExited || DateTime.UtcNow >= deadline) break;
+        }
+        if (Ready.IsSet) return true;
         error = HasExited
             ? Name + " exited before it was ready"
             : Name + " not ready after " + (timeoutMilliseconds / 1000) + " s";
@@ -368,6 +376,12 @@ internal sealed class Supervisor
     private readonly string _data;
     private readonly LogSink _log;
     private readonly List<Child> _children = new List<Child>();
+    // _children is changed by start/restart workers and read by the UI-thread
+    // watchdog; every access goes through this lock (or a Snapshot()).
+    private readonly object _childrenLock = new object();
+    // Set once by Shutdown(): a StartAll still running on a worker must not
+    // launch further children after the tray has begun to exit.
+    private bool _shutdown;
     public readonly Settings Prefs;
     private string _received;
     public volatile bool Running;
@@ -409,6 +423,23 @@ internal sealed class Supervisor
     public string ReceivedDirectory { get { return _received; } }
     public string LogDirectory { get { return _log.DirectoryPath; } }
     public string Root { get { return _root; } }
+    // Per-user state (markers, logs) belongs here, not under Root: in the
+    // single-exe layout Root is app\<build>, which changes on every upgrade.
+    public string DataDirectory { get { return _data; } }
+
+    private Child[] Snapshot()
+    {
+        lock (_childrenLock) return _children.ToArray();
+    }
+
+    private bool HasChild(string name)
+    {
+        foreach (Child child in Snapshot())
+        {
+            if (child.Name == name) return true;
+        }
+        return false;
+    }
 
     /* Q65/Q66: point received files at another folder. The old live-stdin path
      * never worked (receiver.py has no command loop), so the receiver is
@@ -441,11 +472,7 @@ internal sealed class Supervisor
         }
         _received = target;
         Prefs.SetReceivedFolder(clean);
-        bool running = false;
-        foreach (Child child in _children)
-        {
-            if (child.Name == "receiver") running = true;
-        }
+        bool running = HasChild("receiver");
         if (!running)
         {
             Log("received folder -> " + target + " (receiver not running yet)");
@@ -568,8 +595,9 @@ internal sealed class Supervisor
     {
         get
         {
-            if (_children.Count == 0) return false;
-            foreach (Child child in _children)
+            Child[] children = Snapshot();
+            if (children.Length == 0) return false;
+            foreach (Child child in children)
             {
                 if (child.HasExited) return false;
             }
@@ -685,7 +713,7 @@ internal sealed class Supervisor
     public List<string> DeadNames()
     {
         var names = new List<string>();
-        foreach (Child child in _children)
+        foreach (Child child in Snapshot())
         {
             if (child.HasExited) names.Add(child.Name);
         }
@@ -695,7 +723,7 @@ internal sealed class Supervisor
     /// <summary>Seconds since the named child last wrote a line, or -1 if unknown.</summary>
     public double SilentSeconds(string name)
     {
-        foreach (Child child in _children)
+        foreach (Child child in Snapshot())
         {
             if (child.Name != name) continue;
             if (child.HasExited) return -1;
@@ -713,11 +741,7 @@ internal sealed class Supervisor
     public bool RenameReceiver(string name, out string error)
     {
         error = null;
-        bool running = false;
-        foreach (Child child in _children)
-        {
-            if (child.Name == "receiver") running = true;
-        }
+        bool running = HasChild("receiver");
         Prefs.SetDeviceName(name);
         if (!running)
         {
@@ -737,15 +761,28 @@ internal sealed class Supervisor
         // Rename / folder changes call this while the old receiver is alive; it
         // holds the listen and mDNS ports, so it must be gone before the new one
         // starts. (A dead receiver makes Stop a no-op.)
-        for (int index = _children.Count - 1; index >= 0; index--)
+        var old = new List<Child>();
+        lock (_childrenLock)
         {
-            if (_children[index].Name != "receiver") continue;
-            _children[index].Stop(5000);
-            _children.RemoveAt(index);
+            for (int index = _children.Count - 1; index >= 0; index--)
+            {
+                if (_children[index].Name != "receiver") continue;
+                old.Add(_children[index]);
+                _children.RemoveAt(index);
+            }
         }
+        foreach (Child child in old) child.Stop(5000);
         Child receiver = NewReceiver();
-        _children.Add(receiver);
-        if (!receiver.Start(out error)) return false;
+        lock (_childrenLock)
+        {
+            if (_shutdown)
+            {
+                error = "shutting down";
+                return false;
+            }
+            _children.Add(receiver);
+            if (!receiver.Start(out error)) return false;
+        }
         if (!receiver.WaitReady(60000, out error)) return false;
         Running = true;
         return true;
@@ -755,7 +792,11 @@ internal sealed class Supervisor
     // it before the radio is touched instead of after a 40 s init.
     private static string PortProblem()
     {
-        foreach (int port in new[] { 49876, 49877, 8771, 15353 })
+        var ports = new List<int> { 49876, 49877, 8771, 15353 };
+        // --allow-send makes netd listen on 8772 too; a stale holder there
+        // would otherwise only show up as a silent outbound-proxy failure.
+        if (AllowSend) ports.Add(8772);
+        foreach (int port in ports)
         {
             try
             {
@@ -883,17 +924,43 @@ internal sealed class Supervisor
             _root, "host interface", _log, OnChildLine);
         var receiver = NewReceiver();
 
-        _children.Clear();
-        _children.Add(radio);
-        _children.Add(bridge);
-        _children.Add(netd);
-        _children.Add(awdld);
-        _children.Add(receiver);
+        Child[] chain = { radio, bridge, netd, awdld, receiver };
+        lock (_childrenLock)
+        {
+            if (_shutdown)
+            {
+                error = "shutting down";
+                return false;
+            }
+            // The event is manual-reset and the previous StopAll left it
+            // signalled; a new radio would see it at once and close its
+            // listener. Reset under the lock so an exit that has already
+            // signalled it is never undone.
+            _radioStop.Reset();
+            _children.Clear();
+            _children.AddRange(chain);
+        }
 
         int timeout = readyTimeoutSeconds * 1000;
-        foreach (Child child in _children)
+        foreach (Child child in chain)
         {
-            if (!child.Start(out error))
+            bool launched;
+            lock (_childrenLock)
+            {
+                // StopAll (exit, or another restart) may have taken the chain
+                // away while we waited for the previous child; do not start
+                // the rest behind its back.
+                if (_shutdown || !_children.Contains(child))
+                {
+                    error = "start cancelled";
+                    launched = false;
+                }
+                else
+                {
+                    launched = child.Start(out error);
+                }
+            }
+            if (!launched)
             {
                 StopAll();
                 return false;
@@ -931,12 +998,24 @@ internal sealed class Supervisor
 
     public void StopAll()
     {
-        for (int index = _children.Count - 1; index >= 0; index--)
+        Child[] children;
+        lock (_childrenLock)
         {
-            _children[index].Stop(5000);
+            children = _children.ToArray();
+            _children.Clear();
+            Running = false;
         }
-        _children.Clear();
-        Running = false;
+        for (int index = children.Length - 1; index >= 0; index--)
+        {
+            children[index].Stop(5000);
+        }
+    }
+
+    /// <summary>Stop everything and refuse any later start (tray exit).</summary>
+    public void Shutdown()
+    {
+        lock (_childrenLock) _shutdown = true;
+        StopAll();
     }
 }
 
@@ -1027,8 +1106,11 @@ internal static class RadioBinding
                 {
                     UseShellExecute = true,
                     Verb = "runas",
+                    // QuoteArgument, not "\"" + root + "\"": a drive root (E:\)
+                    // would turn the closing quote into \" and lose the path.
                     Arguments = "--install-driver" + (quiet ? " --quiet" : string.Empty) +
-                                " --root \"" + root + "\"",
+                                " --root " + Supervisor.QuoteArgument(root) +
+                                " --log " + Supervisor.QuoteArgument(logPath),
                 };
                 using (Process child = Process.Start(start))
                 {
@@ -1314,6 +1396,13 @@ internal sealed class TrayApp : ApplicationContext
     private bool _masterWarned;
     private int _starting;
     private readonly object _startGate = new object();
+    private volatile bool _exiting;
+    // Beacon restart backoff: a script that dies at once (no BLE adapter) must
+    // not respawn powershell.exe on every 5 s tick forever.
+    private DateTime _beaconStartedUtc = DateTime.MinValue;
+    private DateTime _beaconNextTryUtc = DateTime.MinValue;
+    private int _beaconQuickExits;
+    private bool _beaconGaveUp;
     private int _failures;
     private DateTime _windowStart = DateTime.UtcNow;
     private bool _gaveUp;
@@ -1811,7 +1900,7 @@ internal sealed class TrayApp : ApplicationContext
 
     private string DriverLog
     {
-        get { return Path.Combine(_supervisor.Root, "data", "logs", "driver-install.txt"); }
+        get { return Path.Combine(_supervisor.DataDirectory, "logs", "driver-install.txt"); }
     }
 
     // --- Bluetooth beacon ---------------------------------------------------
@@ -1854,6 +1943,7 @@ internal sealed class TrayApp : ApplicationContext
                 CreateNoWindow = true,
             };
             _beacon = Process.Start(start);
+            _beaconStartedUtc = DateTime.UtcNow;
             ChildJob.Add(_beacon);
             _beaconLog = Path.Combine(_supervisor.LogDirectory, "beacon.log");
             StartBeaconReader(_beacon.StandardOutput);
@@ -1902,7 +1992,7 @@ internal sealed class TrayApp : ApplicationContext
 
     private void CheckBeacon()
     {
-        if (!_beaconWanted) return;
+        if (!_beaconWanted || _beaconGaveUp) return;
         if (_beacon != null && !_beacon.HasExited) return;
         if (_beacon != null)
         {
@@ -1910,15 +2000,32 @@ internal sealed class TrayApp : ApplicationContext
             // the field is set, so clear it and record why we are here.
             int code = -1;
             try { code = _beacon.ExitCode; } catch { }
-            _supervisor.Log("beacon: exited (code " + code + "), restarting");
+            bool quick = (DateTime.UtcNow - _beaconStartedUtc).TotalSeconds < 60;
+            _beaconQuickExits = quick ? _beaconQuickExits + 1 : 0;
             _beacon = null;
+            if (_beaconQuickExits >= 5)
+            {
+                // Typically no usable Bluetooth LE adapter: stop until the user
+                // toggles the beacon again instead of looping powershell.exe.
+                _beaconGaveUp = true;
+                _supervisor.Log("beacon: exited (code " + code + ") " + _beaconQuickExits +
+                                " times within a minute of starting; giving up until toggled");
+                return;
+            }
+            int wait = quick ? Math.Min(300, 5 << _beaconQuickExits) : 0;
+            _beaconNextTryUtc = DateTime.UtcNow.AddSeconds(wait);
+            _supervisor.Log("beacon: exited (code " + code + "), restarting in " + wait + " s");
         }
+        if (DateTime.UtcNow < _beaconNextTryUtc) return;
         StartBeacon();
     }
 
     private void ToggleBeacon()
     {
         _beaconWanted = !_beaconWanted;
+        _beaconGaveUp = false;
+        _beaconQuickExits = 0;
+        _beaconNextTryUtc = DateTime.MinValue;
         if (_beaconItem != null) _beaconItem.Checked = _beaconWanted;
         _prefs.SetBeacon(_beaconWanted);
         try
@@ -2094,7 +2201,7 @@ internal sealed class TrayApp : ApplicationContext
     /// </summary>
     private void OfferAutostartOnce()
     {
-        string marker = Path.Combine(_supervisor.Root, "data", "autostart-offered");
+        string marker = Path.Combine(_supervisor.DataDirectory, "autostart-offered");
         if (File.Exists(marker) || AutostartEnabled()) return;
         try
         {
@@ -2192,10 +2299,14 @@ internal sealed class TrayApp : ApplicationContext
     // One start at a time: menu clicks and watchdog restarts must not race.
     private void RequestStart(bool automatic)
     {
+        if (_exiting) return;
         if (Interlocked.CompareExchange(ref _starting, 1, 0) != 0) return;
         _status.Text = automatic ? "状态：正在重启后端…" : "状态：启动中…";
         var worker = new Thread(delegate()
         {
+            bool attempted = false;
+            bool started = false;
+            string error = null;
             try
             {
                 int delay = automatic ? NextBackoffSeconds() : 0;
@@ -2212,50 +2323,60 @@ internal sealed class TrayApp : ApplicationContext
                     return;
                 }
                 if (delay > 0) Thread.Sleep(delay * 1000);
+                if (_exiting) return;
                 lock (_startGate)
                 {
+                    attempted = true;
                     _supervisor.StopAll();
-                    string error;
-                    bool started = _supervisor.StartAll(180, out error);
-                    Ui(delegate
-                    {
-                        if (started)
-                        {
-                            _reportedExit = false;
-                            _gaveUp = false;
-                            _failures = 0;
-                            _windowStart = DateTime.UtcNow;
-                            _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
-                            if (automatic)
-                            {
-                                _icon.ShowBalloonTip(4000, _icon.Text,
-                                    "后端已自动恢复。", ToolTipIcon.Info);
-                            }
-                            else
-                            {
-                                _icon.ShowBalloonTip(3000, _icon.Text,
-                                    "接收已就绪，可以在手机上发送了。", ToolTipIcon.Info);
-                            }
-                        }
-                        else
-                        {
-                            _supervisor.LastError = error;
-                            _supervisor.Log("start failed: " + error);
-                            _status.Text = "状态：启动失败，稍后自动重试";
-                            _icon.ShowBalloonTip(8000, "DropBridge 启动失败", error,
-                                ToolTipIcon.Error);
-                            // The radio sometimes fails several firmware boots
-                            // in a row; retry with the usual backoff instead of
-                            // waiting for the user to click 重新启动.
-                            if (!_gaveUp) RequestStart(true);
-                        }
-                    });
+                    started = _supervisor.StartAll(180, out error);
                 }
+            }
+            catch (Exception problem)
+            {
+                error = problem.Message;
             }
             finally
             {
                 Interlocked.Exchange(ref _starting, 0);
             }
+            if (!attempted || _exiting) return;
+            // Posted only after _starting is back to 0: a retry posted from
+            // inside the try could run on the UI thread first, find the guard
+            // still taken and be dropped, leaving the tray stuck on "retrying".
+            Ui(delegate
+            {
+                if (_exiting) return;
+                if (started)
+                {
+                    _reportedExit = false;
+                    _gaveUp = false;
+                    _failures = 0;
+                    _windowStart = DateTime.UtcNow;
+                    _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
+                    if (automatic)
+                    {
+                        _icon.ShowBalloonTip(4000, _icon.Text,
+                            "后端已自动恢复。", ToolTipIcon.Info);
+                    }
+                    else
+                    {
+                        _icon.ShowBalloonTip(3000, _icon.Text,
+                            "接收已就绪，可以在手机上发送了。", ToolTipIcon.Info);
+                    }
+                }
+                else
+                {
+                    _supervisor.LastError = error;
+                    _supervisor.Log("start failed: " + error);
+                    _status.Text = "状态：启动失败，稍后自动重试";
+                    _icon.ShowBalloonTip(8000, "DropBridge 启动失败", error ?? "",
+                        ToolTipIcon.Error);
+                    // The radio sometimes fails several firmware boots
+                    // in a row; retry with the usual backoff instead of
+                    // waiting for the user to click 重新启动.
+                    if (!_gaveUp) RequestStart(true);
+                }
+            });
         });
         worker.IsBackground = true;
         worker.Start();
@@ -2310,9 +2431,16 @@ internal sealed class TrayApp : ApplicationContext
     private int _silentHits;
     private DateTime _lastSilenceUtc = DateTime.MinValue;
 
+    // A start, restart or rename in progress owns the children: the receiver
+    // is legitimately stopped for a moment and must not be read as a crash.
+    private bool ChangeInProgress
+    {
+        get { return Thread.VolatileRead(ref _starting) != 0; }
+    }
+
     private void CheckSilence()
     {
-        if (!_supervisor.Running || _gaveUp) return;
+        if (!_supervisor.Running || _gaveUp || ChangeInProgress) return;
         double silent = _supervisor.SilentSeconds("radio");
         if (silent < 0 || silent < 30) return;
         if ((DateTime.UtcNow - _lastSilenceUtc).TotalMinutes > 3) _silentHits = 0;
@@ -2334,7 +2462,7 @@ internal sealed class TrayApp : ApplicationContext
 
     private void CheckChildren()
     {
-        if (!_supervisor.Running || _gaveUp) return;
+        if (!_supervisor.Running || _gaveUp || ChangeInProgress) return;
         if (_supervisor.AllAlive)
         {
             _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
@@ -2365,31 +2493,40 @@ internal sealed class TrayApp : ApplicationContext
         if (Interlocked.CompareExchange(ref _starting, 1, 0) != 0) return false;
         ThreadPool.QueueUserWorkItem(delegate(object state)
         {
+            bool restarted = false;
             try
             {
                 _supervisor.Log("restarting receiver only");
                 string error;
-                bool restarted = _supervisor.RestartReceiver(out error);
+                lock (_startGate) restarted = _supervisor.RestartReceiver(out error);
                 if (!restarted) _supervisor.Log("receiver restart failed: " + error);
-                Ui(delegate
-                {
-                    if (restarted)
-                    {
-                        _reportedExit = false;
-                        _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
-                        _icon.ShowBalloonTip(3000, _icon.Text,
-                            "接收端已恢复，无需重新初始化网卡。", ToolTipIcon.Info);
-                    }
-                    else
-                    {
-                        RequestStart(true);
-                    }
-                });
+            }
+            catch (Exception problem)
+            {
+                _supervisor.Log("receiver restart failed: " + problem.Message);
             }
             finally
             {
                 Interlocked.Exchange(ref _starting, 0);
             }
+            if (_exiting) return;
+            // Same ordering as RequestStart: the fallback full restart must
+            // see the guard released.
+            Ui(delegate
+            {
+                if (_exiting) return;
+                if (restarted)
+                {
+                    _reportedExit = false;
+                    _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
+                    _icon.ShowBalloonTip(3000, _icon.Text,
+                        "接收端已恢复，无需重新初始化网卡。", ToolTipIcon.Info);
+                }
+                else
+                {
+                    RequestStart(true);
+                }
+            });
         });
         return true;
     }
@@ -2521,6 +2658,7 @@ internal sealed class TrayApp : ApplicationContext
 
     private void Exit()
     {
+        _exiting = true;
         _watchdog.Stop();
         SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
         if (_watcher != null) _watcher.EnableRaisingEvents = false;
@@ -2528,7 +2666,9 @@ internal sealed class TrayApp : ApplicationContext
         StopBeacon();
         var worker = new Thread(delegate()
         {
-            _supervisor.StopAll();
+            // Shutdown, not StopAll: a start worker may still be inside
+            // StartAll, and must not launch more children once we are gone.
+            _supervisor.Shutdown();
             Ui(delegate
             {
                 _icon.Dispose();
@@ -2863,21 +3003,17 @@ internal static class AppIdentity
                 RedirectStandardOutput = true,
             };
             start.EnvironmentVariables["DROPBRIDGE_EXE"] = Application.ExecutablePath;
-            using (Process process = Process.Start(start))
+            int exitCode;
+            string stderr;
+            if (!HiddenProcess.Run(start, 20000, out exitCode, out stderr))
             {
-                if (!process.WaitForExit(20000))
-                {
-                    try { process.Kill(); }
-                    catch (Exception) { }
-                    error = name + " timed out";
-                    return false;
-                }
-                string stderr = process.StandardError.ReadToEnd().Trim();
-                if (process.ExitCode != 0)
-                {
-                    error = name + " exit " + process.ExitCode + ": " + stderr;
-                    return false;
-                }
+                error = name + " timed out";
+                return false;
+            }
+            if (exitCode != 0)
+            {
+                error = name + " exit " + exitCode + ": " + stderr;
+                return false;
             }
             return true;
         }
@@ -3013,6 +3149,41 @@ internal static class ClipboardBridge
     }
 }
 
+/* Run a redirected helper to completion. Both pipes are drained while the
+ * process runs: waiting for exit first deadlocks once a chatty script fills the
+ * ~4 KB pipe buffer, and it then only ends at the timeout. Returns false on
+ * timeout (the process is killed). */
+internal static class HiddenProcess
+{
+    public static bool Run(ProcessStartInfo start, int timeoutMilliseconds,
+                           out int exitCode, out string stderr)
+    {
+        exitCode = -1;
+        stderr = "";
+        using (Process process = Process.Start(start))
+        {
+            System.Threading.Tasks.Task<string> output = process.StandardOutput.ReadToEndAsync();
+            System.Threading.Tasks.Task<string> errors = process.StandardError.ReadToEndAsync();
+            if (!process.WaitForExit(timeoutMilliseconds))
+            {
+                try { process.Kill(); }
+                catch (Exception) { }
+                return false;
+            }
+            try
+            {
+                System.Threading.Tasks.Task.WaitAll(new System.Threading.Tasks.Task[] { output, errors }, 2000);
+                if (errors.IsCompleted) stderr = errors.Result.Trim();
+            }
+            catch (Exception)
+            {
+            }
+            exitCode = process.ExitCode;
+            return true;
+        }
+    }
+}
+
 /* Q62: a real Windows toast with an action button, produced by the in-box
  * Windows PowerShell (WinRT types are not reachable from csc-built .NET
  * Framework code without the Windows SDK). Everything lives in the package. */
@@ -3043,21 +3214,17 @@ internal static class ToastBridge
             start.EnvironmentVariables["DROPBRIDGE_TOAST_BUTTON"] = button;
             start.EnvironmentVariables["DROPBRIDGE_TOAST_ARGS"] = argument;
             if (!string.IsNullOrEmpty(image)) start.EnvironmentVariables["DROPBRIDGE_TOAST_IMAGE"] = image;
-            using (Process process = Process.Start(start))
+            int exitCode;
+            string stderr;
+            if (!HiddenProcess.Run(start, 15000, out exitCode, out stderr))
             {
-                if (!process.WaitForExit(15000))
-                {
-                    try { process.Kill(); }
-                    catch (Exception) { }
-                    error = "toast helper timeout";
-                    return false;
-                }
-                if (process.ExitCode != 0)
-                {
-                    error = "toast helper exit " + process.ExitCode + ": " +
-                            process.StandardError.ReadToEnd().Trim();
-                    return false;
-                }
+                error = "toast helper timeout";
+                return false;
+            }
+            if (exitCode != 0)
+            {
+                error = "toast helper exit " + exitCode + ": " + stderr;
+                return false;
             }
             return true;
         }
@@ -3172,13 +3339,19 @@ internal static class Program
                     {
                         bool quiet = false;
                         string installRoot = null;
+                        string installLog = null;
                         for (int extra = index + 1; extra < args.Length; extra++)
                         {
                             if (args[extra] == "--quiet") quiet = true;
                             else if (args[extra] == "--root" && extra + 1 < args.Length) installRoot = args[++extra];
+                            else if (args[extra] == "--log" && extra + 1 < args.Length) installLog = args[++extra];
                         }
                         string resolved = ResolveRoot(installRoot);
-                        string log = Path.Combine(resolved, "data", "logs", "driver-install.txt");
+                        // The tray passes its own log path so the elevated
+                        // helper writes where the tray will tell the user to look.
+                        string log = string.IsNullOrEmpty(installLog)
+                            ? Path.Combine(resolved, "data", "logs", "driver-install.txt")
+                            : installLog;
                         return RadioBinding.Install(resolved, quiet, log);
                     }
                 case "--autostart-on":
@@ -3214,7 +3387,7 @@ internal static class Program
         {
             "--root", "--data", "--check", "--out", "--smoke", "--auto-exit",
             "--channel", "--width", "--chanseq", "--no-tcp-merge", "--allow-send",
-            "--autostart-on", "--autostart-off", "--install-driver",
+            "--autostart-on", "--autostart-off", "--install-driver", "--streams",
         };
         if (args.Length > 0 && Array.IndexOf(knownSwitches, args[0]) < 0)
         {
