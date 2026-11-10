@@ -157,6 +157,12 @@ internal sealed class LogSink
             {
                 // A full disk must not take the supervisor down.
             }
+            catch (UnauthorizedAccessException)
+            {
+                // Nor a read-only or locked log file: this runs on the
+                // children's output callbacks (thread pool), where an escaping
+                // exception would end the whole tray.
+            }
         }
     }
 }
@@ -347,7 +353,7 @@ internal sealed class Supervisor
         try
         {
             EnsureRadioStopEvent();
-            _radioStop.Reset();
+            // Manual-reset: Set alone leaves it signalled; StartAll resets it.
             _radioStop.Set();
         }
         catch
@@ -415,12 +421,25 @@ internal sealed class Supervisor
         if (prepareDirectories)
         {
             TryCreateDirectory(ReceivedDirectory);
+            if (!string.IsNullOrWhiteSpace(Prefs.ReceivedFolder) && !Directory.Exists(_received))
+            {
+                // A saved folder on a drive that is not there now (removable
+                // disk, unmapped share) would make the receiver fail with no
+                // hint. Use the default for this session only; the saved
+                // choice stays in settings.ini for the next start.
+                UnavailableReceivedFolder = _received;
+                _received = Path.Combine(_data, "received");
+                TryCreateDirectory(_received);
+                Log("received folder " + UnavailableReceivedFolder + " unavailable; using " + _received + " for this session");
+            }
             Directory.CreateDirectory(Path.Combine(_data, "keys"));
             PruneOldSessions(Path.Combine(_data, "logs"), 10);
         }
     }
 
     public string ReceivedDirectory { get { return _received; } }
+    // Set when the saved received folder could not be used at startup.
+    public string UnavailableReceivedFolder { get; private set; }
     public string LogDirectory { get { return _log.DirectoryPath; } }
     public string Root { get { return _root; } }
     // Per-user state (markers, logs) belongs here, not under Root: in the
@@ -471,6 +490,7 @@ internal sealed class Supervisor
             return false;
         }
         _received = target;
+        UnavailableReceivedFolder = null;
         Prefs.SetReceivedFolder(clean);
         bool running = HasChild("receiver");
         if (!running)
@@ -701,7 +721,9 @@ internal sealed class Supervisor
     private Child NewReceiver()
     {
         return new Child("receiver", PythonPath(),
-            "-u " + QuoteArgument(ReceiverPath()) + " --name " + QuoteArgument(Prefs.DeviceName) +
+            // "--name=value": a name that starts with "-" (e.g. "-PC") would
+            // otherwise be read by argparse as an option and stop the receiver.
+            "-u " + QuoteArgument(ReceiverPath()) + " --name=" + QuoteArgument(Prefs.DeviceName) +
             " --listen 127.0.0.1" +
             " --mdns-address-file " + QuoteArgument(AddressFile()) +
             " --outdir " + QuoteArgument(ReceivedDirectory) +
@@ -800,6 +822,15 @@ internal sealed class Supervisor
         {
             try
             {
+                if (port == 15353)
+                {
+                    // netd binds the local mDNS proxy as UDP 127.0.0.1:15353;
+                    // a TCP probe would miss a stale UDP holder.
+                    var udp = new System.Net.Sockets.UdpClient(
+                        new System.Net.IPEndPoint(System.Net.IPAddress.Loopback, port));
+                    udp.Close();
+                    continue;
+                }
                 var listener = new System.Net.Sockets.TcpListener(
                     System.Net.IPAddress.Loopback, port);
                 listener.Start();
@@ -968,13 +999,26 @@ internal sealed class Supervisor
             if (child == receiver)
             {
                 DateTime deadline = DateTime.UtcNow.AddSeconds(readyTimeoutSeconds);
+                string stopped = null;
                 while (!File.Exists(AddressFile()) && DateTime.UtcNow < deadline)
                 {
+                    // Same as WaitReady: a dead netd/receiver or an exit must
+                    // not hold the start for the full timeout.
+                    if (netd.HasExited) stopped = "netd exited before writing its address file";
+                    else if (receiver.HasExited) stopped = "receiver exited before it was ready";
+                    else
+                    {
+                        lock (_childrenLock)
+                        {
+                            if (_shutdown || !_children.Contains(child)) stopped = "start cancelled";
+                        }
+                    }
+                    if (stopped != null) break;
                     Thread.Sleep(250);
                 }
                 if (!File.Exists(AddressFile()))
                 {
-                    error = "awdl_netd address file never appeared";
+                    error = stopped ?? "awdl_netd address file never appeared";
                     StopAll();
                     return false;
                 }
@@ -1166,8 +1210,27 @@ internal static class RadioBinding
             };
             using (Process process = Process.Start(start))
             {
-                string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
-                process.WaitForExit(120000);
+                // Drain both pipes while the tool runs (see HiddenProcess): reading
+                // stdout to EOF first deadlocks once stderr fills its buffer.
+                System.Threading.Tasks.Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+                System.Threading.Tasks.Task<string> stderr = process.StandardError.ReadToEndAsync();
+                if (!process.WaitForExit(120000))
+                {
+                    try { process.Kill(); }
+                    catch (Exception) { }
+                    Log(logPath, exe + " " + arguments + " -> no exit after 120 s, killed");
+                    return 1;
+                }
+                string output = "";
+                try
+                {
+                    System.Threading.Tasks.Task.WaitAll(new System.Threading.Tasks.Task[] { stdout, stderr }, 2000);
+                    if (stdout.IsCompleted) output += stdout.Result;
+                    if (stderr.IsCompleted) output += stderr.Result;
+                }
+                catch (Exception)
+                {
+                }
                 Log(logPath, exe + " " + arguments + " -> exit " + process.ExitCode);
                 foreach (string line in output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
                 {
@@ -1402,9 +1465,14 @@ internal sealed class TrayApp : ApplicationContext
     private DateTime _beaconStartedUtc = DateTime.MinValue;
     private DateTime _beaconNextTryUtc = DateTime.MinValue;
     private int _beaconQuickExits;
-    private bool _beaconGaveUp;
+    private bool _beaconSlowRetry;
+    // Automatic restart attempts since the chain last stayed up for 10 min.
     private int _failures;
-    private DateTime _windowStart = DateTime.UtcNow;
+    // When the last start succeeded; MinValue once a later attempt used it.
+    private DateTime _lastStartedUtc = DateTime.MinValue;
+    // Receiver-only restarts in the current 10-minute window.
+    private int _receiverRestarts;
+    private DateTime _receiverWindowStart = DateTime.MinValue;
     private bool _gaveUp;
     private Process _beacon;
     private bool _beaconWanted = true;
@@ -1420,6 +1488,11 @@ internal sealed class TrayApp : ApplicationContext
         _supervisor = supervisor;
         _prefs = supervisor.Prefs;
         var menu = new ContextMenuStrip();
+        // Creating the first control installs the WinForms context on this
+        // thread. Take it now: StartBackends() below may finish (e.g. "missing
+        // files") before Application.Idle fires, and Ui() used to drop that
+        // result and its retry. Posts made now run once the message loop starts.
+        _ui = SynchronizationContext.Current as WindowsFormsSynchronizationContext;
         _status = new ToolStripMenuItem("状态：启动中…") { Enabled = false };
         menu.Items.Add(_status);
         menu.Items.Add(new ToolStripMenuItem("打开接收文件夹", null,
@@ -1479,7 +1552,16 @@ internal sealed class TrayApp : ApplicationContext
             LogLine("notification registration failed: " + registrationError);
         }
 
-        _icon.ShowBalloonTip(3000, _icon.Text, "正在启动后端…", ToolTipIcon.Info);
+        if (_supervisor.UnavailableReceivedFolder != null)
+        {
+            _icon.ShowBalloonTip(8000, _icon.Text,
+                "接收文件夹 " + _supervisor.UnavailableReceivedFolder + " 现在不可用，本次改存到 " +
+                _supervisor.ReceivedDirectory + "。正在启动后端…", ToolTipIcon.Warning);
+        }
+        else
+        {
+            _icon.ShowBalloonTip(3000, _icon.Text, "正在启动后端…", ToolTipIcon.Info);
+        }
 
         Application.Idle += CaptureContext;
         StartWatcher();
@@ -1524,7 +1606,14 @@ internal sealed class TrayApp : ApplicationContext
     {
         SynchronizationContext context = _ui;
         if (context == null) return;
-        context.Post(delegate { action(); }, null);
+        try
+        {
+            context.Post(delegate { action(); }, null);
+        }
+        catch (InvalidOperationException)
+        {
+            // The UI thread's marshaling window is gone (exit); nothing to do.
+        }
     }
 
     /* SystemEvents raises this for the WM_SETTINGCHANGE Windows broadcasts when
@@ -1662,7 +1751,10 @@ internal sealed class TrayApp : ApplicationContext
         if (size < 0) return;
         // A still-empty dotless random name is the receiver's upload temp.
         if (IsTemporaryReceiveName(name, size)) return;
-        Ui(delegate { ShowReceived(fullPath, name, size); });
+        // Stays on this worker: the toast helper is a PowerShell launch that
+        // can take seconds and must not freeze the tray (ShowReceived posts
+        // its balloons to the UI thread itself).
+        ShowReceived(fullPath, name, size);
         // Q64: the still copy is I/O bound (WIC decode + re-encode), so it
         // runs on its own STA thread; WPF imaging prefers STA.
         if (_prefs.StillCopy)
@@ -1682,8 +1774,14 @@ internal sealed class TrayApp : ApplicationContext
         ".png", ".jpg", ".jpeg", ".gif", ".bmp", ".tif", ".tiff", ".heic", ".webp",
     };
 
+    // Toasts are shown one at a time, as they were when this ran on the UI
+    // thread; a burst of photos must not start 30 PowerShells at once.
+    private readonly object _toastGate = new object();
+
+    // Runs on the file's waiter thread; only the balloons go to the UI thread.
     private void ShowReceived(string path, string name, long bytes)
     {
+        if (_exiting) return;
         string extension = Path.GetExtension(name).ToLowerInvariant();
         if (Array.IndexOf(PictureExtensions, extension) < 0)
         {
@@ -1694,9 +1792,13 @@ internal sealed class TrayApp : ApplicationContext
             // Q67: keep this short; the file is already on disk and the toast was
             // only telling the user that something arrived.
             string sizeText = SizeText(bytes);
-            _icon.ShowBalloonTip(2000, _icon.Text,
-                "收到文件：" + name + (sizeText.Length > 0 ? " (" + sizeText + ")" : ""),
-                ToolTipIcon.Info);
+            Ui(delegate
+            {
+                if (_exiting) return;
+                _icon.ShowBalloonTip(2000, _icon.Text,
+                    "收到文件：" + name + (sizeText.Length > 0 ? " (" + sizeText + ")" : ""),
+                    ToolTipIcon.Info);
+            });
             return;
         }
 
@@ -1706,17 +1808,26 @@ internal sealed class TrayApp : ApplicationContext
         // a plain balloon, so the user still learns the file arrived.
         string argument = Activation.Scheme + "copy?file=" + Uri.EscapeDataString(path);
         string toastError = "registration missing";
-        if (AppIdentity.RegistrationCurrent() &&
-            ToastBridge.Show(_supervisor.Root, "收到照片",
-                name + " · " + SizeText(bytes) + "，点击下方按钮复制到剪贴板",
-                "复制到剪贴板", argument, path, out toastError))
+        bool toasted;
+        lock (_toastGate)
+        {
+            toasted = !_exiting && AppIdentity.RegistrationCurrent() &&
+                ToastBridge.Show(_supervisor.Root, "收到照片",
+                    name + " · " + SizeText(bytes) + "，点击下方按钮复制到剪贴板",
+                    "复制到剪贴板", argument, path, out toastError);
+        }
+        if (toasted)
         {
             LogLine("received picture (toast): " + name);
             return;
         }
         LogLine("toast unavailable (" + toastError + "), using balloon: " + name);
-        _icon.ShowBalloonTip(3000, _icon.Text,
-            "收到照片：" + name + " (" + SizeText(bytes) + ")", ToolTipIcon.Info);
+        Ui(delegate
+        {
+            if (_exiting) return;
+            _icon.ShowBalloonTip(3000, _icon.Text,
+                "收到照片：" + name + " (" + SizeText(bytes) + ")", ToolTipIcon.Info);
+        });
     }
 
     /* Q62: the toast button launched us with dropbridge://copy?file=... */
@@ -1756,7 +1867,12 @@ internal sealed class TrayApp : ApplicationContext
             string folder = Path.GetFullPath(_supervisor.ReceivedDirectory)
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             string full = Path.GetFullPath(file);
-            return string.Equals(Path.GetDirectoryName(full), folder, StringComparison.OrdinalIgnoreCase);
+            // Trim both sides: for a drive root GetDirectoryName keeps the
+            // separator ("D:\") while the folder above became "D:".
+            string parent = Path.GetDirectoryName(full);
+            if (parent == null) return false;
+            parent = parent.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return string.Equals(parent, folder, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception)
         {
@@ -1990,9 +2106,12 @@ internal sealed class TrayApp : ApplicationContext
         _beacon = null;
     }
 
+    // After repeated quick exits the beacon is retried only this often.
+    private const int BeaconSlowRetrySeconds = 600;
+
     private void CheckBeacon()
     {
-        if (!_beaconWanted || _beaconGaveUp) return;
+        if (!_beaconWanted) return;
         if (_beacon != null && !_beacon.HasExited) return;
         if (_beacon != null)
         {
@@ -2002,14 +2121,22 @@ internal sealed class TrayApp : ApplicationContext
             try { code = _beacon.ExitCode; } catch { }
             bool quick = (DateTime.UtcNow - _beaconStartedUtc).TotalSeconds < 60;
             _beaconQuickExits = quick ? _beaconQuickExits + 1 : 0;
+            if (!quick) _beaconSlowRetry = false;
             _beacon = null;
             if (_beaconQuickExits >= 5)
             {
-                // Typically no usable Bluetooth LE adapter: stop until the user
-                // toggles the beacon again instead of looping powershell.exe.
-                _beaconGaveUp = true;
-                _supervisor.Log("beacon: exited (code " + code + ") " + _beaconQuickExits +
-                                " times within a minute of starting; giving up until toggled");
+                // Typically no usable Bluetooth LE adapter, or Bluetooth is off
+                // for a while (airplane mode, resume, driver update). Giving up
+                // for good left the beacon off after Bluetooth came back, so
+                // keep trying, but only every 10 minutes.
+                if (!_beaconSlowRetry)
+                {
+                    _beaconSlowRetry = true;
+                    _supervisor.Log("beacon: exited (code " + code + ") " + _beaconQuickExits +
+                                    " times within a minute of starting; retrying every " +
+                                    BeaconSlowRetrySeconds + " s");
+                }
+                _beaconNextTryUtc = DateTime.UtcNow.AddSeconds(BeaconSlowRetrySeconds);
                 return;
             }
             int wait = quick ? Math.Min(300, 5 << _beaconQuickExits) : 0;
@@ -2018,12 +2145,18 @@ internal sealed class TrayApp : ApplicationContext
         }
         if (DateTime.UtcNow < _beaconNextTryUtc) return;
         StartBeacon();
+        if (_beacon == null)
+        {
+            // Script missing or powershell.exe could not start (StartBeacon
+            // logged why): do not retry and log it on every 5 s tick.
+            _beaconNextTryUtc = DateTime.UtcNow.AddSeconds(BeaconSlowRetrySeconds);
+        }
     }
 
     private void ToggleBeacon()
     {
         _beaconWanted = !_beaconWanted;
-        _beaconGaveUp = false;
+        _beaconSlowRetry = false;
         _beaconQuickExits = 0;
         _beaconNextTryUtc = DateTime.MinValue;
         if (_beaconItem != null) _beaconItem.Checked = _beaconWanted;
@@ -2069,6 +2202,14 @@ internal sealed class TrayApp : ApplicationContext
         {
             if (dialog.ShowDialog() != DialogResult.OK) return;
             string folder = dialog.SelectedPath;
+            // Re-confirming the current folder is a no-op; restarting the
+            // receiver for it would only cut off a transfer in progress. (After
+            // a startup fallback the saved choice differs, so save it then.)
+            if (SameFolder(folder, _supervisor.ReceivedDirectory) &&
+                _supervisor.UnavailableReceivedFolder == null)
+            {
+                return;
+            }
             // The receiver restart can take up to a minute; run it off the UI
             // thread and behind the same guard as the watchdog/full restarts so
             // they never edit the child list at the same time.
@@ -2101,6 +2242,20 @@ internal sealed class TrayApp : ApplicationContext
                 MessageBox.Show("后端正在启动或重启，请稍后再试。", "接收文件夹",
                     MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
+        }
+    }
+
+    private static bool SameFolder(string left, string right)
+    {
+        try
+        {
+            string a = Path.GetFullPath(left).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            string b = Path.GetFullPath(right).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception)
+        {
+            return false;
         }
     }
 
@@ -2175,7 +2330,7 @@ internal sealed class TrayApp : ApplicationContext
                     bool live = _supervisor.RenameReceiver(name, out error);
                     Ui(delegate
                     {
-                        _prefs.SetDeviceName(name);
+                        // RenameReceiver has already saved the name.
                         _nameItem.Text = "设备名称：" + name + "…";
                         _icon.Text = name;
                         AppIdentity.Ensure(name);
@@ -2283,11 +2438,16 @@ internal sealed class TrayApp : ApplicationContext
 
     private int NextBackoffSeconds()
     {
-        if ((DateTime.UtcNow - _windowStart).TotalMinutes >= 10)
+        // Only a chain that stayed up for 10 minutes after its last successful
+        // start earns a fresh budget. A fixed 10-minute window let slow
+        // failures (a hung radio costs ~5 min per attempt) and chains that
+        // die seconds after "ready" restart forever.
+        if (_lastStartedUtc != DateTime.MinValue &&
+            (DateTime.UtcNow - _lastStartedUtc).TotalMinutes >= 10)
         {
             _failures = 0;
-            _windowStart = DateTime.UtcNow;
         }
+        _lastStartedUtc = DateTime.MinValue;
         _failures++;
         _supervisor.Log("restart attempt " + _failures);
         if (_failures > 5) return -1;
@@ -2301,6 +2461,12 @@ internal sealed class TrayApp : ApplicationContext
     {
         if (_exiting) return;
         if (Interlocked.CompareExchange(ref _starting, 1, 0) != 0) return;
+        if (!automatic)
+        {
+            // A start the user asked for gets a fresh automatic-restart budget.
+            _failures = 0;
+            _receiverRestarts = 0;
+        }
         _status.Text = automatic ? "状态：正在重启后端…" : "状态：启动中…";
         var worker = new Thread(delegate()
         {
@@ -2350,8 +2516,7 @@ internal sealed class TrayApp : ApplicationContext
                 {
                     _reportedExit = false;
                     _gaveUp = false;
-                    _failures = 0;
-                    _windowStart = DateTime.UtcNow;
+                    _lastStartedUtc = DateTime.UtcNow;
                     _status.Text = "状态：运行中（" + _supervisor.BandText + "）";
                     if (automatic)
                     {
@@ -2366,10 +2531,13 @@ internal sealed class TrayApp : ApplicationContext
                 }
                 else
                 {
+                    // ShowBalloonTip throws on an empty text (not only null),
+                    // which would also skip the retry below.
+                    if (string.IsNullOrEmpty(error)) error = "未知错误（详见日志）";
                     _supervisor.LastError = error;
                     _supervisor.Log("start failed: " + error);
                     _status.Text = "状态：启动失败，稍后自动重试";
-                    _icon.ShowBalloonTip(8000, "DropBridge 启动失败", error ?? "",
+                    _icon.ShowBalloonTip(8000, "DropBridge 启动失败", error,
                         ToolTipIcon.Error);
                     // The radio sometimes fails several firmware boots
                     // in a row; retry with the usual backoff instead of
@@ -2381,6 +2549,11 @@ internal sealed class TrayApp : ApplicationContext
         worker.IsBackground = true;
         worker.Start();
     }
+
+    // Below this a sample is light traffic, not a transfer (slow transfers
+    // measured 190-280 frames/s, /Discover alone a handful).
+    private const double SlowRateFloor = 100;
+    private long _lastFpsSample;
 
     /* Measured 2026-10-28: a healthy transfer sits near 700-850 frames/s,
      * the slow ones near 190-280 with the same loss. Two consecutive low
@@ -2405,7 +2578,18 @@ internal sealed class TrayApp : ApplicationContext
             _masterWarned = false;
         }
         if (_supervisor.FpsSamples == 0 || _supervisor.Fps <= 0) return;
-        if (_supervisor.Fps < 300)
+        // The radio samples every ~5 s, like this tick: count each sample
+        // once, or one slow sample seen on two ticks already warns.
+        long sample = _supervisor.FpsSamples;
+        if (sample == _lastFpsSample) return;
+        _lastFpsSample = sample;
+        if (_supervisor.Fps < SlowRateFloor)
+        {
+            // Light traffic (discovery, the tail of a small file) is not a
+            // slow transfer; only bulk traffic can be judged.
+            _slowSamples = 0;
+        }
+        else if (_supervisor.Fps < 300)
         {
             _slowSamples++;
         }
@@ -2480,11 +2664,27 @@ internal sealed class TrayApp : ApplicationContext
             _icon.ShowBalloonTip(5000, _icon.Text,
                 "有后端进程退出，正在自动恢复。", ToolTipIcon.Warning);
         }
-        if (dead.Count == 1 && dead[0] == "receiver" && RestartReceiverOnly())
+        if (dead.Count == 1 && dead[0] == "receiver" && ReceiverOnlyAllowed() && RestartReceiverOnly())
         {
             return;
         }
         RequestStart(true);
+    }
+
+    /* A receiver that keeps dying is not fixed by restarting only it: after
+     * three receiver-only restarts in 10 minutes fall back to the full restart,
+     * which counts against the give-up limit. */
+    private bool ReceiverOnlyAllowed()
+    {
+        if ((DateTime.UtcNow - _receiverWindowStart).TotalMinutes >= 10)
+        {
+            _receiverRestarts = 0;
+            _receiverWindowStart = DateTime.UtcNow;
+        }
+        _receiverRestarts++;
+        if (_receiverRestarts <= 3) return true;
+        _supervisor.Log("receiver died " + _receiverRestarts + " times in 10 min; full restart instead");
+        return false;
     }
 
     // Only the Python side can be replaced without re-initialising the radio.
@@ -2604,7 +2804,7 @@ internal sealed class TrayApp : ApplicationContext
      * path stays valid and re-launches the newest payload. In the folder
      * distribution the supervisor already sits at that root, so it registers
      * itself. */
-    private static string AutostartValue()
+    internal static string AutostartValue()
     {
         try
         {
@@ -2808,26 +3008,32 @@ internal sealed class Settings
         }
     }
 
+    // The rename worker and the UI thread both save; never write the file twice at once.
+    private readonly object _saveGate = new object();
+
     private void Save()
     {
-        try
+        lock (_saveGate)
         {
-            string directory = Path.GetDirectoryName(_path);
-            if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
-            var text = new StringBuilder();
-            text.AppendLine("# DropBridge 设置（关闭托盘后可直接改，下一个启动生效）");
-            text.AppendLine("# deviceName: iPhone 隔空投送里显示的名字，1-63 个字符");
-            text.AppendLine("# beacon: 是否周期性发蓝牙 beacon 帮 iPhone 发现本机");
-            text.AppendLine("# stillCopy: 收到的实况图/HEIC 是否自动生成一份单图 JPG 副本");
-            text.AppendLine("# receivedFolder: 接收文件保存到哪个目录（留空 = 包内 data\\received）");
-            text.AppendLine("deviceName=" + DeviceName);
-            text.AppendLine("beacon=" + (Beacon ? "true" : "false"));
-            text.AppendLine("stillCopy=" + (StillCopy ? "true" : "false"));
-            text.AppendLine("receivedFolder=" + ReceivedFolder);
-            File.WriteAllText(_path, text.ToString(), new UTF8Encoding(false));
-        }
-        catch (Exception)
-        {
+            try
+            {
+                string directory = Path.GetDirectoryName(_path);
+                if (!string.IsNullOrEmpty(directory)) Directory.CreateDirectory(directory);
+                var text = new StringBuilder();
+                text.AppendLine("# DropBridge 设置（关闭托盘后可直接改，下一个启动生效）");
+                text.AppendLine("# deviceName: iPhone 隔空投送里显示的名字，1-63 个字符");
+                text.AppendLine("# beacon: 是否周期性发蓝牙 beacon 帮 iPhone 发现本机");
+                text.AppendLine("# stillCopy: 收到的实况图/HEIC 是否自动生成一份单图 JPG 副本");
+                text.AppendLine("# receivedFolder: 接收文件保存到哪个目录（留空 = 包内 data\\received）");
+                text.AppendLine("deviceName=" + DeviceName);
+                text.AppendLine("beacon=" + (Beacon ? "true" : "false"));
+                text.AppendLine("stillCopy=" + (StillCopy ? "true" : "false"));
+                text.AppendLine("receivedFolder=" + ReceivedFolder);
+                File.WriteAllText(_path, text.ToString(), new UTF8Encoding(false));
+            }
+            catch (Exception)
+            {
+            }
         }
     }
 
@@ -3371,7 +3577,9 @@ internal static class Program
             using (RegistryKey key = Registry.CurrentUser.CreateSubKey(
                        @"Software\Microsoft\Windows\CurrentVersion\Run"))
             {
-                if (autostart > 0) key.SetValue("DropBridge", "\"" + Application.ExecutablePath + "\"");
+                // Same value the tray writes and checks (the stub in the
+                // single-exe layout, not this build's app\<build> copy).
+                if (autostart > 0) key.SetValue("DropBridge", TrayApp.AutostartValue());
                 else key.DeleteValue("DropBridge", false);
             }
             return 0;
@@ -3419,20 +3627,34 @@ internal static class Program
 
         if (smokeSeconds > 0)
         {
-            var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence, tcpMerge);
-            string error;
-            bool started = supervisor.StartAll(180, out error);
-            var report = new StringBuilder();
-            report.AppendLine("started=" + started);
-            report.AppendLine("error=" + (error ?? ""));
-            report.AppendLine("allAlive=" + supervisor.AllAlive);
-            report.AppendLine("logs=" + supervisor.LogDirectory);
-            Thread.Sleep(smokeSeconds * 1000);
-            report.AppendLine("allAliveAfterWait=" + supervisor.AllAlive);
-            supervisor.StopAll();
-            File.WriteAllText(Path.Combine(supervisor.LogDirectory, "smoke.txt"),
-                report.ToString(), Encoding.UTF8);
-            return started ? 0 : 1;
+            // Hold the tray's mutex: with a tray running, the port check would
+            // "reclaim" (kill) the tray's live backends as leftovers.
+            bool smokeOwnsTray;
+            using (var mutex = new Mutex(true, @"Local\DropBridge-tray", out smokeOwnsTray))
+            {
+                var supervisor = new Supervisor(root, stamp, true, channel, width, dataArgument, channelSequence, tcpMerge);
+                if (!smokeOwnsTray)
+                {
+                    File.WriteAllText(Path.Combine(supervisor.LogDirectory, "smoke.txt"),
+                        "started=False" + Environment.NewLine +
+                        "error=a DropBridge tray is running; exit it before --smoke" + Environment.NewLine,
+                        Encoding.UTF8);
+                    return 1;
+                }
+                string error;
+                bool started = supervisor.StartAll(180, out error);
+                var report = new StringBuilder();
+                report.AppendLine("started=" + started);
+                report.AppendLine("error=" + (error ?? ""));
+                report.AppendLine("allAlive=" + supervisor.AllAlive);
+                report.AppendLine("logs=" + supervisor.LogDirectory);
+                Thread.Sleep(smokeSeconds * 1000);
+                report.AppendLine("allAliveAfterWait=" + supervisor.AllAlive);
+                supervisor.StopAll();
+                File.WriteAllText(Path.Combine(supervisor.LogDirectory, "smoke.txt"),
+                    report.ToString(), Encoding.UTF8);
+                return started ? 0 : 1;
+            }
         }
 
         bool created;

@@ -67,6 +67,10 @@ internal static class Program
                 seen++;
                 if (seen > 2)
                 {
+                    // A tray from an older build may still be running: its locked
+                    // exes would survive, but its scripts and Python sources would
+                    // not, and it would lose toasts and receiver restarts.
+                    if (BuildInUse(build.FullName)) continue;
                     try { build.Delete(true); } catch (IOException) { } catch (UnauthorizedAccessException) { }
                 }
             }
@@ -74,6 +78,46 @@ internal static class Program
         catch (DirectoryNotFoundException)
         {
         }
+    }
+
+    /* True when any process we can inspect runs an exe from this build. When a
+     * DropBridge/AirBridge32 process cannot be inspected, assume it might be
+     * from this build and keep the directory; pruning can wait for next launch. */
+    private static bool BuildInUse(string buildDirectory)
+    {
+        string prefix = buildDirectory.TrimEnd('\\') + "\\";
+        int self = Process.GetCurrentProcess().Id;
+        foreach (string name in new[]
+                 {
+                     "DropBridge", "AirBridge32", "airbridge_radio", "radio_pipe_bridge",
+                     "awdl_netd", "awdld", "python",
+                 })
+        {
+            Process[] processes;
+            try { processes = Process.GetProcessesByName(name); }
+            catch (Exception) { continue; }
+            foreach (Process process in processes)
+            {
+                try
+                {
+                    if (process.Id == self) continue;
+                    string path = process.MainModule.FileName;
+                    if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) return true;
+                }
+                catch (Exception)
+                {
+                    // Cannot read the path (other user, elevated, exited, or a
+                    // 32/64-bit mismatch). Only a tray process name is worth
+                    // being careful about; others are unrelated programs.
+                    if (name == "DropBridge" || name == "AirBridge32") return true;
+                }
+                finally
+                {
+                    process.Dispose();
+                }
+            }
+        }
+        return false;
     }
 
     private static void Extract(string target)
