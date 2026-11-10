@@ -382,10 +382,10 @@ index 87868b0..2aad484 100644
  target_link_options(awdld PRIVATE -static -Wl,--wrap=log_log)
 diff --git a/awdl/win/host_if_ipc.c b/awdl/win/host_if_ipc.c
 new file mode 100644
-index 0000000..81979a1
+index 0000000..32c8a6c
 --- /dev/null
 +++ b/awdl/win/host_if_ipc.c
-@@ -0,0 +1,175 @@
+@@ -0,0 +1,184 @@
 +/* SPDX-License-Identifier: GPL-3.0-or-later */
 +/* IPC host backend for the user-space AWDL data plane PoC.
 + *
@@ -526,6 +526,15 @@ index 0000000..81979a1
 +                    host->packet_len = host->header[0] | (host->header[1] << 8);
 +                    host->packet_got = 0;
 +                    if (host->packet_len <= 0 || host->packet_len > HOST_IF_MAX_PACKET) {
++                        /* The framed stream cannot be resynchronised. Reset the
++                         * state so no later call trusts this length, and end the
++                         * link so awdl_netd exits and the chain is restarted
++                         * instead of stalling here forever. */
++                        fprintf(stderr, "host_if: invalid IPC frame length %d\n",
++                                host->packet_len);
++                        host->header_got = 0;
++                        host->packet_len = 0;
++                        shutdown(host->sock, SD_BOTH);
 +                        return 0;
 +                    }
 +                }

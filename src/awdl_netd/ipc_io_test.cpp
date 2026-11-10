@@ -38,6 +38,14 @@ static err_t accept_packet(pbuf *p, netif *) {
     return ERR_OK;
 }
 static err_t reject_packet(pbuf *, netif *) { return ERR_MEM; }
+static int busy_rejects = 0;
+static err_t busy_then_accept(pbuf *p, netif *n) {
+    if (busy_rejects > 0) {
+        --busy_rejects;
+        return ERR_MEM; // A momentarily full tcpip mailbox; the pbuf stays ours.
+    }
+    return accept_packet(p, n);
+}
 
 static void receive_exact(SOCKET s, uint8_t *out, size_t size) {
     while (size) {
@@ -80,12 +88,29 @@ int main() {
         release_pool(held);
         for (int i = 0; i < 100; ++i) deliver_ip_packet(packet, sizeof(packet));
         g_netif.input = reject_packet;
+        // No retry budget: count outcomes without paying 500 ms per packet.
+        g_input_retry_limit_ms = 0;
         for (int i = 0; i < 100; ++i) deliver_ip_packet(packet, sizeof(packet));
-        require(g_stats.rx_queued == 100 && g_stats.input_fail == 100, "input outcomes counted separately");
+        require(g_stats.rx_queued == 100 && g_stats.input_fail == 100 && g_stats.input_retry == 0,
+                "input outcomes counted separately");
+        // Persistent ERR_MEM: retried for the wall-clock budget, then dropped.
+        g_input_retry_limit_ms = 100;
+        const auto retry_began = GetTickCount64();
+        deliver_ip_packet(packet, sizeof(packet));
+        const auto retry_elapsed = GetTickCount64() - retry_began;
+        require(g_stats.input_fail == 101 && g_stats.input_retry > 0, "persistent ERR_MEM retried then dropped");
+        require(retry_elapsed >= 50 && retry_elapsed < 1000, "ERR_MEM retry bounded by wall-clock budget");
+        // Transient ERR_MEM: the same pbuf is offered again until lwIP takes it.
+        g_netif.input = busy_then_accept;
+        busy_rejects = 3;
+        const unsigned long long retries_before = g_stats.input_retry.load();
+        deliver_ip_packet(packet, sizeof(packet));
+        require(busy_rejects == 0 && g_stats.rx_queued == 101 && g_stats.input_fail == 101 &&
+                g_stats.input_retry == retries_before + 3, "transient ERR_MEM retried until queued");
         held = hold_pool();
-        require(held.size() == capacity, "no leaked pbuf on success or rejection");
+        require(held.size() == capacity, "no leaked pbuf on success, retry or rejection");
         release_pool(held);
-        std::puts("PASS: real pool exhaustion, input rejection and buffer ownership");
+        std::puts("PASS: real pool exhaustion, input rejection, ERR_MEM retry and buffer ownership");
 
         auto pair = socket_pair();
         g_ipc = pair.first;

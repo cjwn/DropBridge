@@ -48,6 +48,37 @@ bool send_all(SOCKET sock, const char *data, int len) {
     return true;
 }
 
+/* The pipe handle is overlapped: on a synchronous handle Windows serialises
+ * all I/O, so a radio->awdld WriteFile waited for the pending awdld->radio
+ * ReadFile (i.e. for awdld's next transmit), and DisconnectNamedPipe blocked
+ * the same way. Each caller passes its own manual-reset event and waits for
+ * its own operation only. */
+bool pipe_wait(HANDLE pipe, OVERLAPPED &ov, BOOL started, DWORD *done) {
+    if (!started && GetLastError() != ERROR_IO_PENDING) return false;
+    return GetOverlappedResult(pipe, &ov, done, TRUE) != FALSE;
+}
+
+bool pipe_read(HANDLE pipe, HANDLE event, char *data, DWORD len, DWORD *got) {
+    OVERLAPPED ov{};
+    ov.hEvent = event;
+    return pipe_wait(pipe, ov, ReadFile(pipe, data, len, nullptr, &ov), got);
+}
+
+bool pipe_write_all(HANDLE pipe, HANDLE event, const char *data, DWORD len) {
+    while (len > 0) {
+        OVERLAPPED ov{};
+        ov.hEvent = event;
+        DWORD wrote = 0;
+        if (!pipe_wait(pipe, ov, WriteFile(pipe, data, len, nullptr, &ov), &wrote) ||
+            wrote == 0) {
+            return false;
+        }
+        data += wrote;
+        len -= wrote;
+    }
+    return true;
+}
+
 }  // namespace
 
 int main() {
@@ -59,7 +90,7 @@ int main() {
     }
 
     HANDLE pipe = CreateNamedPipeA(
-        RADIO_LINK_PIPE_NAME, PIPE_ACCESS_DUPLEX,
+        RADIO_LINK_PIPE_NAME, PIPE_ACCESS_DUPLEX | FILE_FLAG_OVERLAPPED,
         PIPE_TYPE_BYTE | PIPE_READMODE_BYTE | PIPE_WAIT, 1, 1 << 20, 1 << 20,
         0, nullptr);
     if (pipe == INVALID_HANDLE_VALUE) {
@@ -68,14 +99,34 @@ int main() {
         WSACleanup();
         return 1;
     }
-    std::printf("bridge: waiting for awdld on %s\n", RADIO_LINK_PIPE_NAME);
-    if (!ConnectNamedPipe(pipe, nullptr) &&
-        GetLastError() != ERROR_PIPE_CONNECTED) {
-        std::fprintf(stderr, "bridge: ConnectNamedPipe failed (%lu)\n",
-                     GetLastError());
+    // One manual-reset event per thread that does pipe I/O.
+    HANDLE up_event = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    HANDLE down_event = CreateEventW(nullptr, TRUE, FALSE, nullptr);
+    if (up_event == nullptr || down_event == nullptr) {
+        std::fprintf(stderr, "bridge: CreateEvent failed (%lu)\n", GetLastError());
+        if (up_event != nullptr) CloseHandle(up_event);
+        if (down_event != nullptr) CloseHandle(down_event);
         CloseHandle(pipe);
         WSACleanup();
         return 1;
+    }
+    std::printf("bridge: waiting for awdld on %s\n", RADIO_LINK_PIPE_NAME);
+    {
+        // An overlapped pipe needs an OVERLAPPED here too.
+        OVERLAPPED ov{};
+        ov.hEvent = down_event;
+        DWORD unused = 0;
+        const BOOL started = ConnectNamedPipe(pipe, &ov);
+        if (!started && GetLastError() != ERROR_PIPE_CONNECTED &&
+            !pipe_wait(pipe, ov, started, &unused)) {
+            std::fprintf(stderr, "bridge: ConnectNamedPipe failed (%lu)\n",
+                         GetLastError());
+            CloseHandle(up_event);
+            CloseHandle(down_event);
+            CloseHandle(pipe);
+            WSACleanup();
+            return 1;
+        }
     }
     std::printf("bridge: awdld connected; connecting to radio TCP\n");
 
@@ -84,6 +135,8 @@ int main() {
         std::fprintf(stderr, "bridge: cannot connect to radio at %s:%d\n",
                      kTcpHost, kTcpPort);
         DisconnectNamedPipe(pipe);
+        CloseHandle(up_event);
+        CloseHandle(down_event);
         CloseHandle(pipe);
         WSACleanup();
         return 1;
@@ -95,14 +148,16 @@ int main() {
         if (!stop.exchange(true)) {
             shutdown(tcp, SD_BOTH);
             DisconnectNamedPipe(pipe);
+            // Wake a pending pipe read/write in the other thread.
+            CancelIoEx(pipe, nullptr);
         }
     };
 
     std::thread up([&] {
         char buffer[16384];
-        for (;;) {
+        while (!stop.load()) {
             DWORD got = 0;
-            if (!ReadFile(pipe, buffer, sizeof(buffer), &got, nullptr) ||
+            if (!pipe_read(pipe, up_event, buffer, sizeof(buffer), &got) ||
                 got == 0) {
                 break;
             }
@@ -115,9 +170,8 @@ int main() {
     for (;;) {
         const int n = recv(tcp, buffer, sizeof(buffer), 0);
         if (n <= 0) break;
-        DWORD wrote = 0;
-        if (!WriteFile(pipe, buffer, static_cast<DWORD>(n), &wrote, nullptr) ||
-            wrote == 0) {
+        if (stop.load() ||
+            !pipe_write_all(pipe, down_event, buffer, static_cast<DWORD>(n))) {
             break;
         }
     }
@@ -125,6 +179,8 @@ int main() {
     up.join();
 
     closesocket(tcp);
+    CloseHandle(up_event);
+    CloseHandle(down_event);
     CloseHandle(pipe);
     WSACleanup();
     return 0;

@@ -44,7 +44,9 @@ constexpr DWORD kIpcSendTimeoutMs = 5000;
 // then stalls instead of netd silently discarding frames the phone would have
 // to retransmit.
 constexpr int kInputRetrySleepMs = 1;
-constexpr int kInputRetryLimitMs = 500;
+// Wall-clock budget, not an iteration count: Sleep(1) can last a full ~15.6 ms
+// timer tick. Not const only so the unit test can shorten it.
+int g_input_retry_limit_ms = 500;
 
 SOCKET g_ipc = INVALID_SOCKET;
 SOCKET g_listen = INVALID_SOCKET;
@@ -157,15 +159,29 @@ void configure_address(const uint8_t address[16]) {
     netif_ip6_addr_set_state(&g_netif, 0, IP6_ADDR_PREFERRED);
 }
 
-void write_address_file(const uint8_t address[16]) {
-    const char *path = std::getenv("AWDL_NETD_ADDR_FILE");
-    if (!path || !*path) path = "awdl_netd.addr";
-    FILE *f = std::fopen(path, "w");
-    if (!f) return;
+bool write_address_file(const uint8_t address[16]) {
+    // Wide APIs: the data folder can sit under a user name the ANSI code page
+    // cannot represent, and getenv/fopen would turn it into '?' and fail.
+    const wchar_t *path = _wgetenv(L"AWDL_NETD_ADDR_FILE");
+    if (!path || !*path) path = L"awdl_netd.addr";
+    FILE *f = _wfopen(path, L"w");
+    if (!f) {
+        // Fail fast: the supervisor waits for this file and otherwise only
+        // reports a timeout minutes later.
+        std::fprintf(stderr, "awdl_netd: cannot write address file (error=%lu)\n",
+                     GetLastError());
+        return false;
+    }
     char text[64] = {0};
     inet_ntop(AF_INET6, address, text, sizeof(text));
     std::fprintf(f, "%s\n", text);
-    std::fclose(f);
+    const bool ok = std::ferror(f) == 0;
+    if (std::fclose(f) != 0 || !ok) {
+        std::fprintf(stderr, "awdl_netd: cannot write address file (error=%lu)\n",
+                     GetLastError());
+        return false;
+    }
+    return true;
 }
 
 void deliver_ip_packet(const uint8_t *packet, u16_t len) {
@@ -188,14 +204,17 @@ void deliver_ip_packet(const uint8_t *packet, u16_t len) {
     // self-inflicted loss: the radio already delivered the frame and only the
     // phone's retransmission can recover it. Wait briefly instead; this reader
     // thread is the only producer, so blocking it pushes back on awdld.
-    for (int waited = 0;; waited += kInputRetrySleepMs) {
+    const auto deadline = std::chrono::steady_clock::now() +
+                          std::chrono::milliseconds(g_input_retry_limit_ms);
+    for (;;) {
         const err_t err = g_netif.input(p, &g_netif);
         if (err == ERR_OK) {
             ++g_stats.rx_queued; // Queued to lwIP, not proof of TCP/file delivery.
             tcp_diag::observe(packet, len, true, true);
             return;
         }
-        if (err != ERR_MEM || g_ipc_failed.load() || waited >= kInputRetryLimitMs) {
+        if (err != ERR_MEM || g_ipc_failed.load() ||
+            std::chrono::steady_clock::now() >= deadline) {
             ++g_stats.input_fail;
             tcp_diag::observe(packet, len, true, false);
             pbuf_free(p);
@@ -249,9 +268,11 @@ bool accept_awdld() {
         got += static_cast<size_t>(n);
     }
     if (memcmp(hello, "AWDL", 4) != 0) return false;
+    // lwIP's timers run on the tcpip thread; raw netif calls need the core lock.
+    LOCK_TCPIP_CORE();
     configure_address(hello + 4);
-    write_address_file(hello + 4);
-    return true;
+    UNLOCK_TCPIP_CORE();
+    return write_address_file(hello + 4);
 }
 
 }  // namespace
@@ -259,6 +280,13 @@ bool accept_awdld() {
 /* The outbound proxy needs lwIP's netif index as the scope for a link-local
  * destination. */
 extern "C" int awdl_netd_netif_index() { return static_cast<int>(g_netif.num); }
+
+/* A worker that cannot continue (e.g. the local mDNS socket died) ends the
+ * process the same way a broken IPC link does, so the supervisor restarts the
+ * chain instead of showing a running but undiscoverable PC. */
+extern "C" void awdl_netd_fatal(const char *operation, int error) {
+    ipc_failed(operation, error);
+}
 
 #ifndef AIRBRIDGE_NETD_TEST
 int main() {
@@ -283,16 +311,23 @@ int main() {
                  kIpcPort);
 
     tcpip_init(nullptr, nullptr);
+    // From here the tcpip thread runs lwIP's timers, and other threads transmit
+    // through netif_output_ip6 under the core lock. Every raw-API call on this
+    // thread takes the same lock, so two frames never interleave on g_ipc.
+    LOCK_TCPIP_CORE();
     netif_add(&g_netif, nullptr, awdl_netif_init, tcpip_input);
     netif_set_hostname(&g_netif, "AirBridge32");
     netif_set_default(&g_netif);
+    UNLOCK_TCPIP_CORE();
 
     if (!accept_awdld()) {
         std::fprintf(stderr, "awdl_netd: awdld handshake failed\n");
         return 1;
     }
+    LOCK_TCPIP_CORE();
     netif_set_up(&g_netif);
     netif_set_link_up(&g_netif);
+    UNLOCK_TCPIP_CORE();
     std::thread(ipc_reader).detach();
 
     if (std::getenv("AWDL_NETD_NATIVE_MDNS")) {
@@ -305,7 +340,10 @@ int main() {
         // reached the UDP proxy until this join.
         ip6_addr_t mdns_group;
         if (ip6addr_aton("ff02::fb", &mdns_group) != 0) {
-            if (mld6_joingroup_netif(&g_netif, &mdns_group) != ERR_OK) {
+            LOCK_TCPIP_CORE();
+            const err_t joined = mld6_joingroup_netif(&g_netif, &mdns_group);
+            UNLOCK_TCPIP_CORE();
+            if (joined != ERR_OK) {
                 std::fprintf(stderr, "awdl_netd: cannot join ff02::fb\n");
             }
         }

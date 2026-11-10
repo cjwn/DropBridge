@@ -15,16 +15,15 @@ SOCKET to_socket(intptr_t handle) {
 #define SIO_UDP_CONNRESET _WSAIOW(IOC_VENDOR, 12)
 #endif
 
-// Bound both directions of a local TCP stream: a peer that stops reading must
-// not block send() forever, and recv() wakes every poll_ms (returning -2 from
-// local_tcp_recv) so callers can check their stop flags and deadlines.
+// A peer that stops reading must not block send() forever. A send timeout
+// aborts the connection anyway, so Winsock leaving the socket in an
+// indeterminate state after it is harmless. Receives are polled with select()
+// in local_tcp_recv instead of SO_RCVTIMEO: a timed-out recv() leaves the
+// socket indeterminate too, and the receive side times out on every idle second.
 bool set_stream_timeouts(SOCKET s) {
     const DWORD timeout_ms = 5000;
-    const DWORD poll_ms = 1000;
     return setsockopt(s, SOL_SOCKET, SO_SNDTIMEO,
-               reinterpret_cast<const char *>(&timeout_ms), sizeof(timeout_ms)) == 0 &&
-           setsockopt(s, SOL_SOCKET, SO_RCVTIMEO,
-               reinterpret_cast<const char *>(&poll_ms), sizeof(poll_ms)) == 0;
+               reinterpret_cast<const char *>(&timeout_ms), sizeof(timeout_ms)) == 0;
 }
 }  // namespace
 
@@ -85,9 +84,9 @@ intptr_t local_tcp_accept(intptr_t listener) {
     if (ready <= 0) return ready == 0 ? -2 : -1;
     SOCKET client = accept(to_socket(listener), nullptr, nullptr);
     if (client == INVALID_SOCKET) return -1;
-    // Same bounds as local_tcp_connect: without them the outbound proxy's
-    // CONNECT-header deadline and stop checks never ran, and an idle client
-    // pinned a thread plus one of lwIP's few netconns forever.
+    // Same send bound as local_tcp_connect; local_tcp_recv polls, so the
+    // outbound proxy's CONNECT-header deadline and stop checks still run and an
+    // idle client cannot pin a thread plus one of lwIP's few netconns forever.
     if (!set_stream_timeouts(client)) {
         closesocket(client);
         return -1;
@@ -96,8 +95,15 @@ intptr_t local_tcp_accept(intptr_t listener) {
 }
 
 int local_tcp_recv(intptr_t handle, void *data, int len) {
-    int n = recv(to_socket(handle), static_cast<char *>(data), len, 0);
-    return n < 0 && WSAGetLastError() == WSAETIMEDOUT ? -2 : n;
+    // Wake every second (-2) so callers can check their stop flags and
+    // deadlines, without ever cancelling a receive that is in progress.
+    fd_set set;
+    FD_ZERO(&set);
+    FD_SET(to_socket(handle), &set);
+    timeval poll{1, 0};
+    int ready = select(0, &set, nullptr, nullptr, &poll);
+    if (ready <= 0) return ready == 0 ? -2 : -1;
+    return recv(to_socket(handle), static_cast<char *>(data), len, 0);
 }
 
 int local_socket_error() { return WSAGetLastError(); }

@@ -239,6 +239,39 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
                           ? Logger::Level::Warn
                           : Logger::Level::Info);
 
+    // The supervisor stops children with TerminateProcess, which leaves the
+    // RTL8821CU in the middle of a USB transfer and wedges the chip until it is
+    // physically replugged (measured repeatedly: 0.03 s CPU for minutes, then
+    // "no device" or a hung init). Two handles let us stop cleanly instead:
+    //   - Local\DropBridgeRadioStop, which the supervisor signals on a normal
+    //     exit or a restart, and
+    //   - the supervisor's own process handle, so a *crashed* or force-killed
+    //     supervisor still gets a clean stop before the job object terminates us.
+    // Open both before the 40-120 s bring-up: opened only afterwards, a
+    // supervisor that exited meanwhile took the event with it and its PID could
+    // already belong to another process, leaving this radio listening forever.
+    // Bring-up itself cannot be interrupted; stop_requested() is checked
+    // between its phases, and after listen() the waiter thread below closes
+    // the listener so the ordinary teardown runs.
+    HANDLE stop_event = OpenEventW(SYNCHRONIZE, FALSE, L"Local\\DropBridgeRadioStop");
+    HANDLE parent_process = nullptr;
+    if (const char *parent_pid = std::getenv("AIRBRIDGE_PARENT_PID")) {
+        const DWORD pid = static_cast<DWORD>(std::strtoul(parent_pid, nullptr, 10));
+        if (pid != 0) parent_process = OpenProcess(SYNCHRONIZE, FALSE, pid);
+    }
+    const auto stop_requested = [stop_event, parent_process] {
+        HANDLE handles[2];
+        DWORD count = 0;
+        if (stop_event != nullptr) handles[count++] = stop_event;
+        if (parent_process != nullptr) handles[count++] = parent_process;
+        return count != 0 &&
+               WaitForMultipleObjects(count, handles, FALSE, 0) < WAIT_OBJECT_0 + count;
+    };
+    if (stop_requested()) {
+        logger->warn("radio: stop requested before bring-up; exiting");
+        return 0;
+    }
+
     WSADATA wsa{};
     if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0) {
         logger->error("radio: WSAStartup failed");
@@ -261,6 +294,14 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         libusb_exit(ctx);
         WSACleanup();
         return 2;
+    }
+
+    if (stop_requested()) {
+        logger->warn("radio: stop requested before USB reset; exiting");
+        libusb_close(handle);
+        libusb_exit(ctx);
+        WSACleanup();
+        return 0;
     }
 
     int iface = devourer::find_wifi_interface(handle);
@@ -310,6 +351,17 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
                                    width_from_mhz(width_mhz), 0};
     logger->info("radio: channel {} width {} MHz offset {}", channel,
                  width_mhz, (int)selected.ChannelOffset);
+    if (stop_requested()) {
+        // Skip InitWrite entirely: its 40-120 s are where a kill must never
+        // land, and nothing inside it can be interrupted.
+        logger->warn("radio: stop requested before InitWrite; exiting");
+        radio.reset();
+        libusb_release_interface(handle, iface);
+        libusb_close(handle);
+        libusb_exit(ctx);
+        WSACleanup();
+        return 0;
+    }
     try {
         radio->InitWrite(selected);
     } catch (const std::exception &error) {
@@ -365,22 +417,9 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     }
     logger->info("radio: listening on 127.0.0.1:{}", port);
 
-    // The supervisor stops children with TerminateProcess, which leaves the
-    // RTL8821CU in the middle of a USB transfer and wedges the chip until it is
-    // physically replugged (measured repeatedly: 0.03 s CPU for minutes, then
-    // "no device" or a hung init). Two handles let us stop cleanly instead:
-    //   - Local\DropBridgeRadioStop, which the supervisor signals on a normal
-    //     exit or a restart, and
-    //   - the supervisor's own process handle, so a *crashed* or force-killed
-    //     supervisor still gets a clean stop before the job object terminates us.
-    // Either way we close the listener, accept() fails, and the ordinary
-    // teardown runs (StopRxLoop, device Stop, libusb release).
-    HANDLE stop_event = OpenEventW(SYNCHRONIZE, FALSE, L"Local\\DropBridgeRadioStop");
-    HANDLE parent_process = nullptr;
-    if (const char *parent_pid = std::getenv("AIRBRIDGE_PARENT_PID")) {
-        const DWORD pid = static_cast<DWORD>(std::strtoul(parent_pid, nullptr, 10));
-        if (pid != 0) parent_process = OpenProcess(SYNCHRONIZE, FALSE, pid);
-    }
+    // Stop handles opened at the top of run(): when either fires (or already
+    // has, during bring-up) we close the listener, accept() fails, and the
+    // ordinary teardown runs (StopRxLoop, device Stop, libusb release).
     if (stop_event != nullptr || parent_process != nullptr) {
         std::thread([listener, stop_event, parent_process]() {
             HANDLE handles[2];
@@ -406,6 +445,7 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     // Set when the accept-failure path already stopped the device to cancel a
     // stuck RX worker; the common teardown must not call Stop() a second time.
     bool radio_stopped = false;
+    int exit_code = 0;
     for (;;) {
         g_rx_cb = 0;
         g_rx_crc = 0;
@@ -709,8 +749,20 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
         }
         if (rx_ended.load()) rx_thread.join();
         else {
-            logger->warn("shutdown: rx worker did not return; detaching");
+            // The worker is stuck inside the driver and still references this
+            // iteration's queue, state and flags (destroyed at the end of the
+            // iteration) and the radio itself. Nothing can be torn down safely
+            // under it: finish this client, then leave without destructors.
+            // Process exit releases the WinUSB handles; the device is stopped.
+            logger->warn("shutdown: rx worker did not return; exiting without teardown");
             rx_thread.detach();
+            queue.stop();
+            shutdown(client, SD_BOTH);
+            if (writer.joinable()) writer.join();
+            closesocket(client);
+            std::fflush(stdout);
+            std::fflush(stderr);
+            std::_Exit(7);
         }
     }
     queue.stop();
@@ -721,6 +773,14 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     shutdown(client, SD_BOTH);
     if (writer.joinable()) writer.join();
     closesocket(client);
+    if (radio_stopped) {
+        // The device had to be stopped to get the worker back; it cannot serve
+        // another client. Exit through the common teardown (which skips a second
+        // Stop) so the supervisor restarts the chain with a fresh bring-up.
+        logger->warn("shutdown: device stopped to recover the rx worker; leaving accept loop");
+        exit_code = 7;
+        break;
+    }
     logger->info("radio: waiting for next client");
     }
 
@@ -744,7 +804,7 @@ int run(uint8_t channel, int width_mhz, uint16_t port, bool skip_reset) {
     libusb_exit(ctx);
     WSACleanup();
     logger->warn("shutdown: done");
-    return 0;
+    return exit_code;
 }
 
 }  // namespace

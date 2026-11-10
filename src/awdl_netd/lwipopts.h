@@ -10,6 +10,9 @@
 #define LWIP_NETCONN 1
 #define LWIP_NETIF_API 1
 #define LWIP_SO_RCVTIMEO 1
+/* lwIP's default, spelled out: main.cpp takes LOCK_TCPIP_CORE() around its
+ * raw netif/MLD calls, which only exists with core locking. */
+#define LWIP_TCPIP_CORE_LOCKING 1
 #define MEMP_NUM_NETCONN 8
 #define TCPIP_THREAD_STACKSIZE 65536
 #define DEFAULT_THREAD_STACKSIZE 65536

@@ -19,6 +19,8 @@ extern "C" {
 
 // lwIP needs the netif index as the scope for a link-local destination.
 extern "C" int awdl_netd_netif_index();
+// Ends the data plane (main exits 2) when a worker cannot continue.
+extern "C" void awdl_netd_fatal(const char *operation, int error);
 
 namespace {
 
@@ -152,8 +154,12 @@ void mdns_from_local() {
         // Leaving here would stop all local->AWDL mDNS until a full restart.
         if (n == -2 || n == 0) continue;
         if (n < 0) {
+            const int error = local_socket_error();
             std::fprintf(stderr, "awdl_netd: mDNS local recv failed (%d); forwarding stopped\n",
-                         local_socket_error());
+                         error);
+            // Without this path the PC is undiscoverable while the tray still
+            // shows it running; exit so the supervisor restarts the chain.
+            awdl_netd_fatal("mdns_local_recv", error);
             return;
         }
         const bool query = mdns_is_query(buffer, n);
@@ -297,8 +303,14 @@ void outbound_connection(intptr_t local) {
         local_tcp_close(local);
         return;
     }
+    // The receive poll is what lets the lwIP reader notice `stop`; without it
+    // the teardown below could wait forever.
     timeval poll{1, 0};
-    lwip_setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &poll, sizeof(poll));
+    if (lwip_setsockopt(fd, SOL_SOCKET, SO_RCVTIMEO, &poll, sizeof(poll)) != 0) {
+        lwip_close(fd);
+        local_tcp_close(local);
+        return;
+    }
 
     std::atomic<bool> stop{false};
     std::thread up([&] { // local bytes -> lwIP
@@ -308,8 +320,12 @@ void outbound_connection(intptr_t local) {
             int n = local_tcp_recv(local, buffer, sizeof(buffer));
             if (n == -2) continue;
             if (n <= 0) {
+                // No lwip_shutdown here: this build has no
+                // LWIP_NETCONN_FULLDUPLEX, and shutting down the netconn while
+                // the other thread waits in lwip_recv frees the mailbox under
+                // it. The reader sees `stop` within one receive poll and the
+                // teardown after join() shuts the netconn down.
                 stop = true;
-                lwip_shutdown(fd, SHUT_RDWR);
                 break;
             }
             size_t sent = 0;
