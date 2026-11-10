@@ -7,3 +7,8 @@
 # CRLF checkout (core.autocrlf=true) makes them fail against the LF upstream.
 # One-space context lines belong to patch syntax, not source whitespace.
 *.patch -text -whitespace
+# The signed catalog (.cat) holds the SHA-1 of the INF's exact LF bytes; any
+# EOL conversion on checkout breaks the signature, so never touch these.
+packaging/driver/*.inf -text
+*.cat binary
+*.cer binary

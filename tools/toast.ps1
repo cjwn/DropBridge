@@ -14,6 +14,13 @@
 # Exit codes: 0 shown, 2 WinRT unavailable, 3 missing input, 1 anything else.
 $ErrorActionPreference = 'Stop'
 
+# Write-Error is terminating under 'Stop' (exit 1), which would hide the exit
+# codes above; report on stderr directly and exit with the documented code.
+function Fail([int]$code, [string]$text) {
+    [Console]::Error.WriteLine($text)
+    exit $code
+}
+
 $appId = $env:DROPBRIDGE_TOAST_APPID
 if ([string]::IsNullOrWhiteSpace($appId)) { $appId = 'DropBridge.Tray' }
 $title = $env:DROPBRIDGE_TOAST_TITLE
@@ -24,8 +31,7 @@ $image = $env:DROPBRIDGE_TOAST_IMAGE
 if ([string]::IsNullOrWhiteSpace($button)) { $button = '复制到剪贴板' }
 
 if ([string]::IsNullOrWhiteSpace($title) -or [string]::IsNullOrWhiteSpace($arguments)) {
-    Write-Error 'DROPBRIDGE_TOAST_TITLE and DROPBRIDGE_TOAST_ARGS are required'
-    exit 3
+    Fail 3 'DROPBRIDGE_TOAST_TITLE and DROPBRIDGE_TOAST_ARGS are required'
 }
 
 function ConvertTo-XmlText([string]$text) {
@@ -38,8 +44,7 @@ try {
     [Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] | Out-Null
 }
 catch {
-    Write-Error "WinRT toast types unavailable: $($_.Exception.Message)"
-    exit 2
+    Fail 2 "WinRT toast types unavailable: $($_.Exception.Message)"
 }
 
 $text = '<text>' + (ConvertTo-XmlText $title) + '</text>'
@@ -49,7 +54,8 @@ if (-not [string]::IsNullOrWhiteSpace($message)) {
 $hero = ''
 if (-not [string]::IsNullOrWhiteSpace($image) -and (Test-Path -LiteralPath $image)) {
     $uri = ([System.Uri]$image).AbsoluteUri
-    $hero = '<image placement="hero" src="' + $uri + '" />'
+    # AbsoluteUri keeps '&' (e.g. Q&A.png), which is invalid inside an XML attribute.
+    $hero = '<image placement="hero" src="' + (ConvertTo-XmlText $uri) + '" />'
 }
 
 $xmlText = @"
@@ -74,6 +80,5 @@ try {
     exit 0
 }
 catch {
-    Write-Error "toast failed: $($_.Exception.Message)"
-    exit 1
+    Fail 1 "toast failed: $($_.Exception.Message)"
 }

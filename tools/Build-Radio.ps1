@@ -4,7 +4,21 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 & (Join-Path $PSScriptRoot 'Prepare-Devourer.ps1')
 if ($LASTEXITCODE -ne 0) { throw 'prepare devourer failed' }
-$cmake = 'D:\VSBuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
+function Find-CMake {
+    if ($env:CMAKE_EXE -and (Test-Path $env:CMAKE_EXE)) { return $env:CMAKE_EXE }
+    $command = Get-Command cmake.exe -ErrorAction SilentlyContinue
+    if ($command) { return $command.Source }
+    $candidates = @(
+        'D:\VSBuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe',
+        'C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe',
+        'C:\Program Files\Microsoft Visual Studio\2022\BuildTools\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe'
+    )
+    foreach ($candidate in $candidates) {
+        if (Test-Path $candidate) { return $candidate }
+    }
+    throw 'CMake not found. Set CMAKE_EXE or install the VS 2022 CMake component.'
+}
+$cmake = Find-CMake
 $vcpkg = Join-Path $root 'build\deps\vcpkg'
 & $cmake -S (Join-Path $root 'src\radio_usb') -B (Join-Path $root 'build\radio_usb') `
     -G 'Visual Studio 17 2022' -A x64 `

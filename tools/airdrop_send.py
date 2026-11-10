@@ -104,7 +104,7 @@ def parse_args(argv=None):
                         help='seconds to look for receivers (default 20)')
     parser.add_argument('--name', default=socket.gethostname().split('.')[0],
                         help='name the phone shows in its prompt')
-    parser.add_argument('--keys', default=str(REPO / 'dist' / 'data' / 'keys'),
+    parser.add_argument('--keys', default=str(REPO / 'dist' / 'DropBridge' / 'data' / 'keys'),
                         help='directory with certificate.self-signed.pem and the key')
     parser.add_argument('--proxy-port', type=int, default=DEFAULT_PROXY_PORT)
     parser.add_argument('--mdns-port', type=int, default=DEFAULT_MDNS_PORT)

@@ -42,7 +42,7 @@ if (Test-Path (Join-Path $stage 'data')) {
     throw "stage contains user data; preserve it before packaging: $stageFull"
 }
 if (Test-Path $stage) { Remove-Item -LiteralPath $stageFull -Recurse -Force }
-foreach ($dir in 'backend\airdrop', 'tools', 'licenses') {
+foreach ($dir in 'backend\airdrop', 'tools', 'licenses', 'setup') {
     New-Item -ItemType Directory -Force (Join-Path $stage $dir) | Out-Null
 }
 
@@ -67,6 +67,24 @@ if (Test-Path $pth) {
 }
 
 Copy-Item (Join-Path $airdrop '*.py') (Join-Path $stage 'backend\airdrop') -Force
+
+# Same extras as Package-Distributable.ps1. The self-extractor passes
+# --root app\<build>, so the tray looks for <root>\backend\beacon.ps1 and
+# <root>\setup\driver exactly as in the folder layout.
+$beacon = Join-Path $root 'src\beacon\airdrop-beacon.ps1'
+if (Test-Path $beacon) { Copy-Item $beacon (Join-Path $stage 'backend\beacon.ps1') -Force }
+
+# Zadig fallback (setup\Bind-WinUSB.cmd + licence) and the signed WinUSB
+# package used by the in-app installer (DropBridge.exe --install-driver).
+robocopy (Join-Path $root 'packaging\setup') (Join-Path $stage 'setup') /E /NJH /NJS /NFL /NDL /NP | Out-Null
+if ($LASTEXITCODE -ge 8) { throw "robocopy failed with $LASTEXITCODE while staging setup" }
+$driverSource = Join-Path $root 'packaging\driver'
+if (Test-Path (Join-Path $driverSource 'airbridge-winusb.cat')) {
+    New-Item -ItemType Directory -Force (Join-Path $stage 'setup\driver') | Out-Null
+    foreach ($name in 'airbridge-winusb.inf', 'airbridge-winusb.cat', 'dropbridge-driver.cer') {
+        Copy-Item (Join-Path $driverSource $name) (Join-Path $stage 'setup\driver') -Force
+    }
+}
 Copy-Item (Join-Path $root 'tools\Start-Chain.ps1') (Join-Path $stage 'tools') -Force
 # Q62: notification helpers, used by the tray in the single-file payload too.
 foreach ($helper in 'toast.ps1', 'register.ps1') {

@@ -18,15 +18,15 @@ It never starts the chain, never touches the radio and never writes outside
 the output directory.
 
 .EXAMPLE
-powershell -File tools\Collect-Session.ps1 -Latest -PackageRoot dist -Tag q31-fixed-merge-off
+powershell -File tools\Collect-Session.ps1 -Latest -PackageRoot dist\DropBridge -Tag q31-fixed-merge-off
 
 .EXAMPLE
-powershell -File tools\Collect-Session.ps1 -Session dist\data\logs\20261028-194820 -Tag review
+powershell -File tools\Collect-Session.ps1 -Session dist\DropBridge\data\logs\20261028-194820 -Tag review
 #>
 param(
     [string]$Session,
     [switch]$Latest,
-    [string]$PackageRoot = 'dist',
+    [string]$PackageRoot = 'dist\DropBridge',
     [string]$Tag = 'session',
     [string]$OutRoot = 'build\diagnostics',
     [string]$Python = 'python'

@@ -1,4 +1,6 @@
 # Runs awdld elevated so it can create the Wintun adapter (error 5 otherwise).
+# Legacy: only for a Wintun-backend awdld. tools/Build-Awdl.ps1 now builds the
+# IPC backend (no Wintun, no elevation); the product chain does not use this.
 # The radio and the pipe bridge must already be running.
 #
 # Usage (from an elevated shell, or right-click -> Run as administrator):
@@ -20,4 +22,5 @@ Set-Location $awdlDir
 Write-Host "awdld channel $Channel, log: $log"
 # cmd handles the native stderr redirect, avoiding PowerShell 5.1's
 # NativeCommandError behavior when ErrorActionPreference is Stop.
-cmd /c "awdld.exe -c $Channel -s 2 -j 400 -v > `"$log`" 2>&1"
+# RTL8821CU is 1T1R: advertise one spatial stream, as the tray does.
+cmd /c "awdld.exe -c $Channel -s 1 -j 400 -v > `"$log`" 2>&1"

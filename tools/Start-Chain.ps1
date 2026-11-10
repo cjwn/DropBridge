@@ -70,12 +70,21 @@ if ($missing.Count -gt 0) {
     throw ("missing backends:`n  " + ($missing -join "`n  ") + "`nbuild them first (tools\Build-*.ps1)")
 }
 
-$ports = @(49876, 49877, 8771, 15353)
-$busy = @()
-foreach ($port in $ports) {
-    $listener = Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue
-    if ($listener) { $busy += $port }
+# radio 49876, netd IPC 49877 and the receiver's 8771 are TCP listeners; netd's
+# local mDNS socket 15353 is UDP, so it needs the UDP endpoint table.
+$tcpPorts = @(49876, 49877, 8771)
+$udpPorts = @(15353)
+function Get-BusyPorts {
+    $held = @()
+    foreach ($port in $tcpPorts) {
+        if (Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue) { $held += $port }
+    }
+    foreach ($port in $udpPorts) {
+        if (Get-NetUDPEndpoint -LocalPort $port -ErrorAction SilentlyContinue) { $held += "$port/udp" }
+    }
+    return $held
 }
+$busy = @(Get-BusyPorts)
 if ($busy.Count -gt 0) {
     throw "ports already in use: $($busy -join ', '); stop the other DropBridge/radio instance first"
 }
@@ -126,6 +135,27 @@ $commit = (& git -C $root rev-parse --short HEAD 2>$null)
 $processes = [ordered]@{}
 $env:PYTHONUNBUFFERED = '1'
 
+# Same graceful-stop contract as the tray (src\supervisor\Program.cs): the radio
+# opens Local\DropBridgeRadioStop at start-up and also watches the process in
+# AIRBRIDGE_PARENT_PID; either one makes it close its listener and run the normal
+# teardown instead of being killed mid-transfer (which wedges the chip). The
+# event must exist before the radio starts, and this handle keeps it alive.
+$radioStop = New-Object System.Threading.EventWaitHandle($false,
+    [System.Threading.EventResetMode]::ManualReset, 'Local\DropBridgeRadioStop')
+$radioStop.Reset() | Out-Null
+
+# Windows PowerShell's Start-Process joins -ArgumentList with plain spaces, so
+# quote each argument the way CommandLineToArgvW / the MSVC CRT parse it.
+function Join-Arguments {
+    param([string[]]$Arguments)
+    $quoted = foreach ($argument in $Arguments) {
+        $text = [string]$argument
+        if ($text -ne '' -and $text -notmatch '[\s"]') { $text }
+        else { '"' + (($text -replace '(\\*)"', '$1$1\"') -replace '(\\+)$', '$1$1') + '"' }
+    }
+    return ($quoted -join ' ')
+}
+
 function Start-Backend {
     param([string]$Name, [string]$Exe, [string[]]$Arguments, [hashtable]$Environment)
     $stdout = Join-Path $runDir "$Name.log"
@@ -135,10 +165,14 @@ function Start-Backend {
         $previous[$key] = [Environment]::GetEnvironmentVariable($key, 'Process')
         [Environment]::SetEnvironmentVariable($key, $Environment[$key], 'Process')
     }
+    $options = @{
+        FilePath = $Exe; WorkingDirectory = $root; WindowStyle = 'Hidden'
+        RedirectStandardOutput = $stdout; RedirectStandardError = $stderr; PassThru = $true
+    }
+    # -ArgumentList rejects an empty value (the bridge takes no arguments).
+    if ($Arguments.Count -gt 0) { $options.ArgumentList = Join-Arguments $Arguments }
     try {
-        $process = Start-Process -FilePath $Exe -ArgumentList $Arguments `
-            -WorkingDirectory $root -WindowStyle Hidden `
-            -RedirectStandardOutput $stdout -RedirectStandardError $stderr -PassThru
+        $process = Start-Process @options
     } finally {
         foreach ($key in $previous.Keys) {
             [Environment]::SetEnvironmentVariable($key, $previous[$key], 'Process')
@@ -151,34 +185,52 @@ function Start-Backend {
 
 function Wait-Ready {
     param([string]$Name, [string]$Needle, [int]$TimeoutSeconds)
+    # Like the tray, look at both streams: radio, netd and the receiver print
+    # their ready line on stderr, the bridge on stdout.
     $log = Join-Path $runDir "$Name.log"
+    $err = Join-Path $runDir "$Name.err"
+    $pattern = [regex]::Escape($Needle)
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     while ((Get-Date) -lt $deadline) {
         if ($processes[$Name].HasExited) {
-            throw "$Name exited with $($processes[$Name].ExitCode); see $log and $runDir\$Name.err"
+            throw "$Name exited with $($processes[$Name].ExitCode); see $log and $err"
         }
-        if ((Test-Path $log) -and (Get-Content -Raw $log) -match [regex]::Escape($Needle)) {
-            "ready $Name" | Add-Content -Encoding utf8 $chainLog
-            return
+        foreach ($file in $log, $err) {
+            if ((Test-Path $file) -and [string](Get-Content -Raw $file) -match $pattern) {
+                "ready $Name" | Add-Content -Encoding utf8 $chainLog
+                return
+            }
         }
         Start-Sleep -Milliseconds 200
     }
-    throw "$Name not ready after ${TimeoutSeconds}s; see $log"
+    throw "$Name not ready after ${TimeoutSeconds}s; see $log and $err"
 }
 
 function Stop-Chain {
-    foreach ($name in @($processes.Keys | Sort-Object -Descending)) {
+    # Reverse start order, as the tray's StopAll does: receiver, awdld, netd and
+    # bridge first, so nothing is still feeding the radio when it unwinds.
+    $names = @($processes.Keys)
+    [array]::Reverse($names)
+    foreach ($name in $names) {
         $process = $processes[$name]
-        if ($process -and -not $process.HasExited) {
+        if (-not $process -or $process.HasExited) { continue }
+        if ($name -eq 'radio') {
+            # Ask it to stop (it closes its listener and tears down cleanly);
+            # kill only if it is still there after 15 s.
+            $radioStop.Reset() | Out-Null
+            $radioStop.Set() | Out-Null
+            if (-not $process.WaitForExit(15000)) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+                "killed radio after the stop event timed out" | Add-Content -Encoding utf8 $chainLog
+            }
+        } else {
             Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
-            "stopped $name" | Add-Content -Encoding utf8 $chainLog
+            $process.WaitForExit(5000) | Out-Null
         }
+        "stopped $name" | Add-Content -Encoding utf8 $chainLog
     }
     Start-Sleep -Milliseconds 500
-    $left = @()
-    foreach ($port in $ports) {
-        if (Get-NetTCPConnection -State Listen -LocalPort $port -ErrorAction SilentlyContinue) { $left += $port }
-    }
+    $left = @(Get-BusyPorts)
     if ($left.Count -gt 0) { "ports still held: $($left -join ', ')" | Add-Content -Encoding utf8 $chainLog }
 }
 
@@ -192,7 +244,8 @@ $handler = [ConsoleCancelEventHandler] {
 
 try {
     Start-Backend -Name 'radio' -Exe $binaries.radio -Arguments $radioArgs `
-        -Environment @{ AIRBRIDGE_LOG_LEVEL = $(if ($RadioVerbose) { 'info' } else { 'warn' }); AIRBRIDGE_LINK_STATS = '1'; AIRBRIDGE_FASTRETUNE_FW = '2' } | Out-Null
+        -Environment @{ AIRBRIDGE_LOG_LEVEL = $(if ($RadioVerbose) { 'info' } else { 'warn' }); AIRBRIDGE_LINK_STATS = '1'; AIRBRIDGE_FASTRETUNE_FW = '2'
+                        AIRBRIDGE_PARENT_PID = [string]$PID } | Out-Null
     Wait-Ready -Name 'radio' -Needle 'listening on 127.0.0.1:49876' -TimeoutSeconds $ReadyTimeoutSeconds
 
     Start-Backend -Name 'bridge' -Exe $binaries.bridge -Arguments @() -Environment @{} | Out-Null

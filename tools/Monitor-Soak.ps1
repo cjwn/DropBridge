@@ -19,7 +19,9 @@ $root = Split-Path $PSScriptRoot -Parent
 if (-not [IO.Path]::IsPathRooted($Out)) { $Out = Join-Path $root $Out }
 New-Item -ItemType Directory -Force (Split-Path $Out -Parent) | Out-Null
 
-$names = @('AirBridge32', 'airbridge_radio', 'radio_pipe_bridge', 'awdl_netd', 'awdld', 'python')
+# The tray has been DropBridge.exe since Q49 (in the single-file build the
+# launcher stub has the same name, so both show up, each under its own pid).
+$names = @('DropBridge', 'airbridge_radio', 'radio_pipe_bridge', 'awdl_netd', 'awdld', 'python')
 $header = 'time,process,pid,working_set_mb,private_mb,handles,cpu_seconds,note'
 if (-not (Test-Path $Out)) { Set-Content -Path $Out -Value $header -Encoding utf8 }
 
@@ -49,9 +51,11 @@ while ((Get-Date) -lt $deadline) {
             Add-Content -Path $Out -Value ('{0},{1},0,0,0,0,0,missing' -f $stamp, $name) -Encoding utf8
         }
     }
-    $ports = @(49876, 49877, 8771, 15353 | ForEach-Object {
+    # 15353 is netd's local mDNS socket and is UDP, not a TCP listener.
+    $ports = @(49876, 49877, 8771 | ForEach-Object {
             if (Get-NetTCPConnection -State Listen -LocalPort $_ -ErrorAction SilentlyContinue) { $_ }
         })
+    if (Get-NetUDPEndpoint -LocalPort 15353 -ErrorAction SilentlyContinue) { $ports += '15353/udp' }
     Add-Content -Path $Out -Value ('{0},ports,,0,0,0,0,{1}' -f $stamp, ($ports -join ';')) -Encoding utf8
     Start-Sleep -Seconds $IntervalSeconds
 }
