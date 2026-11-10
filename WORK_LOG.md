@@ -1,5 +1,13 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-10：重写 README
+
+- 按「使用 → 开发 → 状态与限制」重排：新增常见问题、仓库结构、验证层级表；托盘菜单逐项说明保留并按 Q70 源码更新（重启限流、信标 10 分钟重试、接收文件夹回退）。
+- 更正：许可证表不再把自有组件写成 MIT（仓库没有 LICENSE 文件，LICENSE_MATRIX 记为未定）；硬件收窄到 USB ID `0bda:c820`；构建步骤写明 netd 没有构建脚本、lwIP 与 python-embed 需手动准备。
+- 状态栏写明 Q68–Q70 未在 Windows 上编译和测试，当前 HEAD 与最后一次测过的包不同。
+- 验证：相对链接与脚本名逐个核对存在；`tools/check_project.py` 通过 README 检查后停在「upstream 未恢复」（本机无 upstream/）。README 描述的 Q70 行为本身未经实机验证。
+- 发现但未改的过时文档：DISTRIBUTION.md 提到不存在的 `tools\Build-Python.ps1`；LICENSE_MATRIX.md 的 devourer 提交与 sources.lock.json 不一致，且仍写 .NET 10 WPF 与 Wintun；STATUS.md 把自有组件写成 MIT；Build-Supervisor.ps1 文件头仍写 `backend\AirBridge32.exe`；beacon 脚本文件头仍写「仅对所有人可见的接收端有反应」；packaging/README.txt 未提 Q70 行为。
+
 ## 2026-11-10：Q70 第二轮全仓代码审查与修复
 
 - 审查在 Linux 上静态进行，共 44 条代码问题，另有一条流程问题：Q69 未编译即提交，且日志写「都已修复」而队列写 MAC 修正未确认。
