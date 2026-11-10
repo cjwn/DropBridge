@@ -222,6 +222,7 @@ python .\tools\check_project.py     # 检查文档、证据和版本锁是否齐
 
 - [docs/WORK_QUEUE.md](docs/WORK_QUEUE.md)：**进度以这里为准**，每一项都附有证据和验证层级。
 - [WORK_LOG.md](WORK_LOG.md)：按时间倒序的工作记录。
+- [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)：发布前核对清单，逐项打勾并附证据。
 - [docs/STATUS.md](docs/STATUS.md)：当前状态快照（截至 Q70，2026-11-10）。
 - [docs/FINAL_PLAN.md](docs/FINAL_PLAN.md)：最终方案和验收指标。
 - [docs/PLAN.md](docs/PLAN.md)、[docs/PHASE0_AUDIT.md](docs/PHASE0_AUDIT.md)：阶段计划、源码审计和 Go / No-Go 结论。
@@ -273,6 +274,8 @@ Q68–Q70 待在 Windows 上做的编译和验证清单见 [docs/WORK_QUEUE.md](
 6. 开发机上这张网卡的蓝牙接口（MI_00）从 2026-10-28 起一直是 Problem 31。不影响 AirDrop，因为 beacon 用的是电脑自带的蓝牙。
 
 ### 对外分发前还缺什么
+
+完整的逐项清单见 [docs/RELEASE_CHECKLIST.md](docs/RELEASE_CHECKLIST.md)，下面是其中最主要的几项。
 
 1. **Realtek 固件的再分发授权**：radio 静态链接了从上游提取的 Realtek 固件。对外发布前只能三选一：取得授权、改为运行时由用户自己提供、或只发布源码（[docs/LICENSE_MATRIX.md](docs/LICENSE_MATRIX.md) §3）。
 2. **代码签名**：没有签名，SmartScreen 会弹警告。驱动包用的是自签证书。
