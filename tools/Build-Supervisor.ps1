@@ -3,8 +3,9 @@
 #   powershell -ExecutionPolicy Bypass -File tools\Build-Supervisor.ps1
 #
 # Output: build\supervisor\Release\DropBridge.exe (winexe, no console window).
-# Package-Headless.ps1 copies it to backend\AirBridge32.exe, where the
-# self-extracting stub starts it. Package-Distributable.ps1 puts it at the
+# Package-Headless.ps1 copies it to backend\DropBridge.exe, where the
+# self-extracting stub starts it (the stub still falls back to an older
+# backend\AirBridge32.exe). Package-Distributable.ps1 puts it at the
 # package root, next to backend\.
 [CmdletBinding()]
 param([switch]$Test)

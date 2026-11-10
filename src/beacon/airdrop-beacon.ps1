@@ -1,7 +1,14 @@
 # Sends the Bluetooth advertisement an Apple device sends before an AirDrop,
 # so that devices nearby turn AWDL on and announce themselves. It carries no
-# identity: only receivers visible to everyone react. Runs until it is killed;
-# airdrop\sender.py starts and stops it. -DryRun builds it and sends nothing.
+# identity (the contact hashes below are random). Upstream wrote it for
+# sending and noted that only receivers visible to everyone react. DropBridge
+# uses it the other way round, to wake the iPhone that sends to this PC; the
+# owner confirmed (2026-11-04) that the iPhone's AirDrop need not be set to
+# Everyone for DropBridge to receive. Whether the beacon still wakes an iPhone
+# that is not set to Everyone has not been tested on its own.
+# Runs until it is killed; upstream airdrop\sender.py starts and stops it, in
+# DropBridge the tray does (as backend\beacon.ps1). -DryRun builds it and
+# sends nothing.
 # Windows PowerShell 5.1 only: PowerShell 7 cannot load the Bluetooth API so.
 $ErrorActionPreference = 'Stop'
 $AppleCompanyId = 0x004C

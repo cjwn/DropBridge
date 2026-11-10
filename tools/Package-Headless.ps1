@@ -100,14 +100,19 @@ foreach ($dll in 'msvcp140.dll', 'vcruntime140.dll', 'vcruntime140_1.dll') {
     }
 }
 
+# Each text gets its own name: WinAWDL's and devourer's are both called LICENSE
+# upstream, and copying them by leaf name left only the second one in the package.
 foreach ($license in @(
-    @($root, 'upstream\winawdl\LICENSE'),
-    @($root, 'upstream\devourer\LICENSE'),
-    @($root, 'upstream\winawdl\upstream\owl\COPYING')
+    @('LICENSE', 'DropBridge-LICENSE.txt'),
+    @('NOTICE', 'DropBridge-NOTICE.txt'),
+    @('upstream\winawdl\LICENSE', 'WinAWDL-LICENSE.txt'),
+    @('upstream\winawdl\airdrop\LICENSE', 'WinAWDL-airdrop-LICENSE.txt'),
+    @('upstream\devourer\LICENSE', 'devourer-LICENSE.txt'),
+    @('upstream\winawdl\upstream\owl\COPYING', 'OWL-COPYING.txt')
 )) {
-    $path = Join-Path $license[0] $license[1]
+    $path = Join-Path $root $license[0]
     if (Test-Path $path) {
-        Copy-Item $path (Join-Path $stage ('licenses\' + (Split-Path $path -Leaf))) -Force
+        Copy-Item $path (Join-Path $stage ('licenses\' + $license[1])) -Force
     }
 }
 

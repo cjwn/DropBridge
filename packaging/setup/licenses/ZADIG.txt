@@ -21,5 +21,6 @@ source for Zadig 2.9 and libwdi is available from the upstream locations above,
 and on request from the distributor of this package for three years from the
 date it was conveyed. This package does not modify Zadig.
 
-The rest of this folder is part of DropBridge and is covered by the licence in
-the package's `licenses\` folder.
+The rest of this folder is part of DropBridge, whose own code is MIT-licensed.
+The package's `licenses\` folder holds that licence (DropBridge-LICENSE.txt,
+DropBridge-NOTICE.txt) and the upstream licence texts (WinAWDL, devourer, OWL).

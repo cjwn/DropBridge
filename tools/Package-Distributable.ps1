@@ -8,7 +8,7 @@
 #     DropBridge.exe            tray supervisor (entry point, winexe)
 #     backend\                   radio, bridge, awdl_netd, awdld, python, airdrop
 #     tools\Start-Chain.ps1      headless console fallback (troubleshooting)
-#     licenses\                  upstream licence texts we must ship
+#     licenses\                  DropBridge's own licence + upstream licence texts
 #     README.txt                 user-facing instructions (Chinese)
 #     VERSION.txt                build stamp, commit, backend hashes
 #   dist\DropBridge-portable.zip
@@ -101,14 +101,19 @@ foreach ($helper in 'toast.ps1', 'register.ps1') {
     if (Test-Path $source) { Copy-Item $source (Join-Path $stage 'tools') -Force }
 }
 
+# Each text gets its own name: WinAWDL's and devourer's are both called LICENSE
+# upstream, and copying them by leaf name left only the second one in the package.
 foreach ($license in @(
-    @($root, 'upstream\winawdl\LICENSE'),
-    @($root, 'upstream\devourer\LICENSE'),
-    @($root, 'upstream\winawdl\upstream\owl\COPYING')
+    @('LICENSE', 'DropBridge-LICENSE.txt'),
+    @('NOTICE', 'DropBridge-NOTICE.txt'),
+    @('upstream\winawdl\LICENSE', 'WinAWDL-LICENSE.txt'),
+    @('upstream\winawdl\airdrop\LICENSE', 'WinAWDL-airdrop-LICENSE.txt'),
+    @('upstream\devourer\LICENSE', 'devourer-LICENSE.txt'),
+    @('upstream\winawdl\upstream\owl\COPYING', 'OWL-COPYING.txt')
 )) {
-    $path = Join-Path $license[0] $license[1]
+    $path = Join-Path $root $license[0]
     if (Test-Path $path) {
-        Copy-Item $path (Join-Path $stage ('licenses\' + (Split-Path $path -Leaf))) -Force
+        Copy-Item $path (Join-Path $stage ('licenses\' + $license[1])) -Force
     }
 }
 

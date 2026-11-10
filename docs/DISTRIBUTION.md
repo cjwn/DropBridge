@@ -1,7 +1,9 @@
 # 分发形态：一个文件夹 + 压缩包（托盘常驻）
 
 2026-10-29。对应队列 Q44。目标：**整个程序在一个文件夹里，打包成压缩包发出去，
-解压双击就常驻任务栏托盘**，不在系统任何位置留下文件。
+解压双击就常驻任务栏托盘**。程序数据都在文件夹内；写到系统里的只有开机自启项、
+通知按钮需要的注册信息，以及首次运行安装的 WinUSB 驱动包和签名证书（Q53、Q62 之后，
+清单见 [README.md](../README.md#数据放在哪)）。
 
 ## 1. 产物
 
@@ -33,6 +35,7 @@ dist\DropBridge-portable.zip     压缩包（21.2 MB）
 运行后**在同一个文件夹里**生成 `data\`：
 
 ```text
+data\settings.ini   设备名、接收文件夹、各项开关（Q60 起）
 data\keys\          TLS 自签证书 + AirDrop 实例 ID
 data\received\      收到的文件
 data\logs\<会话>\   各进程日志
@@ -69,8 +72,9 @@ data\awdl_netd.addr
    路径上删除，拒绝覆盖含 `data\` 的目录。
 5. 用户设置：`<包目录>\data\settings.ini`（Q60）。纯文本，键为 `deviceName`
    （iPhone 隔空投送里显示的名字，1–63 字符）和 `beacon`（蓝牙 beacon 开关）；
-   托盘菜单「设备名称：<名字>…」改完会写盘、更新托盘提示与通知身份，并通过
-   receiver 的 stdin 发 `{"do":"set","name":...}` 立即生效（不重启射频）；
+   托盘菜单「设备名称：<名字>…」改完会写盘、更新托盘提示与通知身份，再只重启
+   receiver 使新名字生效（不重启射频）。最初写的是通过 receiver 的 stdin 发
+   `{"do":"set","name":...}`，但 `receiver.py` 不读 stdin，从未生效，Q66 改为重启 receiver；
    beacon 开关改由这里记录，旧版的 `data\beacon-off` 标记仍会被读取（迁移）。
    开机自启仍走注册表 `Run` 项。
 6. 收到图片时（Q61/Q63）：走系统 toast（Q62，带「复制到剪贴板」按钮与缩略图）；
@@ -85,8 +89,10 @@ data\awdl_netd.addr
    `X-still.jpg` 单图副本；JPG 直接复制，PNG/HEIC 走 WIC 解码后存 JPEG。
    `settings.ini` 的 `stillCopy`（默认 true）与托盘勾选项控制开关。
 9. 接收文件夹（Q65）：托盘「接收文件夹：<路径>…」可选任意目录；值存在
-   `settings.ini` 的 `receivedFolder`（空 = 包内 `data\received`）。改完立即生效：
-   receiver 通过 stdin 换保存目录、文件监视器同步切换；路径不可写时拒绝并保持原值。
+   `settings.ini` 的 `receivedFolder`（空 = 包内 `data\received`）。改完写盘后只重启
+   receiver（Q66 起；原先的 stdin 热更新从未生效），文件监视器同步切换；路径不可写时
+   拒绝并保持原值。Q70 起，启动时若该目录不存在，本次改存默认的 `data\received`
+   并提示，设置本身保留（仅源码，未在 Windows 上编译和测试）。
 
 ## 4. 本机验证（2026-10-29 00:36–00:41）
 
@@ -120,19 +126,27 @@ data\awdl_netd.addr
 - `backend\airbridge_radio.exe` 静态链接 Realtek 固件，**对外分发前需要解决再分发许可**
   （取得授权 / 由用户自备 / 只发源码，三选一）。当前仅供内部测试。
 - 干净 Windows 11 VM、卸载残留检查、24 h 常驻、固件许可以及 3 次中位数验收都还没做。
-- 首次使用仍需一次性把网卡 MI_02 绑成 WinUSB（Zadig，管理员），
-  这一步不在包内，见 [BINDING_RUNBOOK.md](BINDING_RUNBOOK.md)。
+- 首次使用仍需一次性把网卡 MI_02 绑成 WinUSB（管理员）。Q44 时这一步不在包内；
+  Q52 起包内带 `setup\`（Zadig 手动绑定），Q53 起程序首次运行会自动安装自建的
+  WinUSB 驱动包。未绑定 → 已绑定的转换没有真机验证过（Q53）。恢复原驱动见
+  [BINDING_RUNBOOK.md](BINDING_RUNBOOK.md)。
 
 ## 6. 重新构建
 
 ```powershell
 powershell -File tools\Build-Radio.ps1
 powershell -File tools\Build-Awdl.ps1
+cmake -S src\awdl_netd -B build\awdl_netd -A x64     # netd 没有构建脚本
+cmake --build build\awdl_netd --config Release
 powershell -File tools\Build-Supervisor.ps1        # 需要 assets\dropbridge.ico
-powershell -File tools\Build-Python.ps1            # 若还没准备 build\python-embed
 powershell -File tools\Package-Distributable.ps1   # → dist\DropBridge + zip
-powershell -File tools\Build-Sfx.ps1 -SkipPayload  # 可选：单文件 exe 形态
+powershell -File tools\Build-Sfx.ps1               # 可选：单文件 exe 形态（没有 dist\DropBridge-headless 时先调用 Package-Headless.ps1）
 ```
+
+`build\python-embed` 没有准备脚本，要手动准备：Python 3.12 embeddable x64，加装
+`cryptography`（缺少 `build\python-embed` 时 `Package-Distributable.ps1` 直接报错）。最近一次完整编译（Q50）用的是
+Python 3.12.10、cryptography 50.0.2，见 [BUILD_WINDOWS.md](BUILD_WINDOWS.md) 和
+[README.md](../README.md#从源码构建)。
 
 `assets\dropbridge.ico` 与 `assets\dropbridge-tray-white.ico` 是已提交的原始
 素材（多尺寸 ICO，构建不依赖任何图像库）；换图标就是替换这两个文件后重新编译，

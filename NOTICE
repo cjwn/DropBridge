@@ -1,0 +1,20 @@
+DropBridge licence scope
+
+The MIT License in the LICENSE file covers this repository's own source code, scripts and
+documentation. It does not relicense third-party material, and it does not
+change the terms under which combined binaries must be distributed:
+
+- patches/ contains modifications to third-party projects. Each patch is a
+  derivative of the project it modifies and remains under that project's
+  licence: devourer (GPL-2.0), OWL and WinAWDL awdl/ (GPL-3.0-or-later),
+  WinAWDL airdrop/ (MIT).
+- airbridge_radio.exe links devourer and is therefore distributed as a whole
+  under GPL-2.0. It also embeds Realtek firmware taken from devourer, which
+  carries no separate licence statement.
+- awdld.exe is built from WinAWDL awdl/ and OWL and is distributed under
+  GPL-3.0-or-later.
+- Bundled third-party programs and libraries (libusb, Zadig, lwIP, Python and
+  its packages) keep their own licences.
+- upstream/ is not part of this repository.
+
+See docs/LICENSE_MATRIX.md for the per-component review.

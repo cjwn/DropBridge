@@ -24,7 +24,7 @@ DropBridge 让 Windows 电脑接收 iPhone 用系统自带「隔空投送」（A
 
 1. 把 `DropBridge-portable.zip` 解压到一个可写的目录，例如 `D:\DropBridge`。不要放进 Program Files。
 2. 插上网卡，双击 `DropBridge.exe`。程序不弹主窗口，只在任务栏右下角通知区域放一个图标。
-3. 如果网卡还没装驱动，程序会弹一次「用户账户控制」请求管理员权限，然后自动导入驱动签名证书，用 pnputil 把网卡的 **MI_02（Wi-Fi）接口**换成 WinUSB。每台电脑只做一次，过程记在 `data\logs\driver-install.txt`。
+3. 如果网卡还没装驱动，程序会先弹窗询问是否安装，确认后弹一次「用户账户控制」请求管理员权限，然后自动导入驱动签名证书，用 pnputil 把网卡的 **MI_02（Wi-Fi）接口**换成 WinUSB。每台电脑只做一次，过程记在 `data\logs\driver-install.txt`。
    - 只处理 MI_02。同一张网卡上的 MI_00（蓝牙）和 MI_01 不动。
    - 自动安装失败时，可以从托盘菜单选「安装驱动（首次使用）」重试，或者双击 `setup\Bind-WinUSB.cmd`，按 `setup\README.txt`（仓库里是 [packaging/setup/README.txt](packaging/setup/README.txt)）的步骤用包里带的 Zadig 手动绑定。
 4. 托盘图标出现后，网卡初始化需要 40–90 秒，完成后托盘提示就绪，状态变为「运行中」。
@@ -222,7 +222,7 @@ python .\tools\check_project.py     # 检查文档、证据和版本锁是否齐
 
 - [docs/WORK_QUEUE.md](docs/WORK_QUEUE.md)：**进度以这里为准**，每一项都附有证据和验证层级。
 - [WORK_LOG.md](WORK_LOG.md)：按时间倒序的工作记录。
-- [docs/STATUS.md](docs/STATUS.md)：当前状态快照（截至 Q68）。
+- [docs/STATUS.md](docs/STATUS.md)：当前状态快照（截至 Q70，2026-11-10）。
 - [docs/FINAL_PLAN.md](docs/FINAL_PLAN.md)：最终方案和验收指标。
 - [docs/PLAN.md](docs/PLAN.md)、[docs/PHASE0_AUDIT.md](docs/PHASE0_AUDIT.md)：阶段计划、源码审计和 Go / No-Go 结论。
 - [docs/DISTRIBUTION.md](docs/DISTRIBUTION.md)：分发形态。
@@ -278,15 +278,17 @@ Q68–Q70 待在 Windows 上做的编译和验证清单见 [docs/WORK_QUEUE.md](
 2. **代码签名**：没有签名，SmartScreen 会弹警告。驱动包用的是自签证书。
 3. **干净机器验收**（Q13）：在全新的 Windows 上从解压到收到文件完整走一遍。
 4. **WinUSB 回滚演练。**
-5. **本仓库自己的许可证**还没选定（见下节）。
+5. **包内许可证文本不全**：libusb 的 LGPL、lwIP 的 BSD 声明、VC++ 运行库条款都还没有随包附带，内嵌 Python 及其依赖的许可证也没核对（[docs/LICENSE_MATRIX.md](docs/LICENSE_MATRIX.md) §5、§7）。
 
 ## 许可证
 
-本仓库目前**没有** `LICENSE` 文件，自有代码的许可证尚未决定，这是发布前清单中的一项。各组件的情况如下（依据 [docs/LICENSE_MATRIX.md](docs/LICENSE_MATRIX.md)，未做法律结论）：
+本仓库自己写的代码和文档采用 **MIT 许可证**（见 [LICENSE](LICENSE)，2026-11-10 决定）。MIT 只覆盖本仓库的原创部分：第三方组件保持各自的许可证，`patches/` 里的补丁沿用所修改上游的许可证，链接了 GPL 代码的可执行文件仍按 GPL 分发，范围说明见 [NOTICE](NOTICE)。所以包含这些组件的发布包整体不能当作 MIT 分发。各组件的情况如下（依据 [docs/LICENSE_MATRIX.md](docs/LICENSE_MATRIX.md)，未做法律结论）：
 
 | 组件 | 来源 | 许可证 |
 | --- | --- | --- |
-| `airbridge_radio.exe` | 本仓库代码链接 OpenIPC devourer | 因链接 devourer，整体按 GPL-2.0 分发 |
+| 本仓库自写代码（托盘、stub、桥、netd、radio 的自写部分、脚本、文档） | 本仓库 | MIT |
+| `patches/` 下的补丁 | 对上游的修改 | 随所修改的上游（devourer GPL-2.0；OWL、WinAWDL `awdl/` GPL-3.0-or-later；WinAWDL `airdrop/` MIT） |
+| `airbridge_radio.exe` | 本仓库代码（MIT）链接 OpenIPC devourer | 因链接 devourer，二进制整体按 GPL-2.0 分发 |
 | Realtek 8821C 固件（编进 radio） | devourer 内的固件数组 | 没有独立授权声明，见上一节 |
 | `awdld.exe` | WinAWDL `awdl/`，基于 OWL | GPL-3.0-or-later |
 | `receiver.py` 等 AirDrop 接收代码 | WinAWDL `airdrop/`（打了本仓库补丁） | MIT |
@@ -294,7 +296,7 @@ Q68–Q70 待在 Windows 上做的编译和验证清单见 [docs/WORK_QUEUE.md](
 | libusb | vcpkg | LGPL-2.1+，动态链接 |
 | Zadig 2.9（`setup\`，手动绑定用） | 原样附带 | GPL-3.0，包内附全文和源码要约 |
 
-`upstream/` 里是上游仓库的原样研究副本，被 `.gitignore` 排除，不属于本仓库，版本锁定在 [docs/sources.lock.json](docs/sources.lock.json)。打包脚本会把 WinAWDL、devourer 的 LICENSE 和 OWL 的 COPYING 复制进包内的 `licenses\`。
+`upstream/` 里是上游仓库的原样研究副本，被 `.gitignore` 排除，不属于本仓库，版本锁定在 [docs/sources.lock.json](docs/sources.lock.json)。打包脚本会把本仓库的 `LICENSE`、`NOTICE`，以及 WinAWDL（根目录和 `airdrop/`）、devourer 的 LICENSE 和 OWL 的 COPYING 各自改名后复制进包内的 `licenses\`。
 
 ## 名称
 

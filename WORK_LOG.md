@@ -1,5 +1,13 @@
 # 工作记录 / 下一位 Agent 交接
 
+## 2026-11-10：仓库许可证定为 MIT；对齐过时文档
+
+- **许可证**：用户要求尽量宽松并交由助手决定，定为 MIT。新增根目录 `LICENSE`（纯 MIT，版权人暂写「DropBridge contributors」）和 `NOTICE`（适用范围）。MIT 只覆盖自写代码和文档：`patches/` 随所改上游；`airbridge_radio.exe` 因链接 devourer 仍整体按 GPL-2.0 分发；`awdld.exe` 为 GPL-3.0-or-later；固件授权问题不变。
+- **打包脚本**：`Package-Distributable.ps1`、`Package-Headless.ps1` 原来按原文件名复制许可证，WinAWDL 与 devourer 的 `LICENSE` 同名互相覆盖，包里缺 WinAWDL 的 MIT 文本。改为各自改名复制，并加入本仓库 `LICENSE`、`NOTICE` 和 WinAWDL `airdrop/LICENSE`。脚本未在 Windows 上运行。
+- **文档对齐**：DISTRIBUTION.md（去掉不存在的 `Build-Python.ps1`、从未生效的 stdin 热更新说法等）；LICENSE_MATRIX.md（按当前组件改写，补 lwIP/Python/cryptography/补丁/Zadig 条目和 §7 包内许可证文本；Wintun、.NET 10 标为历史）；STATUS.md（更新到 Q70，写明 Q68–Q70 未编译未测试）；BUILD_WINDOWS.md（新增 §7：Q50 所用的 lwIP `77dcd25`、Python 3.12.10、cryptography 50.0.2，标明不是锁定）；包内两份 README；`Build-Supervisor.ps1` 与 `airdrop-beacon.ps1` 的文件头注释；README 许可证一节、安装步骤补上 UAC 前的确认弹窗。
+- 验证：涉及文件的相对链接和脚本路径均存在；`.ps1` 仍为 CRLF；`check_project.py` 停在预期的「upstream 未恢复」。lwIP、CPython、cryptography 等的许可证在矩阵里标为「未在本仓库内核对」。
+- 遗留：包内仍缺 libusb LGPL 文本、lwIP BSD 声明、VC++ 运行库条款；lwIP/Python/cryptography 未锁定（加入 sources.lock.json 需先改 check_project.py）；锁文件与实际构建不一致（Q50 完整构建用 devourer `f7e0731`，锁为 `34a9e6f`；OWL 锁 `0ee3263`，构建用子模块 `da255a7`）；信标在 iPhone 未设为「所有人」时能否唤醒未单独测试；beacon 脚本「上游原样」的来源无法在本机核对，且文件头注释已有改动。
+
 ## 2026-11-10：重写 README
 
 - 按「使用 → 开发 → 状态与限制」重排：新增常见问题、仓库结构、验证层级表；托盘菜单逐项说明保留并按 Q70 源码更新（重启限流、信标 10 分钟重试、接收文件夹回退）。

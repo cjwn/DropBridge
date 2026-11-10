@@ -46,8 +46,8 @@ libusb 打不开它，所以第一次要换成 WinUSB。驱动本身是 Windows 
    - `OK: MI_02 is bound to WinUSB` → 成功，双击外面的 `DropBridge.exe`；
    - `FAILED` → 重新插拔再跑一次，仍失败请把窗口文字和 `setup.log` 发出来。
 
-怎么恢复（后悔药）
-------------------
+怎么恢复原驱动（后悔药）
+------------------------
 设备管理器 → 找到 `RTL8821CU` / `802.11ac NIC` → 右键 → 卸载设备 →
 勾「删除此设备的驱动程序软件」→ 确定 → 拔插网卡 → Windows 自动装回 Realtek
 网络驱动。之后 Wi-Fi 恢复正常，DropBridge 不再能用。

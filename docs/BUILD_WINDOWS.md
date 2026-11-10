@@ -2,6 +2,8 @@
 
 状态：**通过**（2026-10-27，本机）。结论：Windows 11 + MSVC 可以构建 C8821C-only 的 devourer 静态库、`rxdemo`、`txdemo`，并通过 71 项无硬件自检；**尚未接入网卡，未做任何硬件测试**。
 
+> 第 1–6 节是 2026-10-27 Phase 0 的构建记录，当时的 devourer 是 `f7e0731`；现在锁定的版本以 [sources.lock.json](sources.lock.json) 为准：2026-10-30 升到 `34a9e6f`（提交 `5331892`，WORK_QUEUE 中 devourer 那一行 Q50）；同日早些时候的完整编译记录里用的仍是 `f7e0731`。第 5、6 节的「未覆盖」和「下一步」是当时的状态，后来的进展见 [WORK_QUEUE.md](WORK_QUEUE.md)。最近一次完整编译（Q50，2026-10-30）的记录在 [compile-windows-2026-10-30.log](../evidence/compile-windows-2026-10-30.log)，手动准备的依赖见第 7 节。
+
 ## 1. 环境
 
 | 项 | 值 |
@@ -118,3 +120,17 @@ error MSB8066: CMakeLists.txt 的自定义生成已退出，代码为 1
 1. 目标网卡已接入并记录（`0bda:c820`，MI_02 现由 `netrtwlanu` 管理）；绑定前建议直连主板 USB 口。
 2. 按 `docs/BINDING_RUNBOOK.md` 以管理员绑定 MI_02，再用 `build/usb_probe/Release/usb_probe.exe` 做只读 open/claim 验证。
 3. 获得单独授权后才做 `Init`/RX/TX；Phase 1 的通过标准仍是 `docs/PLAN.md` 中的三次重复、独立见证、TX report 关联，而不是本页的编译成功。
+
+## 7. 手动准备、没有锁定的依赖
+
+下面两项没有准备脚本，也不在 [sources.lock.json](sources.lock.json) 里。表中是**最近一次完整编译（Q50，2026-10-30）用的版本**，摘自 [compile-windows-2026-10-30.log](../evidence/compile-windows-2026-10-30.log) 和 WORK_LOG 的 Q50 条目。这只是那次构建的记录，不是经过验证的锁定版本，换版本后是否还能编译、能否跑出原来的速度都没有验证过。
+
+| 依赖 | 放在哪 | Q50 用的版本 |
+| --- | --- | --- |
+| lwIP | `build\deps\lwip`（`src/awdl_netd/CMakeLists.txt` 要求其中有 `src/core/init.c`） | `STABLE-2_2_1_RELEASE`，提交 `77dcd25a72509eb83f72b033d219b1d40cd8eb95` |
+| lwip-contrib | `build\deps\lwip-contrib`（要求其中有 `ports/win32/sys_arch.c`） | 与 lwIP 同一源码树（构建日志原话「contrib 来自同一源码树」） |
+| Python | `build\python-embed` | 官方 Python 3.12.10 embeddable x64 |
+| Python 包 | 装进 `build\python-embed` | cryptography 50.0.2、cffi 2.1.1、pycparser 3.12 |
+
+- 更早的文档写过 lwIP 2.2.2，但它从未锁定，Q50 时远程也没有 `STABLE-2_2_2_RELEASE` 标签；Q50 的构建因此不是历史测试包的逐字节重建。
+- 这几项没有写进 `sources.lock.json`：`tools/check_project.py` 要求该文件恰好 5 项，并且每项都要在 `upstream/<name>` 下有已恢复的副本。
